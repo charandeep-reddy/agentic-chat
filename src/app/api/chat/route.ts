@@ -1,6 +1,7 @@
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
+  generateId,
   hasToolCall,
   isStepCount,
   streamText,
@@ -125,6 +126,11 @@ export async function POST(req: Request) {
     stream: toUIMessageStream({
       stream: result.stream,
       originalMessages: messages,
+      // Without this the SDK leaves the response message id as "", so every
+      // answer upserts onto the same empty-id row instead of being stored.
+      // It also travels to the client in the `start` chunk, which keeps the
+      // id the browser renders identical to the one on disk.
+      generateMessageId: generateId,
       onEnd: async ({ responseMessage }) => {
         if (!responseMessage) return;
         try {

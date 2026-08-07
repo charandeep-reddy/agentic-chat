@@ -213,6 +213,15 @@ export async function saveMessages(
   }>,
 ): Promise<void> {
   if (messages.length === 0) return;
+
+  // An empty id silently upserts every message onto one row, because the
+  // conflict target is the primary key. Losing the transcript is far worse
+  // than failing the write, so refuse it loudly.
+  const blank = messages.find((m) => !m.id);
+  if (blank) {
+    throw new Error(`Refusing to save a ${blank.role} message with an empty id to chat ${chatId}.`);
+  }
+
   let ordinal = await nextOrdinal(chatId);
 
   await db
