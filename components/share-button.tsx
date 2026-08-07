@@ -1,13 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconCheck, IconCopy, IconShare, IconTrash } from "./icons";
+import type { UIMessage } from "ai";
+import { chatToMarkdown } from "@/lib/export-markdown";
+import { IconCheck, IconCopy, IconDownload, IconShare, IconTrash } from "./icons";
 
 export function ShareButton({
   chatId,
+  title,
+  messages,
   initialShareId,
 }: {
   chatId: string;
+  title: string;
+  messages: UIMessage[];
   initialShareId: string | null;
 }) {
   const [shareId, setShareId] = useState(initialShareId);
@@ -76,9 +82,31 @@ export function ShareButton({
             there too — revoke the link to stop that.
           </p>
 
+          <button
+            type="button"
+            onClick={() => {
+              const blob = new Blob([chatToMarkdown(title, messages)], {
+                type: "text/markdown",
+              });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `${title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "chat"}.md`;
+              a.click();
+              URL.revokeObjectURL(url);
+              setOpen(false);
+            }}
+            className="mt-3 flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-[13px] text-text-secondary transition-colors hover:border-border-strong hover:text-text"
+          >
+            <IconDownload size={14} />
+            Download as Markdown
+          </button>
+
+          <div className="my-3 border-t border-border-subtle" />
+
           {shareId ? (
             <>
-              <div className="mt-3 flex gap-1.5">
+              <div className="flex gap-1.5">
                 <input
                   readOnly
                   value={url}
@@ -114,7 +142,7 @@ export function ShareButton({
               type="button"
               disabled={busy}
               onClick={() => void createLink()}
-              className="mt-3 w-full rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-accent-text hover:brightness-110 disabled:opacity-50"
+              className="w-full rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-accent-text hover:brightness-110 disabled:opacity-50"
             >
               {busy ? "Creating…" : "Create public link"}
             </button>

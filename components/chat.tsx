@@ -14,7 +14,7 @@ import { EmptyState } from "./empty-state";
 import { MessageList } from "./message-list";
 import { ShareButton } from "./share-button";
 import { DEFAULT_MODEL } from "@/lib/models";
-import { IconKey, IconSidebar } from "./icons";
+import { IconChevron, IconKey, IconSidebar } from "./icons";
 
 export interface ChatProps {
   chatId: string;
@@ -186,7 +186,7 @@ export function Chat({
   }, [router, busy, stop]);
 
   return (
-    <div className="flex h-dvh min-w-0 flex-1 flex-col">
+    <div className="relative flex h-dvh min-w-0 flex-1 flex-col">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
         <button
           type="button"
@@ -202,7 +202,12 @@ export function Chat({
         </h1>
 
         {messages.length > 0 && (
-          <ShareButton chatId={chatId} initialShareId={initialShareId} />
+          <ShareButton
+            chatId={chatId}
+            title={title}
+            messages={messages}
+            initialShareId={initialShareId}
+          />
         )}
 
         <button
@@ -253,6 +258,22 @@ export function Chat({
           )}
         </div>
       </div>
+
+      {!pinned && messages.length > 0 && (
+        <button
+          type="button"
+          aria-label="Scroll to the newest message"
+          onClick={() =>
+            scrollRef.current?.scrollTo({
+              top: scrollRef.current.scrollHeight,
+              behavior: "smooth",
+            })
+          }
+          className="absolute bottom-28 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-surface-raised text-text-muted shadow-lg transition-colors hover:text-text"
+        >
+          <IconChevron size={15} />
+        </button>
+      )}
 
       <Composer
         ref={composerRef}

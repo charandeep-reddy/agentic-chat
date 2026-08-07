@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ChatsProvider } from "./chats-provider";
+import { CommandPalette } from "./command-palette";
 import { Sidebar, type SidebarUser } from "./sidebar";
 
 /**
@@ -38,6 +39,7 @@ export function AppShell({
         <Sidebar user={user} open={open} onClose={() => setOpen(false)} />
         {children({ toggleSidebar: () => setOpen((v) => !v) })}
       </div>
+      <CommandPalette />
     </ChatsProvider>
   );
 }

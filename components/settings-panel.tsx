@@ -10,6 +10,7 @@ export const KEY_STORAGE = "agentic-chat.key";
 export const MODEL_STORAGE = "agentic-chat.model";
 
 const SHORTCUTS = [
+  { keys: "⌘ K", label: "Search chats / jump" },
   { keys: "⌘ ⇧ O", label: "New chat" },
   { keys: "⌘ /", label: "Focus composer" },
   { keys: "↵", label: "Send" },

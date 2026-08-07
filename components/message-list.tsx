@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import type { UIMessage } from "ai";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Markdown } from "./markdown";
 import { ChartWidget } from "./chart-view";
 import { FlowWidget } from "./flow-view";
 import { HtmlWidget } from "./html-view";
@@ -219,9 +218,7 @@ function AssistantMessage({
       {message.parts.map((part, i) => {
         if (part.type === "text") {
           return (
-            <div key={i} className="markdown">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{part.text}</ReactMarkdown>
-            </div>
+            <Markdown key={i}>{part.text}</Markdown>
           );
         }
         if (isToolPart(part)) {
