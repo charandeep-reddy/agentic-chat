@@ -1,4 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
 
@@ -11,7 +12,10 @@ import * as schema from "./schema";
  * Neon requires TLS, which its connection string already carries as
  * `?sslmode=require`.
  */
-const globalForDb = globalThis as unknown as { __agenticChatPool?: Pool };
+const globalForDb = globalThis as unknown as {
+  __agenticChatPool?: Pool;
+  __agenticChatDb?: NodePgDatabase<typeof schema>;
+};
 
 function createPool(): Pool {
   const connectionString = process.env.DATABASE_URL;
@@ -24,16 +28,27 @@ function createPool(): Pool {
     connectionString,
     // Neon and most hosted providers terminate TLS with a chain Node doesn't
     // ship; local Postgres has no TLS at all. `sslmode` in the URL decides.
-    ssl: connectionString.includes("sslmode=require")
-      ? { rejectUnauthorized: false }
-      : undefined,
+    ssl: connectionString.includes("sslmode=require") ? { rejectUnauthorized: false } : undefined,
     max: 10,
   });
 }
 
-export const pool = globalForDb.__agenticChatPool ?? createPool();
-if (process.env.NODE_ENV !== "production") globalForDb.__agenticChatPool = pool;
+export function getPool(): Pool {
+  globalForDb.__agenticChatPool ??= createPool();
+  return globalForDb.__agenticChatPool;
+}
 
-export const db = drizzle(pool, { schema });
+function getDb(): NodePgDatabase<typeof schema> {
+  globalForDb.__agenticChatDb ??= drizzle(getPool(), { schema });
+  return globalForDb.__agenticChatDb;
+}
+
+/**
+ * Connects on first use rather than on import, so modules can be imported for
+ * their types (and unit-tested) without a live database.
+ */
+export const db = new Proxy({} as NodePgDatabase<typeof schema>, {
+  get: (_target, prop, receiver) => Reflect.get(getDb(), prop, receiver),
+});
 
 export { schema };

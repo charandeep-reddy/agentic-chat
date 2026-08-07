@@ -41,15 +41,18 @@ export function generateTitleInBackground(opts: {
     let title = titleFromText(text);
     try {
       const provider = createProvider(apiKey);
-      const { text: generated } = await generateText({
+      const { text: generated, finishReason } = await generateText({
         model: provider(UTILITY_MODEL),
         system: TITLE_PROMPT,
         prompt: text.slice(0, 2000),
-        maxOutputTokens: 24,
+        // Generous for a handful of words: reasoning models spend most of this
+        // budget thinking, and a `length` finish leaves `text` empty.
+        maxOutputTokens: 512,
         temperature: 0.3,
       });
       const cleaned = cleanTitle(generated);
-      if (cleaned) title = cleaned;
+      // A truncated title is worse than the message text it came from.
+      if (cleaned && finishReason !== "length") title = cleaned;
     } catch (error) {
       console.error("[title] generation failed, using the message text:", error);
     }
