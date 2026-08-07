@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth-client";
 import { ConfirmDialog } from "./confirm-dialog";
 import { PageShell, Section } from "./page-shell";
+import { ThemeToggle } from "./theme-toggle";
 import { IconDownload, IconGithub, IconGoogle, IconKey, IconTrash, IconUser } from "./icons";
 
 interface Settings {
@@ -102,6 +103,7 @@ export function ProfilePage({
       tabs={[
         { href: "/profile", label: "Profile", active: true },
         { href: "/memory", label: "Memory", active: false },
+        { href: "/skills", label: "Skills", active: false },
       ]}
     >
       <Section title="Account">
@@ -163,6 +165,15 @@ export function ProfilePage({
             </li>
           ))}
         </ul>
+      </Section>
+
+      <Section
+        title="Appearance"
+        description="System follows your operating system and changes with it."
+      >
+        <div className="max-w-xs">
+          <ThemeToggle />
+        </div>
       </Section>
 
       <Section

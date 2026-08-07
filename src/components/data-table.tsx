@@ -63,30 +63,30 @@ export function DataTable({ table }: { table: ParsedTable }) {
       }
       footer={
         table.totalRows > preview.length ? (
-          <span className="text-[11px] text-zinc-500">
+          <span className="text-[11px] text-text-faint">
             Showing {preview.length} of {table.totalRows} rows · click a column header to sort
           </span>
         ) : (
-          <span className="text-[11px] text-zinc-500">Click a column header to sort</span>
+          <span className="text-[11px] text-text-faint">Click a column header to sort</span>
         )
       }
     >
       <div className="max-h-72 overflow-auto">
         <table className="w-full text-left text-xs">
-          <thead className="sticky top-0 bg-zinc-900">
+          <thead className="sticky top-0 bg-bg-elevated">
             <tr>
               {table.columns.map((col, i) => (
                 <th key={i}>
                   <button
                     type="button"
                     onClick={() => toggleSort(i)}
-                    className={`flex w-full items-center gap-1 border-b border-zinc-800 px-3 py-1.5 text-left font-medium transition-colors hover:bg-zinc-800/50 ${
-                      sortCol === i ? "text-emerald-400" : "text-zinc-300"
+                    className={`flex w-full items-center gap-1 border-b border-border px-3 py-1.5 text-left font-medium transition-colors hover:bg-surface-raised ${
+                      sortCol === i ? "text-accent" : "text-text-secondary"
                     }`}
                   >
                     <span className="truncate">{col.name}</span>
-                    <span className="font-mono text-[10px] text-zinc-600">{TYPE_LABELS[col.type]}</span>
-                    {sortCol === i && <span className="font-mono text-[10px] text-emerald-400">{sortDir === 1 ? "↑" : "↓"}</span>}
+                    <span className="font-mono text-[10px] text-text-faint">{TYPE_LABELS[col.type]}</span>
+                    {sortCol === i && <span className="font-mono text-[10px] text-accent">{sortDir === 1 ? "↑" : "↓"}</span>}
                   </button>
                 </th>
               ))}
@@ -94,9 +94,9 @@ export function DataTable({ table }: { table: ParsedTable }) {
           </thead>
           <tbody>
             {preview.map((row, r) => (
-              <tr key={r} className="odd:bg-zinc-950/40">
+              <tr key={r} className="odd:bg-surface/50">
                 {row.map((cell, c) => (
-                  <td key={c} className="max-w-[220px] truncate px-3 py-1 text-zinc-400">
+                  <td key={c} className="max-w-[220px] truncate px-3 py-1 text-text-muted">
                     {String(cell ?? "—")}
                   </td>
                 ))}
@@ -104,7 +104,7 @@ export function DataTable({ table }: { table: ParsedTable }) {
             ))}
             {preview.length === 0 && (
               <tr>
-                <td colSpan={table.columns.length} className="px-3 py-6 text-center text-zinc-600">
+                <td colSpan={table.columns.length} className="px-3 py-6 text-center text-text-faint">
                   No rows
                 </td>
               </tr>

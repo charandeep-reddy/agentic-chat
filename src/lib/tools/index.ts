@@ -14,6 +14,13 @@ import {
   searchMemorySchema,
 } from "./memory";
 import type { MemoryStore } from "./memory";
+import {
+  loadSkill,
+  loadSkillSchema,
+  readSkillResource,
+  readSkillResourceSchema,
+} from "./skills";
+import type { SkillStore } from "./skills";
 
 export interface ToolMeta {
   durationMs: number;
@@ -155,12 +162,54 @@ export function memoryTools(store: MemoryStore) {
   };
 }
 
-/** Full registry for a request. Memory tools are omitted when memory is off. */
-export function buildTools(store: MemoryStore | null) {
-  return store ? { ...baseTools, ...memoryTools(store) } : baseTools;
+/** Skill tools, bound to one user's library. */
+export function skillTools(store: SkillStore) {
+  return {
+    load_skill: tool({
+      description: [
+        "Load the full instructions for one of the skills listed in your system prompt.",
+        "Call it as soon as a skill's description matches what the user is asking for, before doing the work — the skill tells you how this user wants that task done.",
+        "The result may name resource files; fetch those with read_skill_resource only if you need them.",
+        "Do not guess at a skill's contents, and do not call this for a skill that is not listed.",
+      ].join(" "),
+      inputSchema: loadSkillSchema,
+      execute: withTiming((args) => loadSkill(args, store)),
+    }),
+    read_skill_resource: tool({
+      description: [
+        "Read one resource file belonging to a skill you have already loaded.",
+        "Use the exact path listed in the skill's `resources`. Fetch only what the current task needs.",
+      ].join(" "),
+      inputSchema: readSkillResourceSchema,
+      execute: withTiming((args) => readSkillResource(args, store)),
+    }),
+  };
+}
+
+/**
+ * Full registry for a request. Memory tools are omitted when memory is off,
+ * and skill tools when the user has no skills — an unusable tool in the
+ * registry is a standing invitation for the model to call it.
+ */
+export function buildTools({
+  memory,
+  skills,
+}: {
+  memory: MemoryStore | null;
+  skills: SkillStore | null;
+}) {
+  return {
+    ...baseTools,
+    ...(memory ? memoryTools(memory) : {}),
+    ...(skills ? skillTools(skills) : {}),
+  };
 }
 
 /** Static view of the registry, used for typing the UI. */
-export const tools = { ...baseTools, ...memoryTools({} as MemoryStore) };
+export const tools = {
+  ...baseTools,
+  ...memoryTools({} as MemoryStore),
+  ...skillTools({} as SkillStore),
+};
 
 export type AgentTools = typeof tools;

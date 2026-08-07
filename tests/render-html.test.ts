@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderHtml } from "@/lib/tools/render-html";
+import { renderHtml, withTheme } from "@/lib/tools/render-html";
 import { ToolError } from "@/lib/tools/errors";
 
 describe("renderHtml", () => {
@@ -30,6 +30,23 @@ describe("renderHtml", () => {
     expect(out).toContain("html, body { background: transparent; }");
     // First in <head>, so anything the model wrote still overrides it.
     expect(out.indexOf("background: transparent")).toBeLessThan(out.indexOf("<p>Mine</p>"));
+  });
+
+  it("ships both palettes so a persisted widget can follow a later theme choice", () => {
+    const out = renderHtml({ html: "<div>Hi</div>" }).html;
+
+    expect(out).toContain('[data-theme="light"]');
+    expect(out).toContain("--accent: #059669;");
+  });
+
+  it("declares a root color-scheme per theme, so the frame can stay transparent", () => {
+    // A frame whose used color-scheme disagrees with its embedder's is given an
+    // opaque canvas by the browser — the one thing background:transparent
+    // cannot override. Both sides have to name the same scheme.
+    const out = renderHtml({ html: "<div>Hi</div>" }).html;
+
+    expect(out).toMatch(/:root \{[\s\S]*?color-scheme: dark;[\s\S]*?\}/);
+    expect(out).toMatch(/:root\[data-theme="light"\] \{[\s\S]*?color-scheme: light;[\s\S]*?\}/);
   });
 
   it("keeps a full document intact but adds the CSP", () => {
@@ -112,6 +129,32 @@ describe("renderHtml", () => {
   it("defaults the height and honours an explicit one", () => {
     expect(renderHtml({ html: "<p>default height</p>" }).height).toBe(420);
     expect(renderHtml({ html: "<p>explicit height</p>", height: 900 }).height).toBe(900);
+  });
+
+  it("stamps the light theme onto the document root, and leaves dark alone", () => {
+    const doc = renderHtml({ html: "<p>themed content</p>" }).html;
+
+    expect(withTheme(doc, "light")).toContain('<html data-theme="light"');
+    // Dark needs no attribute — it is what :root already says. Checked on the
+    // tag itself, since the stylesheet mentions the selector either way.
+    expect(withTheme(doc, "dark")).toMatch(/<html lang="en">/);
+  });
+
+  it("repairs an old artifact that predates the root color-scheme", () => {
+    // Documents already persisted in a transcript cannot be regenerated, so the
+    // scheme has to be forced on at render time or they stay opaque forever.
+    const legacy = `<!doctype html><html><head><style>input { color-scheme: dark; }</style></head><body><p>old</p></body></html>`;
+
+    const out = withTheme(legacy, "light");
+    // Last in <head>, so it wins over whatever the stored document declared.
+    expect(out).toMatch(/color-scheme: light;[\s\S]*<\/head>/);
+    expect(out.indexOf("color-scheme: light")).toBeGreaterThan(out.indexOf("input { color-scheme: dark; }"));
+  });
+
+  it("themes a model-authored document that brought its own <html> tag", () => {
+    const doc = renderHtml({ html: "<html lang='en'><body><p>Mine</p></body></html>" }).html;
+
+    expect(withTheme(doc, "light")).toContain(`<html data-theme="light" lang='en'>`);
   });
 
   it("rejects source that is empty once fences are removed", () => {

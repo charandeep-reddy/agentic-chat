@@ -11,6 +11,7 @@ import {
   IconFetch,
   IconFlow,
   IconQuestion,
+  IconSpark,
   IconTable,
 } from "./icons";
 import type { ToolMeta } from "@/lib/tools";
@@ -35,6 +36,8 @@ const TOOL_ICONS: Record<string, typeof IconChart> = {
   save_memory: IconBrain,
   search_memory: IconBrain,
   forget_memory: IconBrain,
+  load_skill: IconSpark,
+  read_skill_resource: IconSpark,
 };
 
 /**
@@ -83,6 +86,8 @@ function chipLabel(name: string, part: ToolPart, pending: boolean): string {
     save_memory: ["Saving", "Remembered"],
     search_memory: ["Searching memory", "Memory"],
     forget_memory: ["Forgetting", "Forgotten"],
+    load_skill: ["Opening skill", "Skill"],
+    read_skill_resource: ["Reading", "Skill file"],
   };
   const pair = labels[name];
   if (!pair) return name.replace(/_/g, " ");
@@ -114,6 +119,11 @@ function outcome(output: unknown): string {
       return `${(o.matches as unknown[])?.length ?? 0} matches`;
     case "memory_forgotten":
       return "";
+    // Which skill it was is the whole story; the body is in the panel.
+    case "skill_loaded":
+      return String(o.name);
+    case "skill_resource":
+      return String(o.path);
     default:
       return "";
   }
@@ -165,6 +175,16 @@ function summary(name: string, output: unknown): string[] {
       const matches = (o.matches as Array<{ content: string }>) ?? [];
       return matches.length > 0 ? matches.map((m) => `· ${m.content}`) : ["No matches."];
     }
+    case "load_skill": {
+      const resources = (o.resources as string[]) ?? [];
+      return [
+        String(o.description ?? ""),
+        `${String(o.body ?? "").length} chars of instructions`,
+        resources.length > 0 ? `Resources: ${resources.join(", ")}` : "",
+      ].filter(Boolean);
+    }
+    case "read_skill_resource":
+      return [`${String(o.name)} · ${String(o.path)}`, `${String(o.content ?? "").length} chars`];
     default:
       return [];
   }

@@ -1,3 +1,6 @@
+import { formatSkillIndex } from "./tools/skills";
+import type { SkillSummary } from "./tools/skills";
+
 export const SYSTEM_PROMPT = [
   "You are an agentic data & analysis assistant running in a chat UI with rich inline rendering.",
   "",
@@ -10,6 +13,7 @@ export const SYSTEM_PROMPT = [
   "- `render_html` — render live, interactive HTML/CSS/JS inline. Reach for it when the answer is something the user should *use*, not read: calculators, mockups, interactive demos, small games, comparison layouts, SVG illustrations. Write one self-contained fragment with inline `<script>`; external requests are blocked.",
   "  The widget sits inside the conversation, so write plain semantic HTML and let it blend in. The frame already supplies the chat's font, text colour, and styling for headings, labels, inputs, sliders, selects, buttons and tables. **Do not set a background, do not choose colours or fonts, and do not wrap the widget in a card, panel or border** — it should read as part of the message, not as an embedded page. Add CSS only for layout (flex/grid, spacing) and for the one thing that is genuinely specific to what you are building. If you need an accent or a divider, use `var(--accent)`, `var(--text-muted)`, `var(--border)`.",
   "- `save_memory` / `search_memory` / `forget_memory` — persist durable facts about the user across conversations.",
+  "- `load_skill` / `read_skill_resource` — open the user's own instructions for a specific kind of task. Only usable for the skills listed below, if any.",
   "",
   "## Rules",
   "1. Never fabricate data, numbers, or sources. If data is missing, say so and offer to fetch or parse it.",
@@ -30,6 +34,23 @@ export interface PromptContext {
   aboutUser?: string | null;
   responseStyle?: string | null;
   memories?: Array<{ id: string; content: string; category: string }>;
+  skills?: SkillSummary[];
+}
+
+/**
+ * The skills index — level 1 of progressive disclosure. Names and descriptions
+ * only, because the bodies are what would make a library expensive and the
+ * description is all the model needs to decide.
+ */
+function skillsSection(skills: SkillSummary[]): string {
+  return [
+    "\n## Skills",
+    "The user has written instructions for particular kinds of work. Each line is a name and when to use it.",
+    "When a request matches one, call `load_skill` with that name **before** starting the work, then follow what it says — it overrides your default approach for that task.",
+    "If none match, work normally. Never invent a skill name that is not on this list.",
+    "",
+    formatSkillIndex(skills),
+  ].join("\n");
 }
 
 /**
@@ -68,6 +89,12 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     sections.push(
       `\n## What you remember about the user\nThese were saved in earlier conversations. Use them silently — do not recite them back unless asked.\n\n${lines.join("\n\n")}`,
     );
+  }
+
+  // Last, so it is the closest instruction to the conversation itself: the
+  // model has to notice a match before it starts working, not after.
+  if (ctx.skills?.length) {
+    sections.push(skillsSection(ctx.skills));
   }
 
   return sections.join("\n");

@@ -11,27 +11,66 @@ import { WidgetShell, StatusChip, WidgetAction } from "./widget-shell";
 import { IconChart, IconDownload, IconTable } from "./icons";
 import { DataTable } from "./data-table";
 import { chartToTable } from "@/lib/tools/chart-util";
+import { useTheme } from "./theme-provider";
+import type { ResolvedTheme } from "@/lib/theme";
 
 echarts.use([BarChart, LineChart, PieChart, ScatterChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, DataZoomComponent, CanvasRenderer]);
 
-const TEXT = "#d4d4d8";
-const MUTED = "#71717a";
-const PALETTE = ["#34d399", "#60a5fa", "#f472b6", "#fbbf24", "#a78bfa", "#f87171", "#2dd4bf", "#fb923c"];
+/**
+ * ECharts draws to a canvas, so it cannot read the CSS custom properties the
+ * rest of the app themes with — every colour has to be handed to it as a
+ * literal. These mirror `globals.css`; the light series are darker rather than
+ * lighter, because a hue that reads well on near-black washes out on white.
+ */
+interface ChartTheme {
+  text: string;
+  muted: string;
+  axis: string;
+  split: string;
+  tooltipBg: string;
+  tooltipBorder: string;
+  /** Painted between pie slices, so it has to match the surface behind them. */
+  pieGap: string;
+  palette: string[];
+}
 
-function buildOption(spec: ChartSpec): EChartsCoreOption {
+const CHART_THEMES: Record<ResolvedTheme, ChartTheme> = {
+  dark: {
+    text: "#d4d4d8",
+    muted: "#71717a",
+    axis: "#3f3f46",
+    split: "#27272a",
+    tooltipBg: "#18181b",
+    tooltipBorder: "#3f3f46",
+    pieGap: "#09090b",
+    palette: ["#34d399", "#60a5fa", "#f472b6", "#fbbf24", "#a78bfa", "#f87171", "#2dd4bf", "#fb923c"],
+  },
+  light: {
+    text: "#3f3f46",
+    muted: "#71717a",
+    axis: "#c9c9cf",
+    split: "#e4e4e7",
+    tooltipBg: "#ffffff",
+    tooltipBorder: "#d4d4d8",
+    pieGap: "#ffffff",
+    palette: ["#059669", "#2563eb", "#db2777", "#d97706", "#7c3aed", "#dc2626", "#0d9488", "#ea580c"],
+  },
+};
+
+function buildOption(spec: ChartSpec, t: ChartTheme): EChartsCoreOption {
   const base = {
     backgroundColor: "transparent",
-    color: PALETTE,
-    title: spec.title ? { text: spec.title, left: "center", top: 0, textStyle: { color: TEXT, fontSize: 14, fontWeight: 500 } } : undefined,
+    color: t.palette,
+    title: spec.title ? { text: spec.title, left: "center", top: 0, textStyle: { color: t.text, fontSize: 14, fontWeight: 500 } } : undefined,
     tooltip: {
       trigger: spec.type === "pie" ? "item" : "axis",
-      backgroundColor: "#18181b",
-      borderColor: "#3f3f46",
-      textStyle: { color: TEXT, fontSize: 12 },
+      backgroundColor: t.tooltipBg,
+      borderColor: t.tooltipBorder,
+      textStyle: { color: t.text, fontSize: 12 },
     },
     legend: {
       top: spec.title ? 28 : 4,
-      textStyle: { color: MUTED, fontSize: 11 },
+      textStyle: { color: t.muted, fontSize: 11 },
       type: "scroll",
     },
   };
@@ -45,8 +84,8 @@ function buildOption(spec: ChartSpec): EChartsCoreOption {
           radius: ["42%", "68%"],
           center: ["50%", "55%"],
           avoidLabelOverlap: true,
-          itemStyle: { borderRadius: 6, borderColor: "#09090b", borderWidth: 2 },
-          label: { color: TEXT, fontSize: 11, formatter: "{b}: {c}" },
+          itemStyle: { borderRadius: 6, borderColor: t.pieGap, borderWidth: 2 },
+          label: { color: t.text, fontSize: 11, formatter: "{b}: {c}" },
           data: spec.data,
         },
       ],
@@ -68,13 +107,13 @@ function buildOption(spec: ChartSpec): EChartsCoreOption {
     xAxis: {
       type: spec.type === "scatter" ? "value" : "category",
       data: spec.type === "scatter" ? undefined : spec.xLabels,
-      axisLine: { lineStyle: { color: "#3f3f46" } },
-      axisLabel: { color: MUTED, fontSize: 11 },
+      axisLine: { lineStyle: { color: t.axis } },
+      axisLabel: { color: t.muted, fontSize: 11 },
     },
     yAxis: {
       type: "value",
-      splitLine: { lineStyle: { color: "#27272a" } },
-      axisLabel: { color: MUTED, fontSize: 11 },
+      splitLine: { lineStyle: { color: t.split } },
+      axisLabel: { color: t.muted, fontSize: 11 },
     },
     dataZoom: (spec.xLabels?.length ?? 0) > 20 ? [{ type: "inside" }, { type: "slider", height: 14, bottom: 8 }] : undefined,
     series,
@@ -84,13 +123,14 @@ function buildOption(spec: ChartSpec): EChartsCoreOption {
 function ChartCanvas({ spec, height }: { spec: ChartSpec; height: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
+  const { theme } = useTheme();
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const chart = echarts.init(el);
     chartRef.current = chart;
-    chart.setOption(buildOption(spec));
+    chart.setOption(buildOption(spec, CHART_THEMES[theme]));
 
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(el);
@@ -99,7 +139,9 @@ function ChartCanvas({ spec, height }: { spec: ChartSpec; height: number }) {
       chart.dispose();
       chartRef.current = null;
     };
-  }, [spec]);
+    // Re-initialising on a theme flip is cheap next to tracking which of the
+    // dozen colour options changed, and it keeps the option builder pure.
+  }, [spec, theme]);
 
   return <div ref={ref} style={{ height }} className="w-full" />;
 }

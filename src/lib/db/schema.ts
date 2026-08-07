@@ -7,6 +7,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -213,6 +214,44 @@ export const memoryPackInstall = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.packId] })],
 );
 
+/**
+ * A user-authored skill: a named bundle of instructions the model pulls in when
+ * it judges them relevant.
+ *
+ * Only `name` and `description` are inlined into the system prompt. The body is
+ * fetched by `load_skill` and the resources by `read_skill_resource`, so a
+ * library of fifty skills costs about as much per turn as a paragraph — the
+ * whole point of the design. A skill is prose, not code: nothing here is
+ * executed.
+ */
+export const skill = pgTable(
+  "skill",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** The handle the model passes back to `load_skill`, e.g. "weekly-report". */
+    name: text("name").notNull(),
+    /** The trigger: the only thing the model reads before deciding to load. */
+    description: text("description").notNull(),
+    body: text("body").notNull(),
+    /** Path → contents. Named in the body, fetched one at a time on demand. */
+    resources: jsonb("resources").$type<Record<string, string>>().notNull().default({}),
+    enabled: boolean("enabled").notNull().default(true),
+    useCount: integer("use_count").notNull().default(0),
+    lastUsedAt: timestamp("last_used_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    // The name is an identifier the model types back, so it has to be
+    // unambiguous within one user's library.
+    uniqueIndex("skill_user_name_idx").on(t.userId, t.name),
+    index("skill_user_enabled_idx").on(t.userId, t.enabled),
+  ],
+);
+
 /** Per-user preferences: custom instructions, default model, feature toggles. */
 export const userSettings = pgTable("user_settings", {
   userId: text("user_id")
@@ -234,6 +273,7 @@ export const userSettings = pgTable("user_settings", {
 export const userRelations = relations(user, ({ many, one }) => ({
   chats: many(chat),
   memories: many(memory),
+  skills: many(skill),
   settings: one(userSettings, {
     fields: [user.id],
     references: [userSettings.userId],
@@ -253,7 +293,12 @@ export const memoryRelations = relations(memory, ({ one }) => ({
   user: one(user, { fields: [memory.userId], references: [user.id] }),
 }));
 
+export const skillRelations = relations(skill, ({ one }) => ({
+  user: one(user, { fields: [skill.userId], references: [user.id] }),
+}));
+
 export type User = typeof user.$inferSelect;
+export type Skill = typeof skill.$inferSelect;
 export type Chat = typeof chat.$inferSelect;
 export type Message = typeof message.$inferSelect;
 export type Memory = typeof memory.$inferSelect;

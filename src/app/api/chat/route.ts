@@ -14,6 +14,7 @@ import { buildSystemPrompt } from "@/lib/prompts";
 import { createProvider, DEFAULT_MODEL, resolveModelId } from "@/lib/provider";
 import { requireUserApi } from "@/lib/session";
 import { createDbMemoryStore, selectPromptMemories } from "@/lib/memory-store";
+import { createDbSkillStore, selectPromptSkills } from "@/lib/skill-store";
 import { createChat, getChat, getSettings, saveMessages, truncateFrom } from "@/lib/db/queries";
 import { generateTitleInBackground } from "@/lib/title";
 
@@ -71,14 +72,15 @@ export async function POST(req: Request) {
     return Response.json({ error: "missing_chat_id" }, { status: 400 });
   }
 
-  // These three don't depend on each other, and the database is remote enough
+  // These four don't depend on each other, and the database is remote enough
   // that doing them in sequence was the bulk of the delay before the first
   // token. Memories are fetched even when the setting turns out to be off —
   // it's on by default, so speculating costs far less than waiting.
-  const [settings, existingChat, candidateMemories] = await Promise.all([
+  const [settings, existingChat, candidateMemories, skills] = await Promise.all([
     getSettings(user.id),
     getChat(chatId, user.id),
     selectPromptMemories(user.id, lastUserText(messages)),
+    selectPromptSkills(user.id),
   ]);
 
   const modelId = resolveModelId(body.model, settings?.defaultModel);
@@ -100,6 +102,7 @@ export async function POST(req: Request) {
     aboutUser: settings?.aboutUser,
     responseStyle: settings?.responseStyle,
     memories: memories.map((m) => ({ id: m.id, content: m.content, category: m.category })),
+    skills,
   });
 
   // Persist the incoming user message so a dropped connection mid-stream still
@@ -126,7 +129,12 @@ export async function POST(req: Request) {
 
   const provider = createProvider(apiKey);
 
-  const tools = buildTools(memoryStore);
+  const tools = buildTools({
+    memory: memoryStore,
+    // No skills means no skill tools: the model cannot usefully call them, and
+    // leaving them in the registry only invites hallucinated skill names.
+    skills: skills.length > 0 ? createDbSkillStore(user.id) : null,
+  });
 
   const result = streamText({
     model: provider(modelId),
@@ -137,7 +145,10 @@ export async function POST(req: Request) {
     messages: await convertToModelMessages(messages, { tools }),
     tools,
     temperature: 0.5,
-    stopWhen: [isStepCount(8), hasToolCall("ask_user_question")],
+    // Loading a skill costs a step before any real work starts, and a skill
+    // that says "fetch this, then chart it" spends several more following its
+    // own instructions. Eight left those turns ending mid-task.
+    stopWhen: [isStepCount(12), hasToolCall("ask_user_question")],
     onError: (error) => {
       console.error("[api/chat] stream error:", error);
     },

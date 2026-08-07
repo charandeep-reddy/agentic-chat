@@ -381,6 +381,7 @@ export function MemoryPage({
       tabs={[
         { href: "/profile", label: "Profile", active: false },
         { href: "/memory", label: "Memory", active: true },
+        { href: "/skills", label: "Skills", active: false },
       ]}
     >
       {notice && (

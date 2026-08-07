@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { HtmlSpec } from "@/lib/tools/render-html";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { withTheme, type HtmlSpec } from "@/lib/tools/render-html";
 import { WidgetAction } from "./widget-shell";
+import { useTheme } from "./theme-provider";
 import { IconCode, IconCopy, IconDownload, IconExpand, IconEye, IconExternal } from "./icons";
 
 /**
@@ -23,6 +24,10 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
   const [copied, setCopied] = useState(false);
   const [measured, setMeasured] = useState<number | null>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const { theme } = useTheme();
+
+  // Changing this reloads the frame, so it must not be recomputed per render.
+  const doc = useMemo(() => withTheme(spec.html, theme), [spec.html, theme]);
 
   // The frame has an opaque origin, so it reports its own height rather than
   // being measured. Only this frame's window is trusted as a source — any
@@ -84,7 +89,7 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
           <iframe
             ref={frameRef}
             title={spec.title ?? "Rendered HTML"}
-            srcDoc={spec.html}
+            srcDoc={doc}
             sandbox={SANDBOX}
             referrerPolicy="no-referrer"
             className="w-full rounded-lg"
@@ -158,7 +163,7 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
             <div className="min-h-0 flex-1 p-3">
               <iframe
                 title={spec.title ?? "Rendered HTML"}
-                srcDoc={spec.html}
+                srcDoc={doc}
                 sandbox={SANDBOX}
                 referrerPolicy="no-referrer"
                 // No background of its own — the document is transparent now, so

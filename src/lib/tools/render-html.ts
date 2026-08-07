@@ -144,6 +144,11 @@ const MEASURE_SCRIPT = `<script>
  * and the widget has no visible edges. Values mirror `globals.css`; they are
  * duplicated rather than referenced because the frame has an opaque origin and
  * cannot read a single custom property from the parent document.
+ *
+ * Both palettes ship in every document, selected by the `data-theme` attribute
+ * the parent stamps on `<html>` (see `withTheme` below).
+ * The document is generated once, server-side, and then persisted with the
+ * message — so it has to be able to answer to a theme chosen much later.
  */
 const BASE_STYLES = `<style>
   :root {
@@ -158,14 +163,29 @@ const BASE_STYLES = `<style>
     --surface-raised: #1a1a1e;
     --accent: #10b981;
     --danger: #f87171;
+    /* Must match the embedder's color-scheme exactly. A frame whose used
+       color-scheme differs from its parent's is given an opaque canvas by the
+       browser, and background:transparent cannot undo that — mismatch is what
+       paints the widget as a solid slab, in whichever colour the frame's own
+       scheme implies. withTheme() keeps this attribute in step with the app,
+       so the two schemes always agree. */
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --text: #18181b;
+    --text-secondary: #3f3f46;
+    --text-muted: #52525b;
+    --text-faint: #71717a;
+    --border-subtle: #ededf0;
+    --border: #e0e0e4;
+    --border-strong: #c9c9cf;
+    --surface: #f4f4f5;
+    --surface-raised: #ebebee;
+    --accent: #059669;
+    --danger: #dc2626;
+    color-scheme: light;
   }
   *, *::before, *::after { box-sizing: border-box; }
-  /* color-scheme belongs on the controls, never on :root. Setting it at the
-     root makes the browser paint an opaque dark canvas behind the whole frame,
-     which background:transparent cannot undo — the widget lands in the
-     transcript as a black slab. Scoped here, the native controls and their
-     dropdowns still render dark and the frame stays see-through. */
-  input, select, textarea, button, progress, meter { color-scheme: dark; }
   html, body { background: transparent; }
   body {
     margin: 0;
@@ -245,6 +265,28 @@ ${HEAD}
 ${html}
 </body>
 </html>`;
+}
+
+/**
+ * Stamps the active theme onto a generated document's root element.
+ *
+ * The frame has an opaque origin, so the parent cannot reach in and set the
+ * attribute itself — and the document was generated (and persisted) long before
+ * the reader picked a theme. Rewriting the `srcDoc` string is the one channel
+ * left. Dark needs no attribute: it is what `:root` already says.
+ */
+export function withTheme(html: string, theme: "light" | "dark"): string {
+  const themed = theme === "light" ? html.replace(/<html\b/i, '<html data-theme="light"') : html;
+  // Injected last in <head> so it outranks the document's own rules. Artifacts
+  // generated before this existed have no root color-scheme at all, which put
+  // them permanently at odds with the embedder and painted them as a white
+  // slab; they are persisted verbatim in the transcript and cannot be
+  // regenerated, so the repair has to happen on the way to the frame.
+  return themed.replace(
+    /<\/head>/i,
+    `<style>:root { color-scheme: ${theme}; }` +
+      `:root :is(input, select, textarea, button, progress, meter) { color-scheme: inherit; }</style></head>`,
+  );
 }
 
 export function renderHtml(args: RenderHtmlArgs): HtmlSpec {
