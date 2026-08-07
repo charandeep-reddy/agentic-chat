@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
+import { getStorage, removeStorage, setStorage } from "@/lib/local-storage";
 import { IconArrowUp, IconStop } from "./icons";
 
 const MAX_HEIGHT = 200;
+const DRAFT_SAVE_DELAY = 250;
+
+const draftKey = (chatId: string) => `composer:draft:${chatId}`;
 
 export function Composer({
   ref,
+  chatId,
   hasKey,
   busy,
   blocked,
@@ -16,6 +21,8 @@ export function Composer({
   onOpenSettings,
 }: {
   ref?: Ref<HTMLTextAreaElement>;
+  /** Unsent text is kept per chat, so switching chats and back restores it. */
+  chatId: string;
   hasKey: boolean;
   busy: boolean;
   blocked: boolean;
@@ -26,6 +33,7 @@ export function Composer({
 }) {
   const inner = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => inner.current as HTMLTextAreaElement, []);
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resize = () => {
     const el = inner.current;
@@ -34,9 +42,26 @@ export function Composer({
     el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
   };
 
-  useEffect(resize, []);
+  // Chat remounts the composer per chat id, so this runs once per chat and
+  // restores whatever was left unsent last time it was open.
+  useEffect(() => {
+    if (inner.current) inner.current.value = getStorage(draftKey(chatId));
+    resize();
+    return () => {
+      if (draftTimer.current) clearTimeout(draftTimer.current);
+    };
+  }, [chatId]);
 
   const disabled = !hasKey || blocked;
+
+  const saveDraft = () => {
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => {
+      const value = inner.current?.value ?? "";
+      if (value) setStorage(draftKey(chatId), value);
+      else removeStorage(draftKey(chatId));
+    }, DRAFT_SAVE_DELAY);
+  };
 
   const submit = () => {
     const value = inner.current?.value ?? "";
@@ -46,6 +71,8 @@ export function Composer({
       inner.current.value = "";
       resize();
     }
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    removeStorage(draftKey(chatId));
   };
 
   const placeholder = blocked
@@ -66,7 +93,10 @@ export function Composer({
           rows={1}
           placeholder={placeholder}
           disabled={disabled}
-          onInput={resize}
+          onInput={() => {
+            resize();
+            saveDraft();
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
