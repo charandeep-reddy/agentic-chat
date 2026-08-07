@@ -5,6 +5,10 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    // Mermaid has to go through Vite's transform for `vi.mock` to reach the
+    // DOMPurify import buried inside it — externalised deps are loaded by Node
+    // directly and are unmockable. tests/flow-grammar.test.ts depends on this.
+    server: { deps: { inline: ["mermaid"] } },
   },
   resolve: {
     alias: {

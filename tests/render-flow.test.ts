@@ -27,13 +27,13 @@ describe("render_flow", () => {
     await expect(renderFlow({ diagram: "```\n```" })).rejects.toThrow(/empty/);
   });
 
-  it("rejects a diagram mermaid cannot parse, and says how to fix it", async () => {
-    // Unquoted parentheses in a node label — the most common way a generated
-    // diagram fails. Letting it through renders mermaid's own syntax-error
-    // graphic in the chat instead of a diagram.
-    await expect(
-      renderFlow({ diagram: 'flowchart TD\n  A[Start (here)] --> B{Ok?}' }),
-    ).rejects.toThrow(/could not parse[\s\S]*double quotes/i);
+  it("repairs unquoted parentheses instead of failing on them", async () => {
+    // The most common way a generated diagram breaks. It used to be rejected so
+    // the model could retry — except server-side validation cannot actually see
+    // it, so the broken diagram reached the browser. Quoting it is both more
+    // reliable and one fewer round trip. See tests/flow-grammar.test.ts.
+    const spec = await renderFlow({ diagram: "flowchart TD\n  A[Start (here)] --> B{Ok?}" });
+    expect(spec.diagram).toBe('flowchart TD\n  A["Start (here)"] --> B{Ok?}');
   });
 
   it("accepts the quoted form of the same labels", async () => {
