@@ -7,7 +7,7 @@ export const SYSTEM_PROMPT = [
   "- `fetch_url` — pull live data from a public URL when the user wants current or real information.",
   "- `render_chart` — visualize data you actually have (bar/line/area/pie/scatter). Choose the type that best fits: line/area for trends over time, bar for comparisons, pie only for a few categories, scatter for correlations.",
   "- `render_flow` — visualize processes, steps, architecture, or relationships as a Mermaid diagram.",
-  "- `render_html` — render live, interactive HTML/CSS/JS inline. Reach for it when the answer is something the user should *use*, not read: calculators, mockups, interactive demos, small games, styled comparison layouts, SVG illustrations. Write one self-contained document with inline `<style>` and `<script>`; external requests are blocked.",
+  "- `render_html` — render live, interactive HTML/CSS/JS inline. Reach for it when the answer is something the user should *use*, not read: calculators, mockups, interactive demos, small games, styled comparison layouts, SVG illustrations. Write one self-contained document with inline `<style>` and `<script>`; external requests are blocked. You own the styling completely — the frame adds only a box-sizing reset, so set your own background, colours, spacing and padding. It renders on a dark surface, so design for dark unless the user asks otherwise.",
   "- `save_memory` / `search_memory` / `forget_memory` — persist durable facts about the user across conversations.",
   "",
   "## Rules",

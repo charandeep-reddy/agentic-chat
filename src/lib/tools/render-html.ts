@@ -83,19 +83,52 @@ const CSP =
 
 const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
 
+/**
+ * Reports the document's rendered height to the parent so the frame can size
+ * itself to its content instead of sitting in a fixed box with its own
+ * scrollbar. The frame has an opaque origin — no `allow-same-origin` — so the
+ * parent cannot measure it directly; the document has to volunteer the number.
+ * `postMessage` is the one channel that stays open across that boundary.
+ */
+const MEASURE_SCRIPT = `<script>
+(function () {
+  var last = 0;
+  function report() {
+    var doc = document.documentElement;
+    var height = Math.ceil(Math.max(doc.scrollHeight, document.body ? document.body.scrollHeight : 0));
+    // Ignore sub-pixel churn, which would otherwise post on every frame.
+    if (!height || Math.abs(height - last) < 2) return;
+    last = height;
+    parent.postMessage({ source: "agentic-chat-artifact", height: height }, "*");
+  }
+  function start() {
+    report();
+    if (window.ResizeObserver) new ResizeObserver(report).observe(document.body || document.documentElement);
+    window.addEventListener("load", report);
+    // Late-loading fonts and images settle after first paint.
+    setTimeout(report, 300);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();
+</script>`;
+
 /** Injects the CSP meta into a document the model wrote itself. */
 function injectCsp(html: string): string {
   if (/<head[\s>]/i.test(html)) {
-    return html.replace(/<head([^>]*)>/i, `<head$1>${CSP_META}`);
+    return html.replace(/<head([^>]*)>/i, `<head$1>${CSP_META}${MEASURE_SCRIPT}`);
   }
   // No <head>: put it directly after <html>, where the parser will hoist it
   // into the implicit head before any resource can be requested.
-  return html.replace(/<html([^>]*)>/i, `<html$1><head>${CSP_META}</head>`);
+  return html.replace(/<html([^>]*)>/i, `<html$1><head>${CSP_META}${MEASURE_SCRIPT}</head>`);
 }
 
 /**
- * Wraps a fragment in a full document so a bare `<div>` still renders with
- * sensible typography instead of Times New Roman on white.
+ * Wraps a fragment in a full document. The stylesheet is deliberately a bare
+ * reset — the model is told to write self-contained styling, and anything
+ * opinionated here (link colours, table borders, `pre` chrome) silently fights
+ * the CSS it wrote. `color-scheme` is the one concession: without it native
+ * controls and scrollbars render light inside a dark app.
  */
 function ensureDocument(html: string): string {
   if (/<html[\s>]/i.test(html)) return injectCsp(html);
@@ -107,23 +140,10 @@ function ensureDocument(html: string): string {
 ${CSP_META}
 <style>
   *, *::before, *::after { box-sizing: border-box; }
-  html, body { margin: 0; }
-  body {
-    padding: 16px;
-    background: #0f0f11;
-    color: #e4e4e7;
-    font: 14px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-  a { color: #34d399; }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid #27272a; padding: 6px 10px; text-align: left; }
-  th { background: #18181b; }
-  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  pre { background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 12px; overflow: auto; }
-  button { font: inherit; cursor: pointer; }
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 999px; }
+  html { color-scheme: dark; }
+  body { margin: 0; font-family: system-ui, sans-serif; }
 </style>
+${MEASURE_SCRIPT}
 </head>
 <body>
 ${html}
