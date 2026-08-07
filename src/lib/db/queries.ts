@@ -274,6 +274,44 @@ export async function countMessages(chatId: string): Promise<number> {
   return row?.count ?? 0;
 }
 
+export interface UserStats {
+  chats: number;
+  messages: number;
+  memories: number;
+}
+
+/**
+ * Totals for the profile page. Counting in the database rather than fetching
+ * every row keeps this to one round trip: the previous version pulled a
+ * thousand chats back and then issued a `count(*)` per chat.
+ *
+ * The message count joins through `chat` so it stays scoped to this user —
+ * `message` has no `userId` of its own. A left join keeps chats with no
+ * messages in the chat count.
+ */
+export async function countUserStats(userId: string): Promise<UserStats> {
+  const [conversations, memories] = await Promise.all([
+    db
+      .select({
+        chats: sql<number>`count(distinct ${chat.id})::int`,
+        messages: sql<number>`count(${message.id})::int`,
+      })
+      .from(chat)
+      .leftJoin(message, eq(message.chatId, chat.id))
+      .where(eq(chat.userId, userId)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(memory)
+      .where(eq(memory.userId, userId)),
+  ]);
+
+  return {
+    chats: conversations[0]?.chats ?? 0,
+    messages: conversations[0]?.messages ?? 0,
+    memories: memories[0]?.count ?? 0,
+  };
+}
+
 /* ------------------------------------------------------------------ *
  * Memories
  * ------------------------------------------------------------------ */

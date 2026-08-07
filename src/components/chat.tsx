@@ -238,6 +238,7 @@ export function Chat({
             <MessageList
               messages={messages}
               busy={busy}
+              waiting={status === "submitted"}
               answeredQuestions={answeredQuestions}
               onAnswerQuestion={answerQuestion}
               onEdit={editMessage}

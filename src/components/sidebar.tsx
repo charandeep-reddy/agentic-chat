@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/lib/auth-client";
 import { useChats, type ChatSummary } from "./chats-provider";
 import { ConfirmDialog } from "./confirm-dialog";
+import { ChatListSkeleton } from "./skeleton";
 import {
   IconArchive,
   IconBrain,
@@ -369,7 +370,9 @@ export function Sidebar({
 
           <nav className="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-2">
             {loading ? (
-              <p className="px-2 py-4 text-[13px] text-text-faint">Loading…</p>
+              <div className="pt-2">
+                <ChatListSkeleton />
+              </div>
             ) : groups.length === 0 ? (
               <p className="px-2 py-4 text-[13px] leading-relaxed text-text-faint">
                 {search

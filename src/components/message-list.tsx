@@ -10,6 +10,7 @@ import { DataTable } from "./data-table";
 import { QuestionCard, type QuestionState } from "./question-card";
 import { ToolChipRow, type ToolPart, isToolPart } from "./tool-part";
 import { MemoryNotice } from "./memory-notice";
+import { Skeleton } from "./skeleton";
 import { IconCheck, IconCopy, IconEdit, IconRefresh } from "./icons";
 import type { ChartSpec } from "@/lib/tools/render-chart";
 import type { FlowSpec } from "@/lib/tools/render-flow";
@@ -263,6 +264,7 @@ function AssistantMessage({
 export function MessageList({
   messages,
   busy,
+  waiting = false,
   readOnly = false,
   answeredQuestions,
   onAnswerQuestion,
@@ -271,6 +273,8 @@ export function MessageList({
 }: {
   messages: UIMessage[];
   busy: boolean;
+  /** Request sent, nothing streamed back yet — the gap worth filling. */
+  waiting?: boolean;
   /** Public share view: render everything, offer nothing that mutates. */
   readOnly?: boolean;
   answeredQuestions: Set<string>;
@@ -303,11 +307,25 @@ export function MessageList({
         ),
       )}
 
-      {busy && (
-        <div className="flex items-center gap-2 text-xs text-text-faint">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-          Working…
+      {/*
+        Two different waits. Before the first chunk there is nothing on screen
+        to show progress, so the reply's shape stands in for it. Once text is
+        streaming the words are the feedback, and a skeleton underneath them
+        would just be noise — the dot carries it from there.
+      */}
+      {waiting ? (
+        <div className="space-y-2.5" role="status" aria-label="Waiting for a reply">
+          <Skeleton className="h-3.5 w-[92%]" />
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-[64%]" />
         </div>
+      ) : (
+        busy && (
+          <div className="flex items-center gap-2 text-xs text-text-faint">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+            Working…
+          </div>
+        )
       )}
     </div>
   );

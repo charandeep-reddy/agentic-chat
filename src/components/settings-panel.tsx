@@ -7,6 +7,7 @@ import type { ModelInfo } from "@/app/api/models/route";
 import { DEFAULT_MODEL } from "@/lib/models";
 import { useChats } from "./chats-provider";
 import { ConfirmDialog } from "./confirm-dialog";
+import { Skeleton } from "./skeleton";
 import { IconClose, IconKey, IconTrash } from "./icons";
 
 export const KEY_STORAGE = "agentic-chat.key";
@@ -194,7 +195,7 @@ export function SettingsPanel({
               )}
             </div>
             {loadingModels ? (
-              <p className="text-[12px] text-text-faint">Loading models…</p>
+              <Skeleton className="h-[38px] w-full rounded-lg" />
             ) : (
               <select
                 id="model-select"

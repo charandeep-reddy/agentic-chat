@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageShell, Section } from "./page-shell";
+import { Skeleton } from "./skeleton";
 import type { SidebarUser } from "./sidebar";
 import { MEMORY_CATEGORIES } from "@/lib/tools/memory";
 import {
@@ -234,6 +235,7 @@ export function MemoryPage({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [importSlug, setImportSlug] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+  const [adding, setAdding] = useState(0);
 
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -247,6 +249,10 @@ export function MemoryPage({
     const content = draft.trim();
     if (!content) return;
     setDraft("");
+    // The id comes from the server, so the row can't be added optimistically —
+    // hold a placeholder in its place rather than leaving the list unchanged
+    // while the round trip completes.
+    setAdding((count) => count + 1);
     try {
       const res = await fetch("/api/memories", {
         method: "POST",
@@ -261,6 +267,8 @@ export function MemoryPage({
       }
     } catch (error) {
       console.error("[memory] failed to add:", error);
+    } finally {
+      setAdding((count) => count - 1);
     }
   };
 
@@ -442,7 +450,20 @@ export function MemoryPage({
           </div>
         )}
 
-        {visible.length === 0 ? (
+        {adding > 0 && (
+          <ul className="mb-1.5 space-y-1.5">
+            {Array.from({ length: adding }, (_, index) => (
+              <li
+                key={index}
+                className="rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2.5"
+              >
+                <Skeleton className="h-3.5 w-[70%]" />
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {visible.length === 0 && adding === 0 ? (
           <p className="py-6 text-center text-[13px] text-text-faint">
             {memories.length === 0
               ? "Nothing remembered yet. Tell the model something durable about you, or add one above."
