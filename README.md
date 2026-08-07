@@ -27,9 +27,11 @@ bun run dev
 
 Open <http://localhost:3000>, sign in, click **Add API key**, and paste a key for any OpenAI-compatible provider.
 
-### Running without an OAuth app
+Email and password works out of the box — no OAuth app required. Google and GitHub appear as extra buttons once their credentials are set.
 
-Setting up Google or GitHub OAuth just to poke at the code is friction. For local work you can mint a session directly:
+### Running without any sign-in at all
+
+For scripting or `curl` against a local database you can mint a session directly:
 
 ```bash
 bun run scripts/dev-session.ts
@@ -52,7 +54,7 @@ It prints a `better-auth.session_token=…` cookie — paste it into your browse
 | `DEFAULT_MODEL` | — | Defaults to `deepseek-v4-flash`. |
 | `UTILITY_MODEL` | — | Cheap model used to name conversations. Defaults to `DEFAULT_MODEL`. |
 
-Providers register only when their credentials are present, so a half-filled `.env.local` still boots and shows only the buttons that work.
+Email and password is always on. The social providers register only when their credentials are present, so a half-filled `.env.local` still boots and shows only the buttons that work.
 
 **OAuth callback URLs**
 
@@ -81,7 +83,7 @@ Try: *"Build me an interactive compound-interest calculator"*, paste a CSV and a
 
 ## Features
 
-- **Accounts** — Google and GitHub via Better Auth, sessions in your Postgres.
+- **Accounts** — email and password, plus Google and GitHub, via Better Auth. Sessions live in your Postgres.
 - **Chat history** — grouped sidebar, search across message bodies, pin, rename, archive, delete. Titles are generated in the background from your first message.
 - **Memory** — the model saves durable facts about you and recalls them later. Review, edit, disable or delete any of them.
 - **Memory packs** — bundle your memories into a shareable link; install someone else's with one click, and uninstall removes exactly what it added.

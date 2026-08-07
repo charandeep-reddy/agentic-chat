@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { enabledProviders } from "@/lib/auth";
 import { getSession } from "@/lib/session";
 import { SignInButtons } from "@/components/sign-in-buttons";
+import { EmailAuthForm } from "@/components/email-auth-form";
 import { IconSpark } from "@/components/icons";
 
 export const metadata = { title: "Sign in · Agentic Chat" };
@@ -23,18 +24,27 @@ export default async function SignInPage() {
           </p>
         </div>
 
-        {enabledProviders.length === 0 ? (
-          <div className="rounded-xl border border-warn/30 bg-warn-soft p-4 text-sm text-warn">
-            <p className="font-medium">No OAuth provider is configured.</p>
-            <p className="mt-1.5 text-[13px] leading-relaxed opacity-90">
-              Add <code className="font-mono">GOOGLE_CLIENT_ID</code>/
-              <code className="font-mono">GOOGLE_CLIENT_SECRET</code> or the GitHub equivalents to{" "}
-              <code className="font-mono">.env.local</code> and restart the dev server. See{" "}
-              <code className="font-mono">.env.example</code>.
-            </p>
-          </div>
-        ) : (
-          <SignInButtons providers={enabledProviders} />
+        {enabledProviders.length > 0 && (
+          <>
+            <SignInButtons providers={enabledProviders} />
+            <div className="my-6 flex items-center gap-3">
+              <span className="h-px flex-1 bg-border-subtle" />
+              <span className="text-[11px] uppercase tracking-wide text-text-faint">or</span>
+              <span className="h-px flex-1 bg-border-subtle" />
+            </div>
+          </>
+        )}
+
+        <EmailAuthForm />
+
+        {enabledProviders.length === 0 && (
+          <p className="mt-4 text-[11px] leading-relaxed text-text-faint">
+            Social sign-in is off because no OAuth credentials are set. Add{" "}
+            <code className="font-mono">GOOGLE_CLIENT_ID</code>/
+            <code className="font-mono">GOOGLE_CLIENT_SECRET</code> or the GitHub equivalents to{" "}
+            <code className="font-mono">.env.local</code> and restart. See{" "}
+            <code className="font-mono">.env.example</code>.
+          </p>
         )}
 
         <p className="mt-8 text-center text-[11px] leading-relaxed text-text-faint">

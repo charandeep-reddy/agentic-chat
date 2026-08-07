@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/credentials";
 
 function optionalProvider(id: string | undefined, secret: string | undefined) {
   return id && secret ? { clientId: id, clientSecret: secret } : undefined;
@@ -41,6 +42,18 @@ export const auth = betterAuth({
   socialProviders: {
     ...(google ? { google } : {}),
     ...(github ? { github } : {}),
+  },
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: MIN_PASSWORD_LENGTH,
+    maxPasswordLength: MAX_PASSWORD_LENGTH,
+    autoSignIn: true,
+    // There is no mail transport configured, so requiring verification would
+    // lock every new account out permanently. Better Auth's account-linking
+    // default already refuses to attach an OAuth identity to an unverified
+    // local row, so an unverified password account cannot be used to claim
+    // someone else's Google or GitHub address.
+    requireEmailVerification: false,
   },
   session: {
     expiresIn: 60 * 60 * 24 * 30, // 30 days

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth-client";
 import { PageShell, Section } from "./page-shell";
-import { IconDownload, IconGithub, IconGoogle, IconTrash, IconUser } from "./icons";
+import { IconDownload, IconGithub, IconGoogle, IconKey, IconTrash, IconUser } from "./icons";
 
 interface Settings {
   aboutUser: string;
@@ -18,6 +18,19 @@ const STYLE_PLACEHOLDER =
   "Be direct. Lead with the answer, then the reasoning. Use code over prose when a snippet says it better. Skip the pleasantries.";
 
 const MAX_LENGTH = 3000;
+
+/** `credential` is Better Auth's provider id for an email/password account. */
+const PROVIDER_LABELS: Record<string, string> = {
+  credential: "Email and password",
+  google: "Google",
+  github: "GitHub",
+};
+
+function ProviderIcon({ id }: { id: string }) {
+  if (id === "google") return <IconGoogle size={16} />;
+  if (id === "github") return <IconGithub size={16} />;
+  return <IconKey size={16} />;
+}
 
 export function ProfilePage({
   user,
@@ -138,9 +151,9 @@ export function ProfilePage({
               key={provider.id}
               className="flex items-center gap-3 rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2.5"
             >
-              {provider.id === "google" ? <IconGoogle size={16} /> : <IconGithub size={16} />}
-              <span className="flex-1 text-[13px] capitalize text-text-secondary">
-                {provider.id}
+              <ProviderIcon id={provider.id} />
+              <span className="flex-1 text-[13px] text-text-secondary">
+                {PROVIDER_LABELS[provider.id] ?? provider.id}
               </span>
               <span className="text-[11px] text-text-faint">
                 since {new Date(provider.connectedAt).toLocaleDateString()}

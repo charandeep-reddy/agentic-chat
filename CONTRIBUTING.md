@@ -12,7 +12,7 @@ bun run db:migrate
 bun run dev
 ```
 
-You don't need an OAuth app to work on this. `bun run scripts/dev-session.ts` mints a signed session cookie against your local database; paste it into devtools or pass it to `curl`.
+You don't need an OAuth app to work on this — sign up with an email and password on `/sign-in`. For scripting, `bun run scripts/dev-session.ts` mints a signed session cookie against your local database; paste it into devtools or pass it to `curl`.
 
 You *do* need an API key for some OpenAI-compatible provider to exercise the agent loop itself. Anything works — point `MODEL_BASE_URL` at OpenRouter, Groq, Together, or a local Ollama.
 
