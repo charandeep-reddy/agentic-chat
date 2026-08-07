@@ -93,20 +93,36 @@ const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
 const MEASURE_SCRIPT = `<script>
 (function () {
   var last = 0;
+  var observer = null;
   function report() {
-    var doc = document.documentElement;
-    var height = Math.ceil(Math.max(doc.scrollHeight, document.body ? document.body.scrollHeight : 0));
-    // Ignore sub-pixel churn, which would otherwise post on every frame.
+    var body = document.body;
+    if (!body) return;
+    // Measured from <body>, never <html>: documentElement.scrollHeight is
+    // clamped to the viewport, which is the frame's current height — so it can
+    // only ever report "as tall as it already is" and the frame never shrinks.
+    var box = body.getBoundingClientRect();
+    var height = Math.ceil(Math.max(box.bottom, body.scrollHeight));
+    // Layout hasn't run yet on the first ticks in a srcdoc frame, and an
+    // offscreen frame is not rendered at all — both report 0, which is not a
+    // height, just an absence of one.
     if (!height || Math.abs(height - last) < 2) return;
     last = height;
     parent.postMessage({ source: "agentic-chat-artifact", height: height }, "*");
   }
   function start() {
-    report();
-    if (window.ResizeObserver) new ResizeObserver(report).observe(document.body || document.documentElement);
+    if (window.requestAnimationFrame) {
+      requestAnimationFrame(function () { requestAnimationFrame(report); });
+    }
+    try {
+      if (window.ResizeObserver) {
+        observer = new ResizeObserver(report);
+        observer.observe(document.body);
+      }
+    } catch (e) {}
     window.addEventListener("load", report);
-    // Late-loading fonts and images settle after first paint.
-    setTimeout(report, 300);
+    // Fonts, images and anything that lays out after first paint. Cheap, and
+    // it also covers a frame that only becomes visible later.
+    [60, 250, 800, 2000].forEach(function (delay) { setTimeout(report, delay); });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
