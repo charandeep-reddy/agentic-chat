@@ -3,6 +3,36 @@
 :root {
   --background: #09090b;
   --foreground: #ededed;
+
+  /* Surfaces, darkest to lightest. */
+  --bg: #09090b;
+  --bg-elevated: #111113;
+  --surface: #141417;
+  --surface-raised: #1a1a1e;
+
+  /* Borders. */
+  --border-subtle: #1f1f23;
+  --border: #27272a;
+  --border-strong: #3f3f46;
+
+  /* Text, brightest to dimmest. */
+  --text: #f4f4f5;
+  --text-secondary: #d4d4d8;
+  --text-muted: #a1a1aa;
+  --text-faint: #71717a;
+
+  /* Semantic accents. */
+  --accent: #10b981;
+  --accent-text: #052e1c;
+  --accent-soft: rgb(16 185 129 / 0.12);
+  --info: #60a5fa;
+  --info-soft: rgb(96 165 250 / 0.12);
+  --human: #c084fc;
+  --human-soft: rgb(192 132 252 / 0.12);
+  --danger: #f87171;
+  --danger-soft: rgb(248 113 113 / 0.1);
+  --warn: #fbbf24;
+  --warn-soft: rgb(251 191 36 / 0.1);
 }
 
 @theme inline {
@@ -10,6 +40,29 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border-subtle: var(--border-subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-soft: var(--accent-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-human: var(--human);
+  --color-human-soft: var(--human-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
 }
 
 html,
@@ -21,6 +74,60 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.artifact {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+.composer-active {
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 8px 32px -12px rgb(16 185 129 / 0.3);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.24s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up {
+    animation: none;
+  }
+}
+
+/* Thin, unobtrusive scrollbars for the sidebar and long transcripts. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .markdown {

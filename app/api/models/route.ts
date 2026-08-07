@@ -1,6 +1,7 @@
-export const dynamic = "force-dynamic";
+import { BASE_URL } from "@/lib/provider";
+import { requireUserApi } from "@/lib/session";
 
-const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1";
+export const dynamic = "force-dynamic";
 
 interface RawModel {
   id: string;
@@ -15,23 +16,29 @@ export interface ModelInfo {
 }
 
 export async function GET(req: Request) {
-  const apiKey = req.headers.get("x-openrouter-key");
+  const authed = await requireUserApi();
+  if ("error" in authed) return authed.error;
+
+  const apiKey = req.headers.get("x-model-key") ?? req.headers.get("x-openrouter-key");
   if (!apiKey || apiKey.trim() === "") {
     return Response.json({ error: "missing_api_key" }, { status: 400 });
   }
 
   let response: Response;
   try {
-    response = await fetch(`${OPENCODE_GO_BASE_URL}/models`, {
+    response = await fetch(`${BASE_URL}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(10_000),
     });
   } catch {
-    return Response.json({ error: "network", message: "Could not reach the OpenCode API." }, { status: 502 });
+    return Response.json(
+      { error: "network", message: "Could not reach the model provider." },
+      { status: 502 },
+    );
   }
 
   if (!response.ok) {
-    return Response.json({ error: "opencode-go", status: response.status }, { status: response.status });
+    return Response.json({ error: "provider", status: response.status }, { status: response.status });
   }
 
   const data = (await response.json()) as { data?: RawModel[] };

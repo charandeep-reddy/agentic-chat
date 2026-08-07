@@ -104,9 +104,10 @@ export const chat = pgTable(
  * A message in a chat. `parts` holds the AI SDK UIMessage parts verbatim so
  * tool calls, artifacts and widgets survive a reload untouched.
  *
- * `parentId` + `ordinal` give us branching: editing a user message creates a
- * sibling with the same parent, and `chat.activeLeafId`-style resolution is
- * done by walking `parentId` from the selected leaf.
+ * Messages are ordered by `ordinal`. Editing or regenerating truncates
+ * everything at a higher ordinal. `parentId` records the message this one
+ * replied to; it is unused by the current UI but is what a future branch
+ * picker would walk.
  */
 export const message = pgTable(
   "message",
