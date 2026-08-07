@@ -11,7 +11,7 @@ bun install
 bun run dev        # → http://localhost:3000
 ```
 
-Open the app, click **○ Add API key**, paste an [OpenRouter key](https://openrouter.ai/keys), pick a model — done. The key lives in your browser's `localStorage` and is sent per-request; it is never persisted server-side.
+Open the app, click **○ Add API key**, paste your OpenCode Go key (find it at `~/.local/share/opencode/auth.json` → `opencode-go`, or via `OPENCODE_API_KEY`), pick a model — `deepseek-v4-flash` is the default. The key lives in your browser's `localStorage` and is sent per-request; it is never persisted server-side.
 
 ## What the agent can do
 
@@ -28,7 +28,7 @@ Try: paste CSV and ask for a chart; ask for a flowchart of a process; ask it to 
 ## Project layout
 
 ```
-app/api/chat/route.ts     Agent loop: streamText + tool registry + OpenRouter provider
+app/api/chat/route.ts     Agent loop: streamText + tool registry + OpenCode Go provider
 app/api/models/route.ts   Model list proxy for the settings picker
 lib/tools/                Pure, unit-tested tool implementations (shared shape with
                           opencode plugin tools — portable later)
@@ -51,5 +51,5 @@ bun run test        # Vitest
 
 - **Rendering principle:** the agent emits structured specs (ECharts option data, Mermaid source, question payload), never pixels. The UI renders them — deterministic, Zod-validated, portable to any frontend (including an opencode plugin, which uses the same tool shape).
 - **Interrupt pattern:** `ask_user_question` returns an interrupt marker; the loop stops via `stopWhen: [isStepCount(6), hasToolCall("ask_user_question")]`. The answer is appended as a user message and the loop resumes with full history.
-- **BYOK:** key sent per-request as `x-openrouter-key` header, provider built per-request server-side, never stored.
+- **BYOK:** OpenCode Go (`https://opencode.ai/zen/go/v1`, OpenAI-compatible). Key sent per-request as `x-openrouter-key` header, provider built per-request server-side, never stored.
 - **Product-ready swap points:** key storage (→ encrypted DB with auth), sessions (→ DB), rate limits/logging in `/api/chat`.

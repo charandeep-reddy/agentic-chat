@@ -1,13 +1,11 @@
 export const dynamic = "force-dynamic";
 
-interface OpenRouterModel {
+const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1";
+
+interface RawModel {
   id: string;
   name?: string;
   context_length?: number | null;
-  pricing?: {
-    prompt?: string;
-    completion?: string;
-  } | null;
 }
 
 export interface ModelInfo {
@@ -24,19 +22,19 @@ export async function GET(req: Request) {
 
   let response: Response;
   try {
-    response = await fetch("https://openrouter.ai/api/v1/models", {
+    response = await fetch(`${OPENCODE_GO_BASE_URL}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(10_000),
     });
   } catch {
-    return Response.json({ error: "network", message: "Could not reach OpenRouter." }, { status: 502 });
+    return Response.json({ error: "network", message: "Could not reach the OpenCode API." }, { status: 502 });
   }
 
   if (!response.ok) {
-    return Response.json({ error: "openrouter", status: response.status }, { status: response.status });
+    return Response.json({ error: "opencode-go", status: response.status }, { status: response.status });
   }
 
-  const data = (await response.json()) as { data?: OpenRouterModel[] };
+  const data = (await response.json()) as { data?: RawModel[] };
   const models: ModelInfo[] = (data.data ?? [])
     .map((m) => ({ id: m.id, name: m.name ?? m.id, context: m.context_length ?? null }))
     .sort((a, b) => a.id.localeCompare(b.id));

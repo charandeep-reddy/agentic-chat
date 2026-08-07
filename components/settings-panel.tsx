@@ -49,15 +49,14 @@ export function SettingsPanel({
     let cancelled = false;
     fetch("/api/models", { headers: { "x-openrouter-key": apiKey } })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`OpenRouter rejected the key (${res.status}).`);
+        if (!res.ok) throw new Error(`The API rejected the key (${res.status}).`);
         const data = (await res.json()) as { models: ModelInfo[] };
         if (!cancelled) setModels({ key: apiKey, list: data.models });
       })
       .catch((err: unknown) => {
         if (!cancelled) setErrorKey(apiKey);
         console.error("[settings] failed to load models:", err);
-      });
-    return () => {
+      });    return () => {
       cancelled = true;
     };
   }, [open, apiKey, models, errorKey]);
@@ -88,7 +87,7 @@ export function SettingsPanel({
         </div>
 
         <label className="mb-1 block text-xs font-medium text-zinc-400" htmlFor="or-key">
-          OpenRouter API key
+          OpenCode API key
         </label>
         <div className="flex gap-2">
           <input
@@ -96,7 +95,7 @@ export function SettingsPanel({
             type="password"
             value={draftKey}
             onChange={(e) => setDraftKey(e.target.value)}
-            placeholder={apiKey ? `${maskKey(apiKey)} — saved locally` : "sk-or-…"}
+            placeholder={apiKey ? `${maskKey(apiKey)} — saved locally` : "sk-…"}
             autoComplete="off"
             className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 font-mono text-sm text-zinc-200 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
           />
@@ -110,7 +109,8 @@ export function SettingsPanel({
           </button>
         </div>
         <p className="mt-1 text-[11px] text-zinc-600">
-          Stored in your browser only. Get one at openrouter.ai/keys — one key unlocks every model.
+          Stored in your browser only. Find your key at <span className="font-mono">~/.local/share/opencode/auth.json</span>{" "}
+          (opencode-go) or via <span className="font-mono">OPENCODE_API_KEY</span>.
         </p>
 
         {apiKey && (
@@ -138,7 +138,7 @@ export function SettingsPanel({
                 onChange={(e) => onModelChange(e.target.value)}
                 className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 focus:border-emerald-500 focus:outline-none"
               >
-                <option value="openrouter/auto">openrouter/auto (recommended)</option>
+                <option value="deepseek-v4-flash">deepseek-v4-flash (recommended)</option>
                 {(models?.list ?? []).map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name} — {m.id}

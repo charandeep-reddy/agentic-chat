@@ -25,9 +25,17 @@ const SUGGESTIONS = [
   "Help me compare bar vs line charts — when should I use each?",
 ];
 
+const DEFAULT_MODEL = "deepseek-v4-flash";
+
 function loadStorage(key: string): string {
   if (typeof window === "undefined") return "";
   return window.localStorage.getItem(key) ?? "";
+}
+
+function loadModel(): string {
+  const stored = loadStorage(MODEL_STORAGE);
+  if (stored.startsWith("openrouter/")) return DEFAULT_MODEL;
+  return stored || DEFAULT_MODEL;
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -130,7 +138,7 @@ function ToolPartView({
 
 export function Chat() {
   const [apiKey, setApiKey] = useState(() => loadStorage(KEY_STORAGE));
-  const [model, setModel] = useState(() => loadStorage(MODEL_STORAGE) || "openrouter/auto");
+  const [model, setModel] = useState(loadModel);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -203,7 +211,7 @@ export function Chat() {
               <h2 className="text-2xl font-semibold tracking-tight text-zinc-100">Bring your key. Ask anything.</h2>
               <p className="mt-2 max-w-lg text-sm text-zinc-500">
                 Your model, your data, rendered inline: charts, diagrams, tables and live fetches.
-                {!apiKey && <span className="text-amber-400"> Connect an OpenRouter key to start.</span>}
+                {!apiKey && <span className="text-amber-400"> Connect an OpenCode API key to start.</span>}
               </p>
               <div className="mt-6 space-y-2">
                 {SUGGESTIONS.map((s) => (
@@ -273,7 +281,7 @@ export function Chat() {
               {error && (
                 <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
                   {error.message}
-                  {!apiKey && " Add your OpenRouter API key in Settings."}
+                  {!apiKey && " Add your OpenCode API key in Settings."}
                 </div>
               )}
             </div>

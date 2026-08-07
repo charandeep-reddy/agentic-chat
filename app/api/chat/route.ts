@@ -7,14 +7,14 @@ import { SYSTEM_PROMPT } from "@/lib/prompts";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-export const DEFAULT_MODEL = "openrouter/auto";
+export const DEFAULT_MODEL = "deepseek-v4-flash";
 
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1";
 
 export async function POST(req: Request) {
   const apiKey = req.headers.get("x-openrouter-key");
   if (!apiKey || apiKey.trim() === "") {
-    return Response.json({ error: "missing_api_key", message: "Add your OpenRouter API key in Settings first." }, { status: 400 });
+    return Response.json({ error: "missing_api_key", message: "Add your OpenCode API key in Settings first." }, { status: 400 });
   }
 
   let body: { messages?: UIMessage[]; model?: unknown };
@@ -28,13 +28,9 @@ export async function POST(req: Request) {
   const modelId = typeof body.model === "string" && body.model.trim() !== "" ? body.model : DEFAULT_MODEL;
 
   const provider = createOpenAICompatible({
-    name: "openrouter",
-    baseURL: OPENROUTER_BASE_URL,
+    name: "opencode-go",
+    baseURL: OPENCODE_GO_BASE_URL,
     apiKey,
-    headers: {
-      "HTTP-Referer": "https://agentic-chat.local",
-      "X-Title": "Agentic Chat",
-    },
   });
 
   const result = streamText({
