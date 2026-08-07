@@ -1,4 +1,5 @@
 import {
+  consumeStream,
   convertToModelMessages,
   createUIMessageStreamResponse,
   generateId,
@@ -164,5 +165,16 @@ export async function POST(req: Request) {
         }
       },
     }),
+    // Switching chats unmounts the client hook, which aborts its fetch and
+    // cancels its half of the response. `consumeSseStream` hands us a tee'd
+    // copy: draining it keeps the source alive, so the model finishes its turn
+    // and `onEnd` still writes the answer to the database. Without it the
+    // cancel propagates and the reply is lost mid-sentence.
+    consumeSseStream: ({ stream }) => {
+      void consumeStream({
+        stream,
+        onError: (error) => console.error("[api/chat] background stream error:", error),
+      });
+    },
   });
 }

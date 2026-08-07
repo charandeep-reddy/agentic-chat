@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/lib/auth-client";
 import { useChats, type ChatSummary } from "./chats-provider";
+import { ConfirmDialog } from "./confirm-dialog";
 import {
   IconArchive,
   IconBrain,
@@ -60,6 +61,7 @@ function ChatRow({ chat, active }: { chat: ChatSummary; active: boolean }) {
   const { patchChat, removeChat } = useChats();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(chat.title);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -167,9 +169,7 @@ function ChatRow({ chat, active }: { chat: ChatSummary; active: boolean }) {
             type="button"
             onClick={() => {
               setMenuOpen(false);
-              if (!confirm(`Delete "${chat.title}"? This cannot be undone.`)) return;
-              void removeChat(chat.id);
-              if (active) router.push("/");
+              setConfirming(true);
             }}
             className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] text-danger hover:bg-danger-soft"
           >
@@ -178,12 +178,28 @@ function ChatRow({ chat, active }: { chat: ChatSummary; active: boolean }) {
           </button>
         </div>
       )}
+
+      {confirming && (
+        <ConfirmDialog
+          title="Delete this chat?"
+          description={`"${chat.title}" and every message in it will be permanently removed. This cannot be undone.`}
+          confirmLabel="Delete chat"
+          onCancel={() => setConfirming(false)}
+          onConfirm={() => {
+            setConfirming(false);
+            void removeChat(chat.id);
+            if (active) router.push("/");
+          }}
+        />
+      )}
     </div>
   );
 }
 
 function UserMenu({ user }: { user: SidebarUser }) {
   const [open, setOpen] = useState(false);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -219,17 +235,40 @@ function UserMenu({ user }: { user: SidebarUser }) {
           <div className="my-1 border-t border-border-subtle" />
           <button
             type="button"
-            onClick={() =>
-              void signOut({
-                fetchOptions: { onSuccess: () => router.push("/sign-in") },
-              })
-            }
+            onClick={() => {
+              setOpen(false);
+              setConfirmingSignOut(true);
+            }}
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-text-secondary hover:bg-surface hover:text-text"
           >
             <IconLogout size={14} />
             Sign out
           </button>
         </div>
+      )}
+
+      {confirmingSignOut && (
+        <ConfirmDialog
+          title="Sign out?"
+          description="Your chats and memories stay on your account — you'll just need to sign in again to reach them."
+          confirmLabel="Sign out"
+          tone="neutral"
+          pending={signingOut}
+          pendingLabel="Signing out…"
+          onCancel={() => setConfirmingSignOut(false)}
+          onConfirm={() => {
+            setSigningOut(true);
+            void signOut({
+              fetchOptions: {
+                onSuccess: () => router.push("/sign-in"),
+                onError: () => {
+                  setSigningOut(false);
+                  setConfirmingSignOut(false);
+                },
+              },
+            });
+          }}
+        />
       )}
 
       <button
@@ -259,10 +298,13 @@ function UserMenu({ user }: { user: SidebarUser }) {
 export function Sidebar({
   user,
   open,
+  collapsed,
   onClose,
 }: {
   user: SidebarUser;
   open: boolean;
+  /** Desktop only — the drawer below `lg` is driven by `open`. */
+  collapsed: boolean;
   onClose: () => void;
 }) {
   const { chats, loading, search, setSearch, showArchived, setShowArchived } = useChats();
@@ -280,81 +322,89 @@ export function Sidebar({
         />
       )}
 
+      {/*
+        Two axes, one element: below `lg` it slides in as an overlay drawer, and
+        from `lg` up it animates its own width down to nothing. The inner column
+        keeps a fixed width so the contents slide out of view rather than
+        squashing as the container closes.
+      */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[270px] flex-col border-r border-border-subtle bg-bg-elevated transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-[270px] overflow-hidden border-r border-border-subtle bg-bg-elevated transition-[transform,width] duration-300 ease-out motion-reduce:transition-none lg:static lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        } ${collapsed ? "lg:w-0 lg:border-r-0" : ""}`}
       >
-        <div className="flex items-center justify-between px-3 py-3">
-          <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-text">
-            <IconSpark size={15} className="text-accent" />
-            Agentic Chat
-          </Link>
-        </div>
-
-        <div className="px-3 pb-2">
-          <Link
-            href="/"
-            onClick={onClose}
-            className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-[13px] font-medium text-text transition-colors hover:border-border-strong hover:bg-surface-raised"
-          >
-            <IconPlus size={14} />
-            New chat
-          </Link>
-        </div>
-
-        <div className="px-3 pb-2">
-          <div className="relative">
-            <IconSearch
-              size={13}
-              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-faint"
-            />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search chats"
-              className="w-full rounded-lg border border-border-subtle bg-surface py-2 pl-8 pr-3 text-[13px] text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
-            />
+        <div className="flex h-full w-[270px] flex-col">
+          <div className="flex items-center justify-between px-3 py-3">
+            <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-text">
+              <IconSpark size={15} className="text-accent" />
+              Agentic Chat
+            </Link>
           </div>
-        </div>
 
-        <nav className="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-          {loading ? (
-            <p className="px-2 py-4 text-[13px] text-text-faint">Loading…</p>
-          ) : groups.length === 0 ? (
-            <p className="px-2 py-4 text-[13px] leading-relaxed text-text-faint">
-              {search
-                ? `No chats match "${search}".`
-                : showArchived
-                  ? "Nothing archived."
-                  : "No chats yet — start one above."}
-            </p>
-          ) : (
-            groups.map((group) => (
-              <div key={group.label} className="mb-3">
-                <h2 className="px-2.5 pb-1 text-[11px] font-medium uppercase tracking-wider text-text-faint">
-                  {group.label}
-                </h2>
-                <div className="space-y-0.5">
-                  {group.items.map((chat) => (
-                    <ChatRow key={chat.id} chat={chat} active={chat.id === activeId} />
-                  ))}
+          <div className="px-3 pb-2">
+            <Link
+              href="/"
+              onClick={onClose}
+              className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-[13px] font-medium text-text transition-colors hover:border-border-strong hover:bg-surface-raised"
+            >
+              <IconPlus size={14} />
+              New chat
+            </Link>
+          </div>
+
+          <div className="px-3 pb-2">
+            <div className="relative">
+              <IconSearch
+                size={13}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-faint"
+              />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search chats"
+                className="w-full rounded-lg border border-border-subtle bg-surface py-2 pl-8 pr-3 text-[13px] text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <nav className="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+            {loading ? (
+              <p className="px-2 py-4 text-[13px] text-text-faint">Loading…</p>
+            ) : groups.length === 0 ? (
+              <p className="px-2 py-4 text-[13px] leading-relaxed text-text-faint">
+                {search
+                  ? `No chats match "${search}".`
+                  : showArchived
+                    ? "Nothing archived."
+                    : "No chats yet — start one above."}
+              </p>
+            ) : (
+              groups.map((group) => (
+                <div key={group.label} className="mb-3">
+                  <h2 className="px-2.5 pb-1 text-[11px] font-medium uppercase tracking-wider text-text-faint">
+                    {group.label}
+                  </h2>
+                  <div className="space-y-0.5">
+                    {group.items.map((chat) => (
+                      <ChatRow key={chat.id} chat={chat} active={chat.id === activeId} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </nav>
+              ))
+            )}
+          </nav>
 
-        <div className="border-t border-border-subtle p-2">
-          <button
-            type="button"
-            onClick={() => setShowArchived(!showArchived)}
-            className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12px] text-text-faint transition-colors hover:bg-surface hover:text-text-secondary"
-          >
-            <IconArchive size={13} />
-            {showArchived ? "Back to active chats" : "Archived"}
-          </button>
-          <UserMenu user={user} />
+          <div className="border-t border-border-subtle p-2">
+            <button
+              type="button"
+              onClick={() => setShowArchived(!showArchived)}
+              className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12px] text-text-faint transition-colors hover:bg-surface hover:text-text-secondary"
+            >
+              <IconArchive size={13} />
+              {showArchived ? "Back to active chats" : "Archived"}
+            </button>
+            <UserMenu user={user} />
+          </div>
         </div>
       </aside>
     </>

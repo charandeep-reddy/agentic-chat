@@ -192,7 +192,8 @@ export function Chat({
           type="button"
           onClick={onToggleSidebar}
           aria-label="Toggle sidebar"
-          className="rounded-md p-1.5 text-text-faint hover:bg-surface hover:text-text lg:hidden"
+          title="Toggle sidebar (⌘B)"
+          className="rounded-md p-1.5 text-text-faint hover:bg-surface hover:text-text"
         >
           <IconSidebar size={16} />
         </button>

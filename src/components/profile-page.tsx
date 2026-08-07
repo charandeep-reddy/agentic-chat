@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth-client";
+import { ConfirmDialog } from "./confirm-dialog";
 import { PageShell, Section } from "./page-shell";
 import { IconDownload, IconGithub, IconGoogle, IconKey, IconTrash, IconUser } from "./icons";
 
@@ -48,7 +49,7 @@ export function ProfilePage({
   const [saved, setSaved] = useState(initialSettings);
   const [saving, setSaving] = useState(false);
   const [danger, setDanger] = useState<"chats" | "account" | null>(null);
-  const [confirmText, setConfirmText] = useState("");
+  const [running, setRunning] = useState(false);
 
   const dirty =
     settings.aboutUser !== saved.aboutUser ||
@@ -75,7 +76,8 @@ export function ProfilePage({
   };
 
   const runDangerous = async () => {
-    if (!danger) return;
+    if (!danger || running) return;
+    setRunning(true);
     try {
       await fetch(`/api/account?scope=${danger}`, { method: "DELETE" });
       if (danger === "account") {
@@ -88,7 +90,7 @@ export function ProfilePage({
       console.error("[profile] destructive action failed:", error);
     } finally {
       setDanger(null);
-      setConfirmText("");
+      setRunning(false);
     }
   };
 
@@ -295,10 +297,7 @@ export function ProfilePage({
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setDanger(action.scope);
-                  setConfirmText("");
-                }}
+                onClick={() => setDanger(action.scope)}
                 className="flex shrink-0 items-center gap-1.5 rounded-lg border border-danger/40 px-3 py-1.5 text-[12px] text-danger hover:bg-danger/10"
               >
                 <IconTrash size={12} />
@@ -310,47 +309,19 @@ export function ProfilePage({
       </section>
 
       {danger && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-sm rounded-xl border border-border bg-surface-raised p-5">
-            <h3 className="text-[15px] font-medium text-text">
-              {danger === "chats" ? "Delete all chats?" : "Delete your account?"}
-            </h3>
-            <p className="mt-2 text-[13px] leading-relaxed text-text-muted">
-              {danger === "chats"
-                ? "Every conversation and message will be permanently removed. Memories and settings stay."
-                : "Your account, chats, memories, packs and settings will be permanently removed."}
-            </p>
-            <p className="mt-4 text-[12px] text-text-faint">
-              Type <span className="font-mono text-text-secondary">delete</span> to confirm.
-            </p>
-            <input
-              autoFocus
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-border bg-bg-elevated px-3 py-2 font-mono text-[13px] text-text focus:border-danger focus:outline-none"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setDanger(null);
-                  setConfirmText("");
-                }}
-                className="rounded-lg px-3 py-2 text-[13px] text-text-muted hover:text-text"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={confirmText !== "delete"}
-                onClick={() => void runDangerous()}
-                className="rounded-lg bg-danger px-3.5 py-2 text-[13px] font-medium text-bg hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Delete permanently
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title={danger === "chats" ? "Delete all chats?" : "Delete your account?"}
+          description={
+            danger === "chats"
+              ? "Every conversation and message will be permanently removed. Memories and settings stay."
+              : "Your account, chats, memories, packs and settings will be permanently removed."
+          }
+          confirmLabel="Delete permanently"
+          confirmPhrase="delete"
+          pending={running}
+          onCancel={() => setDanger(null)}
+          onConfirm={() => void runDangerous()}
+        />
       )}
     </PageShell>
   );

@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ModelInfo } from "@/app/api/models/route";
 import { DEFAULT_MODEL } from "@/lib/models";
-import { IconClose, IconKey } from "./icons";
+import { useChats } from "./chats-provider";
+import { ConfirmDialog } from "./confirm-dialog";
+import { IconClose, IconKey, IconTrash } from "./icons";
 
 export const KEY_STORAGE = "agentic-chat.key";
 export const MODEL_STORAGE = "agentic-chat.model";
@@ -12,6 +15,7 @@ export const MODEL_STORAGE = "agentic-chat.model";
 const SHORTCUTS = [
   { keys: "⌘ K", label: "Search chats / jump" },
   { keys: "⌘ ⇧ O", label: "New chat" },
+  { keys: "⌘ B", label: "Show / hide sidebar" },
   { keys: "⌘ /", label: "Focus composer" },
   { keys: "↵", label: "Send" },
   { keys: "⇧ ↵", label: "Newline" },
@@ -38,10 +42,15 @@ export function SettingsPanel({
   open: boolean;
   onClose: () => void;
 }) {
+  const router = useRouter();
+  const { refresh } = useChats();
   const [draftKey, setDraftKey] = useState("");
   const [prevOpen, setPrevOpen] = useState(false);
   const [models, setModels] = useState<{ key: string; list: ModelInfo[] } | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState(false);
 
   // Reset the draft when the panel opens (derived state during render).
   if (open && !prevOpen) {
@@ -51,6 +60,7 @@ export function SettingsPanel({
   if (!open && prevOpen) {
     setPrevOpen(false);
     setErrorKey(null);
+    setClearError(false);
   }
 
   const loadingModels = open && apiKey !== "" && models?.key !== apiKey && errorKey !== apiKey;
@@ -93,6 +103,26 @@ export function SettingsPanel({
     setModels(null);
     setErrorKey(null);
   }, [draftKey, onKeyChange]);
+
+  const clearHistory = useCallback(async () => {
+    setClearing(true);
+    setClearError(false);
+    try {
+      const res = await fetch("/api/account?scope=chats", { method: "DELETE" });
+      if (!res.ok) throw new Error(String(res.status));
+      setConfirmingClear(false);
+      await refresh();
+      // The open conversation is gone now, so don't leave its URL on screen.
+      router.push("/");
+      onClose();
+    } catch (error) {
+      console.error("[settings] failed to clear chat history:", error);
+      setClearError(true);
+      setConfirmingClear(false);
+    } finally {
+      setClearing(false);
+    }
+  }, [refresh, router, onClose]);
 
   if (!open) return null;
 
@@ -228,7 +258,44 @@ export function SettingsPanel({
             Remove key from this browser
           </button>
         )}
+
+        <div className="mt-6 rounded-xl border border-danger/25 bg-danger-soft/50 p-4">
+          <h3 className="text-[12px] font-medium text-danger">Danger zone</h3>
+          <p className="mt-1 text-[11px] leading-relaxed text-text-faint">
+            Clearing removes every conversation and message, including archived ones. Memories,
+            settings and your account stay. It cannot be undone —{" "}
+            <Link href="/profile" className="underline underline-offset-2 hover:text-text-muted">
+              export first
+            </Link>{" "}
+            if you might want the data.
+          </p>
+          <button
+            type="button"
+            onClick={() => setConfirmingClear(true)}
+            className="mt-3 flex items-center gap-1.5 rounded-lg border border-danger/40 px-3 py-1.5 text-[12px] text-danger hover:bg-danger/10"
+          >
+            <IconTrash size={12} />
+            Clear chat history
+          </button>
+          {clearError && (
+            <p role="alert" className="mt-2 text-[11px] text-danger">
+              Could not clear the history. Try again.
+            </p>
+          )}
+        </div>
       </div>
+
+      {confirmingClear && (
+        <ConfirmDialog
+          title="Clear all chat history?"
+          description="Every conversation and message will be permanently removed. Memories, settings and your account are not affected."
+          confirmLabel="Delete everything"
+          confirmPhrase="delete"
+          pending={clearing}
+          onCancel={() => setConfirmingClear(false)}
+          onConfirm={() => void clearHistory()}
+        />
+      )}
     </>
   );
 }

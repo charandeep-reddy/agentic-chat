@@ -12,6 +12,10 @@ mermaid.initialize({
   securityLevel: "loose",
   fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
   themeVariables: { background: "#09090b", fontSize: "13px" },
+  // Without this, a diagram mermaid can't parse is answered with its own
+  // "Syntax error in text / mermaid version …" graphic, drawn straight into the
+  // page. We'd rather show the reason and the source the model produced.
+  suppressErrorRendering: true,
 });
 
 function FlowDiagram({ id, diagram }: { id: string; diagram: string }) {
@@ -36,8 +40,11 @@ function FlowDiagram({ id, diagram }: { id: string; diagram: string }) {
   if (error) {
     return (
       <div className="space-y-2">
-        <p className="text-sm text-red-400">Could not render this diagram:</p>
-        <pre className="whitespace-pre-wrap rounded-md border border-zinc-800 bg-zinc-950 p-3 font-mono text-xs text-zinc-400">{diagram}</pre>
+        <p className="text-sm text-danger">Could not render this diagram.</p>
+        <p className="font-mono text-xs leading-relaxed text-text-faint">{error}</p>
+        <pre className="scroll-thin overflow-x-auto whitespace-pre rounded-md border border-border-subtle bg-surface p-3 font-mono text-xs text-text-muted">
+          {diagram}
+        </pre>
       </div>
     );
   }
