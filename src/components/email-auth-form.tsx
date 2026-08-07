@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, signUp } from "@/lib/auth-client";
 import {
@@ -10,7 +10,7 @@ import {
   validateName,
   validatePassword,
 } from "@/lib/credentials";
-import { IconLoader } from "./icons";
+import { IconEye, IconEyeOff, IconLoader } from "./icons";
 
 type Mode = "signin" | "signup";
 
@@ -22,10 +22,14 @@ export function EmailAuthForm() {
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Always starts hidden: revealing is a deliberate act, since the point is to
+  // proofread a password that can't be reset if it's typed wrong.
+  const [revealed, setRevealed] = useState(false);
 
   const switchMode = (next: Mode) => {
     setMode(next);
     setError(null);
+    setRevealed(false);
   };
 
   const submit = async (event: React.FormEvent) => {
@@ -104,11 +108,23 @@ export function EmailAuthForm() {
 
       <Field
         label="Password"
-        type="password"
+        type={revealed ? "text" : "password"}
         value={password}
         onChange={setPassword}
         autoComplete={mode === "signup" ? "new-password" : "current-password"}
         placeholder={mode === "signup" ? `At least ${MIN_PASSWORD_LENGTH} characters` : "••••••••"}
+        trailing={
+          <button
+            type="button"
+            onClick={() => setRevealed((current) => !current)}
+            aria-pressed={revealed}
+            aria-label={revealed ? "Hide password" : "Show password"}
+            title={revealed ? "Hide password" : "Show password"}
+            className="text-text-faint transition-colors hover:text-text"
+          >
+            {revealed ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+          </button>
+        }
       />
 
       <button
@@ -136,6 +152,7 @@ function Field({
   onChange,
   autoComplete,
   placeholder,
+  trailing,
 }: {
   label: string;
   type: "text" | "email" | "password";
@@ -143,20 +160,37 @@ function Field({
   onChange: (value: string) => void;
   autoComplete: string;
   placeholder: string;
+  /** Control rendered inside the input's right edge. */
+  trailing?: React.ReactNode;
 }) {
+  // The trailing control is a button, so the field can't be wrapped in a
+  // <label> — a click on it would be forwarded to the input instead.
+  const id = useId();
+
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-text-faint">
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-text-faint"
+      >
         {label}
-      </span>
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
-      />
-    </label>
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          className={`w-full rounded-xl border border-border bg-surface py-2.5 pl-3.5 text-sm text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none ${
+            trailing ? "pr-11" : "pr-3.5"
+          }`}
+        />
+        {trailing && (
+          <span className="absolute inset-y-0 right-0 flex items-center pr-3.5">{trailing}</span>
+        )}
+      </div>
+    </div>
   );
 }

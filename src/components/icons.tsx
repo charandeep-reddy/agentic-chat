@@ -339,6 +339,16 @@ export function IconEye(props: IconProps) {
   );
 }
 
+export function IconEyeOff(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M10.7 6.2A9.9 9.9 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3 3.6M6.5 7.4A17 17 0 0 0 2.5 12S6 18 12 18a9.6 9.6 0 0 0 4-.8" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <path d="M3 3l18 18" />
+    </svg>
+  );
+}
+
 export function IconExternal(props: IconProps) {
   return (
     <svg {...base(props)}>
