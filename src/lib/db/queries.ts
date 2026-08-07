@@ -106,17 +106,6 @@ export async function createChat(
   return row;
 }
 
-/** Creates the chat if it doesn't exist yet; no-ops when it already does. */
-export async function ensureChat(
-  chatId: string,
-  userId: string,
-  model?: string,
-): Promise<Chat> {
-  const existing = await getChat(chatId, userId);
-  if (existing) return existing;
-  return createChat(userId, { id: chatId, model });
-}
-
 export async function updateChat(
   chatId: string,
   userId: string,
@@ -190,12 +179,14 @@ export async function getMessages(chatId: string): Promise<StoredMessage[]> {
   return rows.map((r) => ({ ...r, parts: r.parts as UIMessage["parts"] }));
 }
 
-async function nextOrdinal(chatId: string): Promise<number> {
-  const [row] = await db
-    .select({ max: sql<number | null>`max(${message.ordinal})` })
-    .from(message)
-    .where(eq(message.chatId, chatId));
-  return (row?.max ?? -1) + 1;
+/**
+ * The next free ordinal, as a subquery rather than a value, so the insert
+ * doesn't need a round trip to find out where it lands. Postgres evaluates it
+ * against the snapshot taken when the statement starts, so every row in one
+ * insert sees the same maximum — hence the caller's `+ offset`.
+ */
+function nextOrdinal(chatId: string) {
+  return sql<number>`(select coalesce(max(${message.ordinal}), -1) from ${message} where ${message.chatId} = ${chatId})`;
 }
 
 /**
@@ -222,30 +213,35 @@ export async function saveMessages(
     throw new Error(`Refusing to save a ${blank.role} message with an empty id to chat ${chatId}.`);
   }
 
-  let ordinal = await nextOrdinal(chatId);
+  const base = nextOrdinal(chatId);
 
-  await db
-    .insert(message)
-    .values(
-      messages.map((m) => ({
-        id: m.id,
-        chatId,
-        role: m.role,
-        parts: m.parts,
-        metadata: m.metadata ?? null,
-        model: m.model ?? null,
-        ordinal: ordinal++,
-      })),
-    )
-    .onConflictDoUpdate({
-      target: message.id,
-      set: {
-        parts: sql`excluded.parts`,
-        metadata: sql`excluded.metadata`,
-      },
-    });
-
-  await touchChat(chatId);
+  // The insert and the touch are independent, so they go out together rather
+  // than one after the other — over a remote database that halves the wait.
+  await Promise.all([
+    db
+      .insert(message)
+      .values(
+        messages.map((m, i) => ({
+          id: m.id,
+          chatId,
+          role: m.role,
+          parts: m.parts,
+          metadata: m.metadata ?? null,
+          model: m.model ?? null,
+          // Re-saving an existing id keeps its original ordinal, because
+          // `ordinal` is deliberately absent from the conflict update below.
+          ordinal: sql<number>`${base} + ${i + 1}`,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: message.id,
+        set: {
+          parts: sql`excluded.parts`,
+          metadata: sql`excluded.metadata`,
+        },
+      }),
+    touchChat(chatId),
+  ]);
 }
 
 /**

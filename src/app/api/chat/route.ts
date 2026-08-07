@@ -13,7 +13,7 @@ import { buildSystemPrompt } from "@/lib/prompts";
 import { createProvider, DEFAULT_MODEL, resolveModelId } from "@/lib/provider";
 import { requireUserApi } from "@/lib/session";
 import { createDbMemoryStore, selectPromptMemories } from "@/lib/memory-store";
-import { ensureChat, getSettings, saveMessages, truncateFrom } from "@/lib/db/queries";
+import { createChat, getChat, getSettings, saveMessages, truncateFrom } from "@/lib/db/queries";
 import { generateTitleInBackground } from "@/lib/title";
 
 export const maxDuration = 60;
@@ -70,10 +70,18 @@ export async function POST(req: Request) {
     return Response.json({ error: "missing_chat_id" }, { status: 400 });
   }
 
-  const settings = await getSettings(user.id);
-  const modelId = resolveModelId(body.model, settings?.defaultModel);
+  // These three don't depend on each other, and the database is remote enough
+  // that doing them in sequence was the bulk of the delay before the first
+  // token. Memories are fetched even when the setting turns out to be off —
+  // it's on by default, so speculating costs far less than waiting.
+  const [settings, existingChat, candidateMemories] = await Promise.all([
+    getSettings(user.id),
+    getChat(chatId, user.id),
+    selectPromptMemories(user.id, lastUserText(messages)),
+  ]);
 
-  const chat = await ensureChat(chatId, user.id, modelId);
+  const modelId = resolveModelId(body.model, settings?.defaultModel);
+  const chat = existingChat ?? (await createChat(user.id, { id: chatId, model: modelId }));
 
   // Edit / regenerate: the client sends the truncation point, and the message
   // list it wants to continue from. Rewriting history before we persist keeps
@@ -84,7 +92,7 @@ export async function POST(req: Request) {
 
   const memoryEnabled = settings?.memoryEnabled ?? true;
   const memoryStore = memoryEnabled ? createDbMemoryStore(user.id) : null;
-  const memories = memoryEnabled ? await selectPromptMemories(user.id, lastUserText(messages)) : [];
+  const memories = memoryEnabled ? candidateMemories : [];
 
   const system = buildSystemPrompt({
     userName: user.name,
@@ -93,11 +101,15 @@ export async function POST(req: Request) {
     memories: memories.map((m) => ({ id: m.id, content: m.content, category: m.category })),
   });
 
-  // Persist the incoming user message now, so a dropped connection mid-stream
-  // still leaves the question in the transcript.
+  // Persist the incoming user message so a dropped connection mid-stream still
+  // leaves the question in the transcript. It starts now but is not awaited
+  // here — the model call doesn't depend on it, and blocking on the write just
+  // delayed the first token. `onEnd` awaits it before saving the answer, which
+  // is what keeps the two in ordinal order.
   const incoming = messages[messages.length - 1];
+  let userSaved: Promise<void> = Promise.resolve();
   if (incoming?.role === "user") {
-    await saveMessages(chatId, [
+    userSaved = saveMessages(chatId, [
       {
         id: incoming.id,
         role: "user",
@@ -105,6 +117,9 @@ export async function POST(req: Request) {
         metadata: incoming.metadata,
       },
     ]);
+    // Nothing awaits this until the stream ends, so keep a rejection from
+    // surfacing as an unhandled one in the meantime.
+    userSaved.catch(() => {});
     generateTitleInBackground({ chat, userId: user.id, apiKey, text: lastUserText(messages) });
   }
 
@@ -134,6 +149,7 @@ export async function POST(req: Request) {
       onEnd: async ({ responseMessage }) => {
         if (!responseMessage) return;
         try {
+          await userSaved;
           await saveMessages(chatId, [
             {
               id: responseMessage.id,
