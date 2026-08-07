@@ -30,7 +30,7 @@ const DEFAULT_HEIGHT = 420;
  * touch the parent page or its cookies — this is defence in depth against the
  * frame becoming a beacon for whatever the model was told to embed.
  */
-const BLOCKED_TAGS = ["iframe", "object", "embed", "form", "base", "meta"] as const;
+const BLOCKED_TAGS = ["iframe", "object", "embed", "form", "base"] as const;
 
 function stripFences(source: string): string {
   const trimmed = source.trim();
@@ -48,10 +48,49 @@ function removeTag(html: string, tag: string): { html: string; removed: boolean 
   return { html: next, removed: next !== html };
 }
 
-/** Strips `on*="…"` inline handlers that reference navigation targets. */
 function stripBlockedProtocols(html: string): { html: string; removed: boolean } {
   const next = html.replace(/(href|src|action)\s*=\s*(['"])\s*javascript:[^'"]*\2/gi, '$1="#"');
   return { html: next, removed: next !== html };
+}
+
+/**
+ * Drops `<meta http-equiv=…>`, which could otherwise set a weaker CSP than
+ * ours or navigate the frame with a refresh. Plain metas (charset, viewport,
+ * description) are left alone.
+ */
+function stripHttpEquivMeta(html: string): { html: string; removed: boolean } {
+  const next = html.replace(/<meta\b[^>]*\bhttp-equiv\b[^>]*>/gi, "");
+  return { html: next, removed: next !== html };
+}
+
+/**
+ * Blocks the frame from reaching the network. Everything must be inline, so
+ * a generated artifact cannot beacon out what it renders, pull a remote
+ * script, or load a tracking pixel. `'unsafe-inline'` is required for the
+ * inline `<style>`/`<script>` that make artifacts work at all — the isolation
+ * that matters here comes from the opaque origin and this `connect-src 'none'`.
+ */
+const CSP =
+  "default-src 'none'; " +
+  "style-src 'unsafe-inline'; " +
+  "script-src 'unsafe-inline'; " +
+  "img-src data: blob:; " +
+  "font-src data:; " +
+  "connect-src 'none'; " +
+  "form-action 'none'; " +
+  "frame-src 'none'; " +
+  "base-uri 'none'";
+
+const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
+
+/** Injects the CSP meta into a document the model wrote itself. */
+function injectCsp(html: string): string {
+  if (/<head[\s>]/i.test(html)) {
+    return html.replace(/<head([^>]*)>/i, `<head$1>${CSP_META}`);
+  }
+  // No <head>: put it directly after <html>, where the parser will hoist it
+  // into the implicit head before any resource can be requested.
+  return html.replace(/<html([^>]*)>/i, `<html$1><head>${CSP_META}</head>`);
 }
 
 /**
@@ -59,12 +98,13 @@ function stripBlockedProtocols(html: string): { html: string; removed: boolean }
  * sensible typography instead of Times New Roman on white.
  */
 function ensureDocument(html: string): string {
-  if (/<html[\s>]/i.test(html)) return html;
+  if (/<html[\s>]/i.test(html)) return injectCsp(html);
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+${CSP_META}
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -104,6 +144,10 @@ export function renderHtml(args: RenderHtmlArgs): HtmlSpec {
     html = result.html;
     if (result.removed) warnings.push(`Removed <${tag}> — not allowed in rendered HTML.`);
   }
+
+  const meta = stripHttpEquivMeta(html);
+  html = meta.html;
+  if (meta.removed) warnings.push("Removed a <meta http-equiv> directive.");
 
   const protocols = stripBlockedProtocols(html);
   html = protocols.html;

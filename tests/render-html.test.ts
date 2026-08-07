@@ -13,9 +13,27 @@ describe("renderHtml", () => {
     expect(spec.warnings).toEqual([]);
   });
 
-  it("leaves a full document alone", () => {
-    const html = "<html lang='en'><body><p>Already complete</p></body></html>";
-    expect(renderHtml({ html }).html).toBe(html);
+  it("keeps a full document intact but adds the CSP", () => {
+    const html = "<html lang='en'><head><title>T</title></head><body><p>Complete</p></body></html>";
+    const out = renderHtml({ html }).html;
+
+    expect(out).toContain("<p>Complete</p>");
+    expect(out).toContain("<title>T</title>");
+    expect(out).toContain("Content-Security-Policy");
+  });
+
+  it("gives a document with no <head> one, so the CSP is parsed first", () => {
+    const out = renderHtml({ html: "<html><body><p>No head here</p></body></html>" }).html;
+
+    expect(out).toMatch(/<html><head><meta http-equiv="Content-Security-Policy"/);
+  });
+
+  it("blocks network access from the frame", () => {
+    const out = renderHtml({ html: "<p>some content here</p>" }).html;
+
+    expect(out).toContain("default-src 'none'");
+    expect(out).toContain("connect-src 'none'");
+    expect(out).toContain("form-action 'none'");
   });
 
   it("strips code fences the model wrapped around the source", () => {
@@ -35,6 +53,17 @@ describe("renderHtml", () => {
     expect(spec.html).not.toContain("<form");
     expect(spec.warnings).toHaveLength(2);
     expect(spec.warnings.join(" ")).toContain("iframe");
+  });
+
+  it("drops http-equiv metas that could weaken the CSP or refresh the frame", () => {
+    const spec = renderHtml({
+      html: `<meta charset="utf-8"><meta http-equiv="refresh" content="0;url=https://evil.test"><p>Kept content</p>`,
+    });
+
+    expect(spec.html).not.toContain("refresh");
+    expect(spec.html).toContain('<meta charset="utf-8">');
+    expect(spec.html).toContain("<p>Kept content</p>");
+    expect(spec.warnings.join(" ")).toContain("http-equiv");
   });
 
   it("removes a <base> tag that would retarget every relative URL", () => {
