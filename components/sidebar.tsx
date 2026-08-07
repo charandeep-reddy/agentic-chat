@@ -1,0 +1,362 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { signOut } from "@/lib/auth-client";
+import { useChats, type ChatSummary } from "./chats-provider";
+import {
+  IconArchive,
+  IconBrain,
+  IconLogout,
+  IconMore,
+  IconPin,
+  IconPlus,
+  IconSearch,
+  IconSliders,
+  IconSpark,
+  IconTrash,
+  IconUser,
+} from "./icons";
+
+export interface SidebarUser {
+  name: string;
+  email: string;
+  image: string | null;
+}
+
+/** Buckets chats the way ChatGPT and Claude do — recency, but named. */
+function groupChats(chats: ChatSummary[]): Array<{ label: string; items: ChatSummary[] }> {
+  const now = Date.now();
+  const day = 86_400_000;
+  const groups: Record<string, ChatSummary[]> = {
+    Pinned: [],
+    Today: [],
+    Yesterday: [],
+    "Previous 7 days": [],
+    "Previous 30 days": [],
+    Older: [],
+  };
+
+  for (const chat of chats) {
+    if (chat.pinned) {
+      groups.Pinned.push(chat);
+      continue;
+    }
+    const age = now - new Date(chat.updatedAt).getTime();
+    if (age < day) groups.Today.push(chat);
+    else if (age < 2 * day) groups.Yesterday.push(chat);
+    else if (age < 7 * day) groups["Previous 7 days"].push(chat);
+    else if (age < 30 * day) groups["Previous 30 days"].push(chat);
+    else groups.Older.push(chat);
+  }
+
+  return Object.entries(groups)
+    .filter(([, items]) => items.length > 0)
+    .map(([label, items]) => ({ label, items }));
+}
+
+function ChatRow({ chat, active }: { chat: ChatSummary; active: boolean }) {
+  const { patchChat, removeChat } = useChats();
+  const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(chat.title);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [menuOpen]);
+
+  const commitRename = () => {
+    const title = draft.trim();
+    setRenaming(false);
+    if (title && title !== chat.title) void patchChat(chat.id, { title });
+    else setDraft(chat.title);
+  };
+
+  if (renaming) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commitRename}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commitRename();
+          if (e.key === "Escape") {
+            setDraft(chat.title);
+            setRenaming(false);
+          }
+        }}
+        className="w-full rounded-lg border border-accent/50 bg-surface px-2.5 py-2 text-[13px] text-text focus:outline-none"
+      />
+    );
+  }
+
+  return (
+    <div className="group relative">
+      <Link
+        href={`/c/${chat.id}`}
+        className={`flex items-center gap-2 rounded-lg px-2.5 py-2 pr-8 text-[13px] transition-colors ${
+          active
+            ? "bg-surface-raised text-text"
+            : "text-text-muted hover:bg-surface hover:text-text-secondary"
+        }`}
+      >
+        {chat.pinned && <IconPin size={11} className="shrink-0 text-accent" />}
+        <span className="truncate">{chat.title}</span>
+      </Link>
+
+      <button
+        type="button"
+        aria-label={`Actions for ${chat.title}`}
+        onClick={(e) => {
+          e.preventDefault();
+          setMenuOpen((v) => !v);
+        }}
+        className={`absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1 text-text-faint transition-opacity hover:bg-surface-raised hover:text-text ${
+          menuOpen ? "opacity-100" : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
+        }`}
+      >
+        <IconMore size={14} />
+      </button>
+
+      {menuOpen && (
+        <div
+          ref={menuRef}
+          className="absolute right-1 top-full z-30 mt-1 w-44 overflow-hidden rounded-lg border border-border bg-surface-raised py-1 shadow-xl"
+        >
+          {[
+            {
+              label: chat.pinned ? "Unpin" : "Pin to top",
+              icon: <IconPin size={13} />,
+              run: () => void patchChat(chat.id, { pinned: !chat.pinned }),
+            },
+            {
+              label: "Rename",
+              icon: <IconSliders size={13} />,
+              run: () => setRenaming(true),
+            },
+            {
+              label: chat.archived ? "Unarchive" : "Archive",
+              icon: <IconArchive size={13} />,
+              run: () => void patchChat(chat.id, { archived: !chat.archived }),
+            },
+          ].map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                item.run();
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] text-text-secondary hover:bg-surface hover:text-text"
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+          <div className="my-1 border-t border-border-subtle" />
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              if (!confirm(`Delete "${chat.title}"? This cannot be undone.`)) return;
+              void removeChat(chat.id);
+              if (active) router.push("/");
+            }}
+            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] text-danger hover:bg-danger-soft"
+          >
+            <IconTrash size={13} />
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserMenu({ user }: { user: SidebarUser }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      {open && (
+        <div className="absolute bottom-full left-0 z-30 mb-1 w-full overflow-hidden rounded-lg border border-border bg-surface-raised py-1 shadow-xl">
+          <Link
+            href="/profile"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-text-secondary hover:bg-surface hover:text-text"
+          >
+            <IconUser size={14} />
+            Profile & settings
+          </Link>
+          <Link
+            href="/memory"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-text-secondary hover:bg-surface hover:text-text"
+          >
+            <IconBrain size={14} />
+            Memory
+          </Link>
+          <div className="my-1 border-t border-border-subtle" />
+          <button
+            type="button"
+            onClick={() =>
+              void signOut({
+                fetchOptions: { onSuccess: () => router.push("/sign-in") },
+              })
+            }
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-text-secondary hover:bg-surface hover:text-text"
+          >
+            <IconLogout size={14} />
+            Sign out
+          </button>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-surface"
+      >
+        {user.image ? (
+          // eslint-disable-next-line @next/next/no-img-element -- avatar host varies by OAuth provider
+          <img src={user.image} alt="" className="h-7 w-7 shrink-0 rounded-full" />
+        ) : (
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+            <IconUser size={14} />
+          </span>
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-medium text-text-secondary">
+            {user.name}
+          </span>
+          <span className="block truncate text-[11px] text-text-faint">{user.email}</span>
+        </span>
+      </button>
+    </div>
+  );
+}
+
+export function Sidebar({
+  user,
+  open,
+  onClose,
+}: {
+  user: SidebarUser;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { chats, loading, search, setSearch, showArchived, setShowArchived } = useChats();
+  const pathname = usePathname();
+  const activeId = pathname.startsWith("/c/") ? pathname.slice(3) : null;
+  const groups = groupChats(chats);
+
+  return (
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+          onClick={onClose}
+          aria-hidden
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-[270px] flex-col border-r border-border-subtle bg-bg-elevated transition-transform lg:static lg:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between px-3 py-3">
+          <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-text">
+            <IconSpark size={15} className="text-accent" />
+            Agentic Chat
+          </Link>
+        </div>
+
+        <div className="px-3 pb-2">
+          <Link
+            href="/"
+            onClick={onClose}
+            className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-[13px] font-medium text-text transition-colors hover:border-border-strong hover:bg-surface-raised"
+          >
+            <IconPlus size={14} />
+            New chat
+          </Link>
+        </div>
+
+        <div className="px-3 pb-2">
+          <div className="relative">
+            <IconSearch
+              size={13}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-faint"
+            />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search chats"
+              className="w-full rounded-lg border border-border-subtle bg-surface py-2 pl-8 pr-3 text-[13px] text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <nav className="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+          {loading ? (
+            <p className="px-2 py-4 text-[13px] text-text-faint">Loading…</p>
+          ) : groups.length === 0 ? (
+            <p className="px-2 py-4 text-[13px] leading-relaxed text-text-faint">
+              {search
+                ? `No chats match "${search}".`
+                : showArchived
+                  ? "Nothing archived."
+                  : "No chats yet — start one above."}
+            </p>
+          ) : (
+            groups.map((group) => (
+              <div key={group.label} className="mb-3">
+                <h2 className="px-2.5 pb-1 text-[11px] font-medium uppercase tracking-wider text-text-faint">
+                  {group.label}
+                </h2>
+                <div className="space-y-0.5">
+                  {group.items.map((chat) => (
+                    <ChatRow key={chat.id} chat={chat} active={chat.id === activeId} />
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </nav>
+
+        <div className="border-t border-border-subtle p-2">
+          <button
+            type="button"
+            onClick={() => setShowArchived(!showArchived)}
+            className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12px] text-text-faint transition-colors hover:bg-surface hover:text-text-secondary"
+          >
+            <IconArchive size={13} />
+            {showArchived ? "Back to active chats" : "Archived"}
+          </button>
+          <UserMenu user={user} />
+        </div>
+      </aside>
+    </>
+  );
+}

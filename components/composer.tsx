@@ -1,62 +1,71 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { IconArrowUp, IconStop } from "./icons";
 
+const MAX_HEIGHT = 200;
+
 export function Composer({
+  ref,
   hasKey,
   busy,
+  blocked,
   model,
   onSend,
   onStop,
   onOpenSettings,
 }: {
+  ref?: Ref<HTMLTextAreaElement>;
   hasKey: boolean;
   busy: boolean;
+  blocked: boolean;
   model: string;
   onSend: (text: string) => void;
   onStop: () => void;
   onOpenSettings: () => void;
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
+  const inner = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(ref, () => inner.current as HTMLTextAreaElement, []);
 
   const resize = () => {
-    const el = ref.current;
+    const el = inner.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
   };
 
-  useEffect(() => {
-    resize();
-  }, []);
+  useEffect(resize, []);
+
+  const disabled = !hasKey || blocked;
 
   const submit = () => {
-    const value = ref.current?.value ?? "";
-    if (!value.trim() || busy || !hasKey) return;
+    const value = inner.current?.value ?? "";
+    if (!value.trim() || busy || disabled) return;
     onSend(value);
-    if (ref.current) {
-      ref.current.value = "";
+    if (inner.current) {
+      inner.current.value = "";
       resize();
     }
   };
 
+  const placeholder = blocked
+    ? "Pick an option above to continue"
+    : hasKey
+      ? "Ask anything — paste data, request a chart, build a UI…"
+      : "Connect an API key to start chatting";
+
   return (
-    <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-4 pt-2 sm:pb-6">
+    <div className="relative z-10 mx-auto w-full max-w-3xl shrink-0 px-4 pb-4 pt-2 sm:pb-6">
       <div
         className={`rounded-2xl border border-border bg-surface/90 backdrop-blur-xl transition-shadow ${
-          busy ? "composer-active" : "shadow-[0_0_0_1px_var(--border),0_8px_32px_-12px_rgba(0,0,0,0.55)]"
+          busy ? "composer-active" : "shadow-[0_8px_32px_-12px_rgba(0,0,0,0.55)]"
         }`}
       >
         <textarea
-          ref={ref}
+          ref={inner}
           rows={1}
-          placeholder={
-            hasKey
-              ? "Ask anything — paste data, request a chart, fetch a URL…"
-              : "Connect an API key to start chatting"
-          }
-          disabled={!hasKey}
+          placeholder={placeholder}
+          disabled={disabled}
           onInput={resize}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -64,7 +73,7 @@ export function Composer({
               submit();
             }
           }}
-          className="max-h-40 w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-sm leading-relaxed text-text placeholder:text-text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          className="scroll-thin w-full resize-none bg-transparent px-4 pb-2 pt-3.5 text-sm leading-relaxed text-text placeholder:text-text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
 
         <div className="flex items-center justify-between gap-3 px-3 pb-3">
@@ -72,15 +81,19 @@ export function Composer({
             <button
               type="button"
               onClick={onOpenSettings}
-              className="truncate rounded-md border border-border-subtle bg-bg-elevated px-2 py-1 font-mono text-[11px] text-text-muted transition-colors hover:border-border hover:text-text-secondary"
               title="Change model"
+              className="truncate rounded-md border border-border-subtle bg-bg-elevated px-2 py-1 font-mono text-[11px] text-text-muted transition-colors hover:border-border hover:text-text-secondary"
             >
               {model}
             </button>
             <span className="hidden text-[11px] text-text-faint sm:inline">
-              <kbd className="rounded border border-border-subtle px-1 font-mono text-[10px]">↵</kbd> send
-              <span className="mx-1.5 text-border-strong">·</span>
-              <kbd className="rounded border border-border-subtle px-1 font-mono text-[10px]">⇧↵</kbd> newline
+              <kbd className="rounded border border-border-subtle px-1 font-mono text-[10px]">↵</kbd>{" "}
+              send
+              <span className="mx-1.5 opacity-50">·</span>
+              <kbd className="rounded border border-border-subtle px-1 font-mono text-[10px]">
+                ⇧↵
+              </kbd>{" "}
+              newline
             </span>
           </div>
 
@@ -96,7 +109,7 @@ export function Composer({
           ) : (
             <button
               type="button"
-              disabled={!hasKey}
+              disabled={disabled}
               onClick={submit}
               aria-label="Send message"
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-accent-text transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-30"

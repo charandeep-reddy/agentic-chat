@@ -1,234 +1,236 @@
 "use client";
 
+import { useState } from "react";
 import type { UIMessage } from "ai";
-import { ChartWidget } from "./chart-view";
-import { FlowWidget } from "./flow-view";
-import { QuestionCard } from "./question-card";
-import { DataTable } from "./data-table";
-import { ArtifactFrame } from "./artifact-frame";
 import {
-  IconAlert,
+  IconAgent,
+  IconBrain,
   IconChart,
-  IconCheck,
+  IconChevron,
+  IconCode,
   IconFetch,
   IconFlow,
-  IconLoader,
   IconQuestion,
   IconTable,
 } from "./icons";
+import type { ToolMeta } from "@/lib/tools";
 import type { ChartSpec } from "@/lib/tools/render-chart";
-import type { FlowSpec } from "@/lib/tools/render-flow";
 import type { QuestionPayload } from "@/lib/tools/ask-question";
 import type { ParsedTable } from "@/lib/tools/parse-data";
 import type { FetchResult } from "@/lib/tools/fetch-url";
 
-const TOOL_META: Record<
-  string,
-  { label: string; running: string; done: string; Icon: typeof IconChart }
-> = {
-  ask_user_question: {
-    label: "Question",
-    running: "Waiting for your choice",
-    done: "Asked you",
-    Icon: IconQuestion,
-  },
-  render_chart: {
-    label: "Chart",
-    running: "Building chart",
-    done: "Chart ready",
-    Icon: IconChart,
-  },
-  render_flow: {
-    label: "Diagram",
-    running: "Rendering diagram",
-    done: "Diagram ready",
-    Icon: IconFlow,
-  },
-  fetch_url: {
-    label: "Fetch",
-    running: "Fetching URL",
-    done: "Fetched",
-    Icon: IconFetch,
-  },
-  parse_data: {
-    label: "Table",
-    running: "Parsing data",
-    done: "Parsed",
-    Icon: IconTable,
-  },
-};
+export type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
 
-export function isToolPart(
-  part: UIMessage["parts"][number],
-): part is Extract<UIMessage["parts"][number], { type: `tool-${string}` }> {
+export function isToolPart(part: UIMessage["parts"][number]): part is ToolPart {
   return part.type.startsWith("tool-");
 }
 
-function ActivityChip({
-  label,
-  state,
-  Icon,
-}: {
-  label: string;
-  state: "running" | "done" | "error";
-  Icon: typeof IconChart;
-}) {
-  return (
-    <div
-      className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs ${
-        state === "running"
-          ? "border-accent/30 bg-accent-soft text-accent animate-agent-breathe"
-          : state === "error"
-            ? "border-danger/30 bg-danger-soft text-danger"
-            : "border-border bg-surface text-text-muted"
-      }`}
-    >
-      {state === "running" ? (
-        <IconLoader size={12} />
-      ) : state === "error" ? (
-        <IconAlert size={12} />
-      ) : (
-        <IconCheck size={12} className="text-accent" />
-      )}
-      <Icon size={12} className="opacity-70" />
-      <span>{label}</span>
-    </div>
-  );
+const TOOL_ICONS: Record<string, typeof IconChart> = {
+  ask_user_question: IconQuestion,
+  render_chart: IconChart,
+  render_flow: IconFlow,
+  render_html: IconCode,
+  fetch_url: IconFetch,
+  parse_data: IconTable,
+  save_memory: IconBrain,
+  search_memory: IconBrain,
+  forget_memory: IconBrain,
+};
+
+/** One-line result summary shown on the collapsed chip. */
+function outcome(output: unknown): string {
+  const o = output as Record<string, unknown> | null;
+  if (!o) return "";
+  switch (o.kind) {
+    case "chart":
+      return `${String(o.type)} · ${(o.series as unknown[])?.length ?? (o.data as unknown[])?.length ?? 0} series`;
+    case "flow":
+      return String(o.type ?? "diagram");
+    case "html":
+      return `${Math.round(String(o.html).length / 1024)}kb`;
+    case "table":
+      return `${String(o.totalRows)} rows`;
+    case "fetch":
+      return `${String(o.status)} · ${String(o.contentType).split(";")[0]}`;
+    case "question":
+      return "asked";
+    case "memory_saved":
+      return o.alreadyKnown ? "already known" : "saved";
+    case "memory_search":
+      return `${(o.matches as unknown[])?.length ?? 0} matches`;
+    case "memory_forgotten":
+      return "forgotten";
+    default:
+      return "done";
+  }
 }
 
-export function ToolPartView({
-  part,
-  answeredQuestions,
-  onAnswerQuestion,
-}: {
-  part: Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
-  answeredQuestions: Set<string>;
-  onAnswerQuestion: (option: string) => void;
-}) {
-  const toolName = part.type.slice("tool-".length);
-  const meta = TOOL_META[toolName] ?? {
-    label: toolName.replace(/_/g, " "),
-    running: toolName.replace(/_/g, " "),
-    done: toolName.replace(/_/g, " "),
-    Icon: IconSparkFallback,
-  };
-  const Icon = meta.Icon;
+function formatDuration(ms?: number): string {
+  if (ms === undefined) return "";
+  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+}
 
-  if (part.state === "input-streaming" || part.state === "input-available") {
-    return <ActivityChip label={meta.running} state="running" Icon={Icon} />;
-  }
-
-  if (part.state === "output-error") {
-    return (
-      <div className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-3 animate-fade-up">
-        <div className="flex items-center gap-2 text-xs font-medium text-danger">
-          <IconAlert size={14} />
-          {meta.label} failed
-        </div>
-        <p className="mt-1.5 font-mono text-[11px] leading-relaxed text-danger/80">{part.errorText}</p>
-      </div>
-    );
-  }
-
-  if (part.state !== "output-available" || part.output === undefined) return null;
-
-  const output = part.output as Record<string, unknown> & { kind?: string };
-
-  switch (toolName) {
+/** Expanded detail lines — the interesting fields, not the whole payload. */
+function summary(name: string, output: unknown): string[] {
+  const o = output as Record<string, unknown> | null;
+  if (!o) return [];
+  switch (name) {
     case "ask_user_question": {
-      const payload = output as unknown as QuestionPayload;
-      return (
-        <QuestionCard
-          payload={payload}
-          state={answeredQuestions.has(part.toolCallId) ? "answered" : "pending"}
-          onAnswer={onAnswerQuestion}
-          onTypedAnswer={onAnswerQuestion}
-        />
-      );
+      const q = o as unknown as QuestionPayload;
+      return [`Asked: "${q.question}"`, `Options: ${q.options.join(" · ")}`];
     }
     case "render_chart": {
-      const spec = output as unknown as ChartSpec;
-      if (spec.kind !== "chart") return null;
-      return (
-        <ArtifactFrame
-          icon={<Icon size={14} />}
-          label={spec.type}
-          title={spec.title}
-          meta="interactive"
-        >
-          <ChartWidget spec={spec} />
-        </ArtifactFrame>
-      );
+      const s = o as unknown as ChartSpec;
+      return [
+        s.title ? `Title: ${s.title}` : "",
+        s.type === "pie"
+          ? `${s.data?.length ?? 0} slices`
+          : `${s.series?.length ?? 0} series · ${s.xLabels?.length ?? 0} points`,
+      ].filter(Boolean);
     }
-    case "render_flow": {
-      const spec = output as unknown as FlowSpec;
-      if (spec.kind !== "flow") return null;
-      return (
-        <ArtifactFrame icon={<Icon size={14} />} label="Mermaid" title={spec.title} meta="diagram">
-          <FlowWidget spec={spec} />
-        </ArtifactFrame>
-      );
-    }
-    case "parse_data": {
-      const table = output as unknown as ParsedTable;
-      if (table.kind !== "table") return null;
-      return <DataTable table={table} />;
+    case "render_flow":
+      return [`Type: ${String(o.type)}`];
+    case "render_html": {
+      const warnings = (o.warnings as string[]) ?? [];
+      return [
+        `${String(o.html).length} chars · ${String(o.height)}px tall`,
+        ...warnings.map((w) => `⚠ ${w}`),
+      ];
     }
     case "fetch_url": {
-      const result = output as unknown as FetchResult;
-      return (
-        <details className="group artifact animate-fade-up">
-          <summary className="flex cursor-pointer list-none items-center gap-2.5 px-3.5 py-2.5 [&::-webkit-details-marker]:hidden">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-info-soft text-info">
-              <IconFetch size={14} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="font-mono text-[10px] font-medium uppercase tracking-wider text-text-faint">
-                  Fetch
-                </span>
-                <span className="font-mono text-[10px] text-text-muted">
-                  {result.status}
-                  <span className="mx-1 text-border-strong">·</span>
-                  {result.contentType.split(";")[0]}
-                  {result.truncated && <span className="ml-1 text-human">(truncated)</span>}
-                </span>
-              </div>
-              <p className="truncate font-mono text-xs text-accent">{result.url}</p>
-            </div>
-            <span className="text-[11px] text-text-faint group-open:hidden">Expand</span>
-            <span className="hidden text-[11px] text-text-faint group-open:inline">Collapse</span>
-          </summary>
-          <pre className="max-h-56 overflow-auto border-t border-border-subtle bg-bg px-3.5 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-text-muted">
-            {result.text.slice(0, 4000)}
-          </pre>
-        </details>
-      );
+      const r = o as unknown as FetchResult;
+      return [
+        `URL: ${r.url}`,
+        `Status: ${r.status} · ${r.contentType.split(";")[0]}`,
+        `${r.text.length} chars${r.truncated ? " (truncated)" : ""}`,
+      ];
+    }
+    case "parse_data": {
+      const t = o as unknown as ParsedTable;
+      return [
+        `${t.totalRows} rows · ${t.columns.length} columns`,
+        t.columns.map((c) => `${c.name}:${c.type}`).join(" · "),
+      ];
+    }
+    case "save_memory":
+      return [String(o.content), `Category: ${String(o.category)}`];
+    case "search_memory": {
+      const matches = (o.matches as Array<{ content: string }>) ?? [];
+      return matches.length > 0 ? matches.map((m) => `· ${m.content}`) : ["No matches."];
     }
     default:
-      return (
-        <div className="rounded-xl border border-border bg-surface px-3 py-2 font-mono text-xs text-text-muted">
-          {toolName}: {JSON.stringify(output).slice(0, 500)}
-        </div>
-      );
+      return [];
   }
 }
 
-function IconSparkFallback({ size = 16, className }: { size?: number; className?: string }) {
+/**
+ * The trail of tool calls under an assistant message. Collapsed to chips by
+ * default so the answer stays the focus; each chip expands in place.
+ */
+export function ToolChipRow({ parts }: { parts: ToolPart[] }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [showRaw, setShowRaw] = useState(false);
+
+  if (parts.length === 0) return null;
+
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className={className}
-    >
-      <circle cx="12" cy="12" r="4" />
-    </svg>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {parts.map((part) => {
+          const name = part.type.slice("tool-".length);
+          const Icon = TOOL_ICONS[name] ?? IconAgent;
+          const failed = part.state === "output-error";
+          const pending = part.state === "input-streaming" || part.state === "input-available";
+          const done = part.state === "output-available";
+          const duration = done ? (part.output as { _meta?: ToolMeta })?._meta?.durationMs : undefined;
+          const isOpen = expanded === part.toolCallId;
+
+          return (
+            <button
+              key={part.toolCallId}
+              type="button"
+              disabled={pending}
+              onClick={() => setExpanded(isOpen ? null : part.toolCallId)}
+              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors ${
+                failed
+                  ? "border-danger/40 bg-danger-soft text-danger hover:bg-danger/15"
+                  : isOpen
+                    ? "border-border-strong bg-surface-raised text-text-secondary"
+                    : "border-border-subtle bg-surface/60 text-text-faint hover:border-border hover:text-text-secondary"
+              } ${pending ? "cursor-default" : "cursor-pointer"}`}
+            >
+              <Icon size={12} />
+              <span>{name}</span>
+              {pending && <span className="animate-pulse">…</span>}
+              {done && (
+                <>
+                  <span className="opacity-40">·</span>
+                  <span className="opacity-80">{outcome(part.output)}</span>
+                  {duration !== undefined && (
+                    <span className="opacity-50">· {formatDuration(duration)}</span>
+                  )}
+                </>
+              )}
+              {failed && <span>failed</span>}
+              {(done || failed) && (
+                <IconChevron size={11} className={isOpen ? "rotate-180" : undefined} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {expanded &&
+        parts
+          .filter((p) => p.toolCallId === expanded)
+          .map((part) => {
+            const name = part.type.slice("tool-".length);
+            const output = part.output as Record<string, unknown> | null;
+            const meta = output?._meta as ToolMeta | undefined;
+            const lines =
+              part.state === "output-error"
+                ? [`Error: ${part.errorText}`]
+                : summary(name, output ?? {});
+            const clean = output
+              ? Object.fromEntries(Object.entries(output).filter(([k]) => k !== "_meta"))
+              : {};
+
+            return (
+              <div
+                key={part.toolCallId}
+                className="rounded-xl border border-border-subtle bg-surface/40 p-3"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-mono text-xs text-text-muted">
+                    {name}
+                    {meta && (
+                      <span className="ml-2 text-text-faint">{formatDuration(meta.durationMs)}</span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowRaw((v) => !v)}
+                    className="font-mono text-[11px] text-text-faint underline-offset-2 hover:text-text-secondary hover:underline"
+                  >
+                    {showRaw ? "summary" : "raw"}
+                  </button>
+                </div>
+                {showRaw ? (
+                  <pre className="scroll-thin max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-bg-elevated p-3 font-mono text-[11px] text-text-muted">
+                    {JSON.stringify(clean, null, 2).slice(0, 4000)}
+                  </pre>
+                ) : (
+                  <ul className="space-y-1">
+                    {lines.map((line, i) => (
+                      <li key={i} className="break-words text-xs text-text-muted">
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+    </div>
   );
 }

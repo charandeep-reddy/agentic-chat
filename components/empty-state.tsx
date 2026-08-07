@@ -1,99 +1,112 @@
 "use client";
 
-import { IconChart, IconFetch, IconFlow, IconSpark, IconTable } from "./icons";
+import { IconChart, IconCode, IconFetch, IconFlow, IconKey, IconSpark, IconTable } from "./icons";
 
 const CAPABILITIES = [
   {
     icon: IconChart,
     title: "Visualize",
     hint: "Charts from raw numbers",
-    prompt: "Show me a chart from this data: Jan 120, Feb 210, Mar 175, Apr 290",
+    prompt: "Chart this: Jan 120, Feb 210, Mar 175, Apr 290, May 260, Jun 340",
+  },
+  {
+    icon: IconCode,
+    title: "Build",
+    hint: "Live, interactive HTML",
+    prompt: "Build me an interactive compound-interest calculator",
   },
   {
     icon: IconFetch,
     title: "Fetch live",
-    hint: "Pull public APIs & pages",
-    prompt: "Fetch https://api.github.com/repos/anomalyco/opencode and summarize it",
+    hint: "Public APIs and pages",
+    prompt: "Fetch https://api.github.com/repos/vercel/next.js and summarize it",
   },
   {
     icon: IconFlow,
     title: "Diagram",
-    hint: "Flows, sequences, states",
-    prompt: "Draw a flowchart of a customer support ticket lifecycle",
+    hint: "Mermaid flows and sequences",
+    prompt: "Draw a flowchart of an OAuth 2.0 authorization code flow",
   },
   {
     icon: IconTable,
     title: "Parse data",
-    hint: "CSV / JSON → clean table",
-    prompt: "Parse this CSV and show a table:\nname,score\nAlice,92\nBob,78\nCara,85",
+    hint: "CSV and JSON to tables",
+    prompt: "Parse this CSV and tell me the trend:\nmonth,revenue\nJan,4200\nFeb,5100\nMar,4800",
   },
-] as const;
+];
 
 export function EmptyState({
   hasKey,
   busy,
-  onPrompt,
-  onConnect,
+  onSend,
+  onOpenSettings,
 }: {
   hasKey: boolean;
   busy: boolean;
-  onPrompt: (text: string) => void;
-  onConnect: () => void;
+  onSend: (text: string) => void;
+  onOpenSettings: () => void;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col items-center px-4 pt-10 pb-8 sm:pt-16">
-      <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-surface shadow-[0_0_40px_-8px_var(--accent-soft)]">
-        <IconSpark size={22} className="text-accent" />
-      </div>
-
-      <h2
-        className="text-center text-3xl tracking-tight text-text sm:text-4xl"
-        style={{ fontFamily: "var(--font-instrument), serif" }}
-      >
-        Ask. Act. <em className="text-accent not-italic">Render.</em>
+    <div className="mt-10 flex flex-col items-center text-center sm:mt-16">
+      <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+        <IconSpark size={22} />
+      </span>
+      <h2 className="text-2xl font-semibold tracking-tight text-text">
+        {hasKey ? "What are we working on?" : "Bring your key. Ask anything."}
       </h2>
-
-      <p className="mt-3 max-w-md text-center text-sm leading-relaxed text-text-muted">
-        An agentic workbench for data — charts, diagrams, tables, and live fetches rendered inline.
-        Your key stays in the browser.
+      <p className="mt-2 max-w-lg text-sm leading-relaxed text-text-muted">
+        Your model, your data — charts, diagrams, tables, live fetches and interactive HTML,
+        rendered inline.
       </p>
 
-      {!hasKey && (
-        <button
-          type="button"
-          onClick={onConnect}
-          className="mt-6 inline-flex items-center gap-2 rounded-full border border-human/40 bg-human-soft px-4 py-2 text-sm font-medium text-human transition-colors hover:bg-human/15"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-human animate-pulse-dot" />
-          Connect your API key to start
-        </button>
-      )}
-
-      <div className="mt-10 grid w-full gap-2.5 sm:grid-cols-2">
-        {CAPABILITIES.map((cap, i) => {
-          const Icon = cap.icon;
-          return (
+      {!hasKey ? (
+        <>
+          <div className="mt-8 grid w-full max-w-xl gap-3 sm:grid-cols-3">
+            {[
+              { n: "1", t: "Get a key", d: "Any OpenAI-compatible provider works" },
+              { n: "2", t: "Paste it", d: "Stored in your browser only, never on the server" },
+              { n: "3", t: "Pick a model", d: "Then start chatting" },
+            ].map((step) => (
+              <div
+                key={step.n}
+                className="rounded-xl border border-border-subtle bg-surface/50 p-4 text-left"
+              >
+                <span className="font-mono text-[11px] text-accent">{step.n}</span>
+                <p className="mt-1 text-[13px] font-medium text-text-secondary">{step.t}</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-text-faint">{step.d}</p>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-text hover:brightness-110"
+          >
+            <IconKey size={15} />
+            Connect your key
+          </button>
+        </>
+      ) : (
+        <div className="mt-8 grid w-full max-w-2xl gap-2 sm:grid-cols-2">
+          {CAPABILITIES.map((c) => (
             <button
-              key={cap.title}
+              key={c.title}
               type="button"
-              disabled={!hasKey || busy}
-              onClick={() => onPrompt(cap.prompt)}
-              className={`group flex items-start gap-3 rounded-xl border border-border bg-surface/60 p-3.5 text-left transition-all hover:border-border-strong hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40 animate-fade-up stagger-${i + 1}`}
+              disabled={busy}
+              onClick={() => onSend(c.prompt)}
+              className="group flex items-start gap-3 rounded-xl border border-border-subtle bg-surface/40 p-3.5 text-left transition-colors hover:border-border hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-bg-elevated text-text-muted transition-colors group-hover:border-accent/30 group-hover:text-accent">
-                <Icon size={16} />
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-bg-elevated text-text-faint transition-colors group-hover:text-accent">
+                <c.icon size={14} />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-medium text-text">{cap.title}</span>
-                <span className="mt-0.5 block text-xs text-text-muted">{cap.hint}</span>
-                <span className="mt-2 block truncate font-mono text-[11px] text-text-faint group-hover:text-text-muted">
-                  {cap.prompt.split("\n")[0]}
-                </span>
+                <span className="block text-[13px] font-medium text-text-secondary">{c.title}</span>
+                <span className="block truncate text-[11px] text-text-faint">{c.hint}</span>
               </span>
             </button>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

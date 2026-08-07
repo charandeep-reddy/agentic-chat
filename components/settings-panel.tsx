@@ -1,10 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import type { ModelInfo } from "@/app/api/models/route";
+import { DEFAULT_MODEL } from "@/lib/models";
+import { IconClose, IconKey } from "./icons";
 
 export const KEY_STORAGE = "agentic-chat.key";
 export const MODEL_STORAGE = "agentic-chat.model";
+
+const SHORTCUTS = [
+  { keys: "⌘ ⇧ O", label: "New chat" },
+  { keys: "⌘ /", label: "Focus composer" },
+  { keys: "↵", label: "Send" },
+  { keys: "⇧ ↵", label: "Newline" },
+  { keys: "esc", label: "Stop generating" },
+];
 
 function maskKey(key: string): string {
   if (key.length <= 10) return "•".repeat(Math.min(key.length, 8));
@@ -31,10 +42,10 @@ export function SettingsPanel({
   const [models, setModels] = useState<{ key: string; list: ModelInfo[] } | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
 
-  // Reset the draft and cache when the panel opens (derived state during render).
+  // Reset the draft when the panel opens (derived state during render).
   if (open && !prevOpen) {
     setPrevOpen(true);
-    setDraftKey(apiKey);
+    setDraftKey("");
   }
   if (!open && prevOpen) {
     setPrevOpen(false);
@@ -47,27 +58,40 @@ export function SettingsPanel({
     if (!open || !apiKey) return;
     if (models?.key === apiKey || errorKey === apiKey) return;
     let cancelled = false;
-    fetch("/api/models", { headers: { "x-openrouter-key": apiKey } })
+
+    fetch("/api/models", { headers: { "x-model-key": apiKey } })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`The API rejected the key (${res.status}).`);
+        if (!res.ok) throw new Error(`The provider rejected the key (${res.status}).`);
         const data = (await res.json()) as { models: ModelInfo[] };
         if (!cancelled) setModels({ key: apiKey, list: data.models });
       })
-      .catch((err: unknown) => {
+      .catch((error: unknown) => {
         if (!cancelled) setErrorKey(apiKey);
-        console.error("[settings] failed to load models:", err);
-      });    return () => {
+        console.error("[settings] failed to load models:", error);
+      });
+
+    return () => {
       cancelled = true;
     };
   }, [open, apiKey, models, errorKey]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   const save = useCallback(() => {
     const key = draftKey.trim();
-    if (key === "" && apiKey === "") return;
+    if (!key) return;
     onKeyChange(key);
     setDraftKey("");
-    onClose();
-  }, [draftKey, apiKey, onKeyChange, onClose]);
+    setModels(null);
+    setErrorKey(null);
+  }, [draftKey, onKeyChange]);
 
   if (!open) return null;
 
@@ -75,98 +99,134 @@ export function SettingsPanel({
     <>
       <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} aria-hidden />
       <div
-        className="fixed inset-y-0 left-0 z-50 flex w-[420px] max-w-[92vw] flex-col overflow-y-auto border-r border-zinc-800 bg-zinc-950 p-5 shadow-2xl"
+        className="scroll-thin fixed inset-y-0 right-0 z-50 flex w-[420px] max-w-[92vw] flex-col overflow-y-auto border-l border-border bg-bg-elevated p-5 shadow-2xl"
         role="dialog"
         aria-label="Settings"
-        onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-100">Settings</h2>
-          <button type="button" onClick={onClose} className="text-zinc-500 hover:text-zinc-300" aria-label="Close">
-            ✕
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-text">Settings</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close settings"
+            className="rounded-md p-1 text-text-faint hover:bg-surface hover:text-text"
+          >
+            <IconClose size={15} />
           </button>
         </div>
 
-        <label className="mb-1 block text-xs font-medium text-zinc-400" htmlFor="or-key">
-          OpenCode API key
+        <label htmlFor="model-key" className="mb-1.5 block text-[12px] font-medium text-text-secondary">
+          Model API key
         </label>
         <div className="flex gap-2">
           <input
-            id="or-key"
+            id="model-key"
             type="password"
             value={draftKey}
             onChange={(e) => setDraftKey(e.target.value)}
-            placeholder={apiKey ? `${maskKey(apiKey)} — saved locally` : "sk-…"}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") save();
+            }}
+            placeholder={apiKey ? `${maskKey(apiKey)} — saved in this browser` : "sk-…"}
             autoComplete="off"
-            className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 font-mono text-sm text-zinc-200 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+            className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-surface px-3 py-2 font-mono text-[13px] text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
           />
           <button
             type="button"
             onClick={save}
-            disabled={draftKey.trim() === "" && apiKey === ""}
-            className="shrink-0 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-zinc-950 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={draftKey.trim() === ""}
+            className="shrink-0 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-accent-text hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Save
           </button>
         </div>
-        <p className="mt-1 text-[11px] text-zinc-600">
-          Stored in your browser only. Find your key at <span className="font-mono">~/.local/share/opencode/auth.json</span>{" "}
-          (opencode-go) or via <span className="font-mono">OPENCODE_API_KEY</span>.
+        <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-relaxed text-text-faint">
+          <IconKey size={11} className="mt-0.5 shrink-0" />
+          Stored in this browser&apos;s localStorage and sent with each request. It is never written to
+          the server or the database.
         </p>
 
         {apiKey && (
-          <div className="mt-4">
-            <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs font-medium text-zinc-400" htmlFor="or-model">
+          <div className="mt-6">
+            <div className="mb-1.5 flex items-center justify-between">
+              <label htmlFor="model-select" className="block text-[12px] font-medium text-text-secondary">
                 Model
               </label>
               {errorKey === apiKey && (
                 <button
                   type="button"
                   onClick={() => setErrorKey(null)}
-                  className="text-[11px] text-red-400 underline-offset-2 hover:underline"
+                  className="text-[11px] text-danger underline-offset-2 hover:underline"
                 >
                   Model list failed — retry
                 </button>
               )}
             </div>
             {loadingModels ? (
-              <p className="text-xs text-zinc-500">Loading models…</p>
+              <p className="text-[12px] text-text-faint">Loading models…</p>
             ) : (
               <select
-                id="or-model"
+                id="model-select"
                 value={model}
                 onChange={(e) => onModelChange(e.target.value)}
-                className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-[13px] text-text focus:border-accent focus:outline-none"
               >
-                <option value="deepseek-v4-flash">deepseek-v4-flash (recommended)</option>
-                {(models?.list ?? []).map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} — {m.id}
-                    {m.context ? ` · ${Math.round(m.context / 1024)}k ctx` : ""}
-                  </option>
-                ))}
+                <option value={DEFAULT_MODEL}>{DEFAULT_MODEL} (default)</option>
+                {(models?.list ?? [])
+                  .filter((m) => m.id !== DEFAULT_MODEL)
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                      {m.context ? ` · ${Math.round(m.context / 1024)}k ctx` : ""}
+                    </option>
+                  ))}
               </select>
             )}
           </div>
         )}
+
+        <div className="mt-6">
+          <h3 className="mb-2 text-[12px] font-medium text-text-secondary">Shortcuts</h3>
+          <dl className="space-y-1.5">
+            {SHORTCUTS.map((s) => (
+              <div key={s.label} className="flex items-center justify-between">
+                <dt className="text-[12px] text-text-muted">{s.label}</dt>
+                <dd className="rounded border border-border-subtle bg-surface px-1.5 py-px font-mono text-[11px] text-text-faint">
+                  {s.keys}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div className="mt-6 space-y-1">
+          {[
+            { href: "/profile", label: "Profile & custom instructions" },
+            { href: "/memory", label: "Memory & packs" },
+          ].map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="block rounded-lg px-2.5 py-2 text-[13px] text-text-muted transition-colors hover:bg-surface hover:text-text"
+            >
+              {link.label} →
+            </Link>
+          ))}
+        </div>
 
         {apiKey && (
           <button
             type="button"
             onClick={() => {
               onKeyChange("");
+              setModels(null);
               onClose();
             }}
-            className="mt-4 text-xs text-zinc-600 hover:text-red-400"
+            className="mt-6 self-start text-[12px] text-text-faint hover:text-danger"
           >
-            Remove key
+            Remove key from this browser
           </button>
         )}
-
-        <p className="mt-auto border-t border-zinc-900 pt-4 text-[11px] leading-relaxed text-zinc-600">
-          Your key is stored in this browser only and sent per-request. It is never written to the server.
-        </p>
       </div>
     </>
   );
