@@ -31,7 +31,12 @@ export function ShareButton({
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
-  const url = shareId ? `${window.location.origin}/share/${shareId}` : "";
+  // Read during render, so it has to survive the server pass too — this is a
+  // client component, but Next still prerenders it. The origin is only needed
+  // once the panel is open, which never happens on the server, so falling back
+  // to an empty string here costs nothing and cannot desync hydration.
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const url = shareId ? `${origin}/share/${shareId}` : "";
 
   const createLink = async () => {
     setBusy(true);

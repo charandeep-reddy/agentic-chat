@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useSyncExternalStore, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore, useState, type ReactNode } from "react";
 import { ChatsProvider } from "./chats-provider";
 import { CommandPalette } from "./command-palette";
 import { Sidebar, type SidebarUser } from "./sidebar";
@@ -81,6 +81,13 @@ export function AppShell({
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleSidebar]);
 
+  // The pages pass an inline render prop, but the function itself is stable
+  // between AppShell re-renders (only the shell's own state changes on a
+  // sidebar toggle). Memoizing the result keeps the whole chat subtree from
+  // re-rendering on the main thread while the drawer is animating — that
+  // re-render is what made the mobile slide drop frames.
+  const content = useMemo(() => children({ toggleSidebar }), [children, toggleSidebar]);
+
   return (
     <ChatsProvider>
       <div className="flex h-dvh overflow-hidden">
@@ -90,7 +97,7 @@ export function AppShell({
           collapsed={collapsed}
           onClose={() => setOpen(false)}
         />
-        {children({ toggleSidebar })}
+        {content}
       </div>
       <CommandPalette />
     </ChatsProvider>

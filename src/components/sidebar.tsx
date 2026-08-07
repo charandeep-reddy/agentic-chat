@@ -315,22 +315,45 @@ export function Sidebar({
 
   return (
     <>
-      {open && (
-        <div
-          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
-          onClick={onClose}
-          aria-hidden
-        />
-      )}
+      {/*
+        Always mounted so it can fade both ways — unmounting on close would cut
+        the exit transition off mid-flight and snap the scrim away while the
+        drawer is still sliding out. `pointer-events-none` is what actually makes
+        it inert when closed.
+
+        The scrim is deliberately faster than the drawer: it reaches full
+        opacity before the panel finishes sliding, so the eye reads one motion
+        rather than two.
+      */}
+      <div
+        className={`fixed inset-0 z-30 bg-black/60 transition-opacity duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-[opacity] motion-reduce:transition-none lg:hidden ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={onClose}
+        aria-hidden
+      />
 
       {/*
         Two axes, one element: below `lg` it slides in as an overlay drawer, and
         from `lg` up it animates its own width down to nothing. The inner column
         keeps a fixed width so the contents slide out of view rather than
         squashing as the container closes.
+
+        `transform-gpu` + `will-change` put the drawer on its own compositor
+        layer, so the slide is a layer offset rather than a repaint of the whole
+        chat list on every frame — that repaint is why the phone felt heavier
+        than the desktop collapse. Nothing here animates box-shadow: a 270px-tall
+        blurred shadow is re-rasterised each frame and is the single most
+        expensive thing you can put in a drawer transition.
+
+        The easing is an ease-out-expo style curve (0.16, 1, 0.3, 1): fast to
+        leave the edge, long gentle deceleration into rest. The steeper
+        `(0.32, 0.72, 0, 1)` curve used previously reached rest so early the
+        tail looked like a snap on low-refresh-rate phones. The scrim gets a
+        shorter duration than the panel (see above) so the fade completes first.
       */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-[270px] overflow-hidden border-r border-border-subtle bg-bg-elevated transition-[transform,width] duration-300 ease-out motion-reduce:transition-none lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-[270px] transform-gpu overflow-hidden border-r border-border-subtle bg-bg-elevated backface-hidden transition-[transform,width] duration-[340ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[transform] motion-reduce:transition-none lg:static lg:translate-x-0 lg:will-change-auto ${
           open ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-0 lg:border-r-0" : ""}`}
       >
