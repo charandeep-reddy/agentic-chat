@@ -78,7 +78,7 @@ export function Composer({
   const placeholder = blocked
     ? "Pick an option above to continue"
     : hasKey
-      ? "Ask anything — paste data, request a chart, build a UI…"
+      ? "Ask anything"
       : "Connect an API key to start chatting";
 
   return (
