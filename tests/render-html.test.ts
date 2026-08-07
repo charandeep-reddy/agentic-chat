@@ -13,6 +13,25 @@ describe("renderHtml", () => {
     expect(spec.warnings).toEqual([]);
   });
 
+  it("renders on the chat's own surface rather than painting its own", () => {
+    // The whole point of the base stylesheet: a widget should blend into the
+    // conversation, so the frame must stay transparent and inherit the app's
+    // type and palette instead of arriving as a coloured slab.
+    const out = renderHtml({ html: "<div>Hi</div>" }).html;
+
+    expect(out).toContain("html, body { background: transparent; }");
+    expect(out).toContain("--accent: #10b981;");
+    expect(out).toContain("accent-color: var(--accent);");
+  });
+
+  it("gives a model-authored document the same base styles", () => {
+    const out = renderHtml({ html: "<html><head></head><body><p>Mine</p></body></html>" }).html;
+
+    expect(out).toContain("html, body { background: transparent; }");
+    // First in <head>, so anything the model wrote still overrides it.
+    expect(out.indexOf("background: transparent")).toBeLessThan(out.indexOf("<p>Mine</p>"));
+  });
+
   it("keeps a full document intact but adds the CSP", () => {
     const html = "<html lang='en'><head><title>T</title></head><body><p>Complete</p></body></html>";
     const out = renderHtml({ html }).html;

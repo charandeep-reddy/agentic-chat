@@ -1,8 +1,8 @@
 import { tool } from "ai";
 import { askQuestionSchema, askQuestion } from "./ask-question";
-import { renderChartSchema, renderChart } from "./render-chart";
-import { renderFlowSchema, renderFlow } from "./render-flow";
-import { renderHtmlSchema, renderHtml } from "./render-html";
+import { renderChartSchema, renderChart, type ChartSpec } from "./render-chart";
+import { renderFlowSchema, renderFlow, type FlowSpec } from "./render-flow";
+import { renderHtmlSchema, renderHtml, type HtmlSpec } from "./render-html";
 import { fetchUrlSchema, fetchUrl } from "./fetch-url";
 import { parseDataSchema, parseData } from "./parse-data";
 import {
@@ -27,6 +27,21 @@ function withTiming<A, T extends object>(fn: (args: A) => T | Promise<T>) {
   };
 }
 
+/**
+ * A short acknowledgement to send back to the model in place of a render tool's
+ * full payload.
+ *
+ * The render tools echo their own input: the model writes a document, the tool
+ * validates it, and without this the whole thing is replayed into the prompt as
+ * a tool result — then again on every later turn of the conversation. For an
+ * HTML artifact that is tens of thousands of tokens of text the model just
+ * wrote, paid for twice, slowing the closing paragraph and every reply after
+ * it. The widget itself is unaffected: the UI still receives the full spec.
+ */
+function ack(text: string) {
+  return { type: "text" as const, value: text };
+}
+
 /** Tools that need nothing but their arguments. Safe to share across requests. */
 export const baseTools = {
   ask_user_question: tool({
@@ -48,7 +63,14 @@ export const baseTools = {
       "Prefer a chart whenever a visual comparison, trend, or distribution helps the user understand the answer.",
     ].join(" "),
     inputSchema: renderChartSchema,
-    execute: withTiming((args) => renderChart(args)),
+    execute: withTiming(renderChart),
+    // `output` is untyped here: the SDK only infers it from an explicit
+    // outputSchema, which these tools do not need. The cast is to the type
+    // `execute` actually returns.
+    toModelOutput: ({ output }) => {
+      const spec = output as ChartSpec;
+      return ack(`Rendered a ${spec.type} chart${spec.title ? ` titled "${spec.title}"` : ""}.`);
+    },
   }),
   render_flow: tool({
     description: [
@@ -57,18 +79,28 @@ export const baseTools = {
       "Do not wrap the diagram in code fences.",
     ].join(" "),
     inputSchema: renderFlowSchema,
-    execute: withTiming((args) => renderFlow(args)),
+    execute: withTiming(renderFlow),
+    toModelOutput: ({ output }) => ack(`Rendered a ${(output as FlowSpec).type ?? "Mermaid"} diagram.`),
   }),
   render_html: tool({
     description: [
       "Render live HTML/CSS/JS inline in the chat, inside a sandboxed frame.",
       "Use it for interactive things a static answer cannot express: calculators, mockups, small games, styled layouts, SVG illustrations, interactive tables, simulations.",
-      "Write a self-contained document: inline all CSS in a <style> tag and all JS in a <script> tag. External network requests are blocked, so no CDNs, remote fonts, or remote images — inline SVG or data: URIs instead.",
-      "The frame renders on a dark background by default; pass a full <html> document if you want to control that.",
+      "Write a self-contained fragment: inline any JS in a <script> tag. External network requests are blocked, so no CDNs, remote fonts, or remote images — inline SVG or data: URIs instead.",
+      "The frame already provides the chat's font, colours and styling for headings, labels, inputs, sliders, selects, buttons and tables. Do not set a background or pick colours — the widget renders transparently inside the conversation. Add CSS only for layout and for what is specific to this widget.",
+      "Keep it tight: the markup is generated a token at a time, so a compact widget appears far sooner than a long one.",
       "Set `height` to roughly what the content needs. Prefer this over describing a UI in prose when the user asks to 'build', 'show', 'design' or 'make' something visual.",
     ].join(" "),
     inputSchema: renderHtmlSchema,
-    execute: withTiming((args) => renderHtml(args)),
+    execute: withTiming(renderHtml),
+    toModelOutput: ({ output }) => {
+      const spec = output as HtmlSpec;
+      const notes =
+        spec.warnings.length > 0
+          ? `Sanitiser notes: ${spec.warnings.join(" ")}`
+          : "Nothing was stripped.";
+      return ack(`Rendered the widget${spec.title ? ` "${spec.title}"` : ""}. ${notes}`);
+    },
   }),
   fetch_url: tool({
     description: [

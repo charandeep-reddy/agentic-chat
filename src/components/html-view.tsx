@@ -161,7 +161,9 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
                 srcDoc={spec.html}
                 sandbox={SANDBOX}
                 referrerPolicy="no-referrer"
-                className="h-full w-full rounded-lg border border-border-subtle bg-[#0f0f11]"
+                // No background of its own — the document is transparent now, so
+                // it sits on the dialog surface the same way it sits on the chat.
+                className="h-full w-full"
               />
             </div>
           </div>

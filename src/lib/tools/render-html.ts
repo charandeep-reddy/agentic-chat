@@ -129,23 +129,109 @@ const MEASURE_SCRIPT = `<script>
 })();
 </script>`;
 
-/** Injects the CSP meta into a document the model wrote itself. */
+/**
+ * The chat's own typography and palette, given to the frame so a widget looks
+ * like part of the conversation instead of a pasted-in web page.
+ *
+ * This exists because the opposite approach failed. The model used to be told
+ * to style everything itself, and it did: every artifact arrived with its own
+ * background colour, its own font stack and its own idea of an accent, so each
+ * one landed in the transcript as a coloured slab. Nobody asked for a theme.
+ * Supplying the defaults here means the model can write plain HTML and get
+ * something that belongs on the page.
+ *
+ * The background is transparent on purpose — the chat surface shows through,
+ * and the widget has no visible edges. Values mirror `globals.css`; they are
+ * duplicated rather than referenced because the frame has an opaque origin and
+ * cannot read a single custom property from the parent document.
+ */
+const BASE_STYLES = `<style>
+  :root {
+    --text: #f4f4f5;
+    --text-secondary: #d4d4d8;
+    --text-muted: #a1a1aa;
+    --text-faint: #71717a;
+    --border-subtle: #1f1f23;
+    --border: #27272a;
+    --border-strong: #3f3f46;
+    --surface: #141417;
+    --surface-raised: #1a1a1e;
+    --accent: #10b981;
+    --danger: #f87171;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  /* color-scheme belongs on the controls, never on :root. Setting it at the
+     root makes the browser paint an opaque dark canvas behind the whole frame,
+     which background:transparent cannot undo — the widget lands in the
+     transcript as a black slab. Scoped here, the native controls and their
+     dropdowns still render dark and the frame stays see-through. */
+  input, select, textarea, button, progress, meter { color-scheme: dark; }
+  html, body { background: transparent; }
+  body {
+    margin: 0;
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  h1, h2, h3, h4 { margin: 0 0 0.5em; font-weight: 600; line-height: 1.3; }
+  h1 { font-size: 1.25rem; }
+  h2 { font-size: 1.1rem; }
+  h3 { font-size: 1rem; }
+  p { margin: 0 0 0.75em; }
+  p:last-child { margin-bottom: 0; }
+  small { color: var(--text-muted); }
+  a { color: var(--accent); }
+  hr { border: 0; border-top: 1px solid var(--border-subtle); margin: 1em 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+  label { display: block; margin-bottom: 0.35em; color: var(--text-muted); font-size: 13px; }
+  input, select, textarea, button { font: inherit; color: inherit; }
+  input[type="text"], input[type="number"], input[type="date"], input[type="email"],
+  select, textarea {
+    width: 100%;
+    padding: 0.5em 0.65em;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--surface);
+    color: var(--text);
+  }
+  /* One line instead of a hand-built track: the browser themes the thumb, the
+     fill and the checkbox tick from this. */
+  input[type="range"], input[type="checkbox"], input[type="radio"], progress {
+    accent-color: var(--accent);
+  }
+  input[type="range"] { width: 100%; }
+  button {
+    padding: 0.45em 0.9em;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--surface-raised);
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--border-strong); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 0.45em 0.6em; text-align: left; border-bottom: 1px solid var(--border-subtle); }
+  th { font-weight: 500; color: var(--text-muted); }
+  svg, img { max-width: 100%; }
+</style>`;
+
+const HEAD = `${CSP_META}${BASE_STYLES}${MEASURE_SCRIPT}`;
+
+/**
+ * Injects the CSP meta and base styles into a document the model wrote itself.
+ * They go first in `<head>` so anything the model wrote still wins.
+ */
 function injectCsp(html: string): string {
   if (/<head[\s>]/i.test(html)) {
-    return html.replace(/<head([^>]*)>/i, `<head$1>${CSP_META}${MEASURE_SCRIPT}`);
+    return html.replace(/<head([^>]*)>/i, `<head$1>${HEAD}`);
   }
   // No <head>: put it directly after <html>, where the parser will hoist it
   // into the implicit head before any resource can be requested.
-  return html.replace(/<html([^>]*)>/i, `<html$1><head>${CSP_META}${MEASURE_SCRIPT}</head>`);
+  return html.replace(/<html([^>]*)>/i, `<html$1><head>${HEAD}</head>`);
 }
 
-/**
- * Wraps a fragment in a full document. The stylesheet is deliberately a bare
- * reset — the model is told to write self-contained styling, and anything
- * opinionated here (link colours, table borders, `pre` chrome) silently fights
- * the CSS it wrote. `color-scheme` is the one concession: without it native
- * controls and scrollbars render light inside a dark app.
- */
+/** Wraps a fragment in a full document. */
 function ensureDocument(html: string): string {
   if (/<html[\s>]/i.test(html)) return injectCsp(html);
 
@@ -153,13 +239,7 @@ function ensureDocument(html: string): string {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-${CSP_META}
-<style>
-  *, *::before, *::after { box-sizing: border-box; }
-  html { color-scheme: dark; }
-  body { margin: 0; font-family: system-ui, sans-serif; }
-</style>
-${MEASURE_SCRIPT}
+${HEAD}
 </head>
 <body>
 ${html}

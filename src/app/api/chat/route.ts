@@ -126,11 +126,16 @@ export async function POST(req: Request) {
 
   const provider = createProvider(apiKey);
 
+  const tools = buildTools(memoryStore);
+
   const result = streamText({
     model: provider(modelId),
     system,
-    messages: await convertToModelMessages(messages),
-    tools: buildTools(memoryStore),
+    // `tools` has to be passed here too, or `toModelOutput` is skipped for
+    // history and every artifact the model ever rendered is replayed into the
+    // prompt in full on every subsequent turn.
+    messages: await convertToModelMessages(messages, { tools }),
+    tools,
     temperature: 0.5,
     stopWhen: [isStepCount(8), hasToolCall("ask_user_question")],
     onError: (error) => {
