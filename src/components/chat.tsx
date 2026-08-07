@@ -279,6 +279,7 @@ export function Chat({
 
       <Composer
         ref={composerRef}
+        chatId={chatId}
         hasKey={apiKey !== ""}
         busy={busy}
         blocked={pendingQuestion !== null}
