@@ -3,6 +3,8 @@
 import { useEffect, useId, useState } from "react";
 import mermaid from "mermaid";
 import type { FlowSpec } from "@/lib/tools/render-flow";
+import { WidgetShell } from "./widget-shell";
+import { IconFlow } from "./icons";
 
 mermaid.initialize({
   startOnLoad: false,
@@ -44,10 +46,14 @@ function FlowDiagram({ id, diagram }: { id: string; diagram: string }) {
     return <div className="flex h-32 items-center justify-center text-sm text-zinc-500">Rendering diagram…</div>;
   }
 
-  return <div className="flex justify-center" dangerouslySetInnerHTML={{ __html: svg }} />;
+  return <div className="flex justify-center overflow-x-auto" dangerouslySetInnerHTML={{ __html: svg }} />;
 }
 
-export function FlowView({ spec }: { spec: FlowSpec }) {
+export function FlowWidget({ spec }: { spec: FlowSpec }) {
   const id = useId().replace(/[:]/g, "");
-  return <FlowDiagram key={spec.diagram} id={id} diagram={spec.diagram} />;
+  return (
+    <WidgetShell icon={<IconFlow size={15} />} title={`Diagram · ${spec.type}`}>
+      <FlowDiagram key={spec.diagram} id={id} diagram={spec.diagram} />
+    </WidgetShell>
+  );
 }

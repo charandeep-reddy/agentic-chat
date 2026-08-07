@@ -72,12 +72,13 @@ export function SettingsPanel({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <>
+      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} aria-hidden />
       <div
-        className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-y-0 left-0 z-50 flex w-[420px] max-w-[92vw] flex-col overflow-y-auto border-r border-zinc-800 bg-zinc-950 p-5 shadow-2xl"
         role="dialog"
         aria-label="Settings"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-100">Settings</h2>
@@ -162,7 +163,11 @@ export function SettingsPanel({
             Remove key
           </button>
         )}
+
+        <p className="mt-auto border-t border-zinc-900 pt-4 text-[11px] leading-relaxed text-zinc-600">
+          Your key is stored in this browser only and sent per-request. It is never written to the server.
+        </p>
       </div>
-    </div>
+    </>
   );
 }

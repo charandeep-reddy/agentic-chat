@@ -1,8 +1,8 @@
 "use client";
 
 import type { UIMessage } from "ai";
-import { ChartView } from "./chart-view";
-import { FlowView } from "./flow-view";
+import { ChartWidget } from "./chart-view";
+import { FlowWidget } from "./flow-view";
 import { QuestionCard } from "./question-card";
 import { DataTable } from "./data-table";
 import { ArtifactFrame } from "./artifact-frame";
@@ -140,8 +140,9 @@ export function ToolPartView({
       return (
         <QuestionCard
           payload={payload}
-          answered={answeredQuestions.has(part.toolCallId)}
+          state={answeredQuestions.has(part.toolCallId) ? "answered" : "pending"}
           onAnswer={onAnswerQuestion}
+          onTypedAnswer={onAnswerQuestion}
         />
       );
     }
@@ -155,7 +156,7 @@ export function ToolPartView({
           title={spec.title}
           meta="interactive"
         >
-          <ChartView spec={spec} />
+          <ChartWidget spec={spec} />
         </ArtifactFrame>
       );
     }
@@ -164,7 +165,7 @@ export function ToolPartView({
       if (spec.kind !== "flow") return null;
       return (
         <ArtifactFrame icon={<Icon size={14} />} label="Mermaid" title={spec.title} meta="diagram">
-          <FlowView spec={spec} />
+          <FlowWidget spec={spec} />
         </ArtifactFrame>
       );
     }

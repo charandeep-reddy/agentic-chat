@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts/core";
 import { BarChart, LineChart, PieChart, ScatterChart } from "echarts/charts";
 import { GridComponent, TooltipComponent, LegendComponent, TitleComponent, DataZoomComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsCoreOption } from "echarts/core";
 import type { ChartSpec } from "@/lib/tools/render-chart";
+import { WidgetShell, StatusChip, WidgetAction } from "./widget-shell";
+import { IconChart, IconDownload, IconTable } from "./icons";
+import { DataTable } from "./data-table";
+import { chartToTable } from "@/lib/tools/chart-util";
 
 echarts.use([BarChart, LineChart, PieChart, ScatterChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, DataZoomComponent, CanvasRenderer]);
 
@@ -68,22 +72,24 @@ function buildOption(spec: ChartSpec): EChartsCoreOption {
       axisLabel: { color: MUTED, fontSize: 11 },
     },
     yAxis: {
-      type: spec.type === "scatter" ? "value" : "value",
+      type: "value",
       splitLine: { lineStyle: { color: "#27272a" } },
       axisLabel: { color: MUTED, fontSize: 11 },
     },
-    dataZoom: series.length > 1 && (spec.xLabels?.length ?? 0) > 20 ? [{ type: "inside" }, { type: "slider", height: 14, bottom: 8 }] : undefined,
+    dataZoom: (spec.xLabels?.length ?? 0) > 20 ? [{ type: "inside" }, { type: "slider", height: 14, bottom: 8 }] : undefined,
     series,
   };
 }
 
-export function ChartView({ spec }: { spec: ChartSpec }) {
+function ChartCanvas({ spec, height }: { spec: ChartSpec; height: number }) {
   const ref = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<echarts.ECharts | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const chart = echarts.init(el);
+    chartRef.current = chart;
     chart.setOption(buildOption(spec));
 
     const observer = new ResizeObserver(() => chart.resize());
@@ -91,8 +97,53 @@ export function ChartView({ spec }: { spec: ChartSpec }) {
     return () => {
       observer.disconnect();
       chart.dispose();
+      chartRef.current = null;
     };
   }, [spec]);
 
-  return <div ref={ref} className="h-[340px] w-full" />;
+  return <div ref={ref} style={{ height }} className="w-full" />;
+}
+
+const TYPE_LABELS: Record<ChartSpec["type"], string> = {
+  bar: "Bar",
+  line: "Line",
+  area: "Area",
+  pie: "Pie",
+  scatter: "Scatter",
+};
+
+export function ChartWidget({ spec, source }: { spec: ChartSpec; source?: string }) {
+  const [viewingData, setViewingData] = useState(false);
+  const canvasKey = `${spec.type}-${spec.title ?? ""}`;
+
+  const exportPng = () => {
+    const canvas = document.querySelector<HTMLCanvasElement>("#chart-canvas-target canvas");
+    if (!canvas) return;
+    const url = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chart-${spec.type}.png`;
+    a.click();
+  };
+
+  return (
+    <WidgetShell
+      id="chart-canvas-target"
+      icon={<IconChart size={15} />}
+      title={`Chart · ${TYPE_LABELS[spec.type]}`}
+      status={source ? <StatusChip tone="info">{source}</StatusChip> : undefined}
+      actions={
+        <>
+          <WidgetAction onClick={() => setViewingData((v) => !v)} label="View data">
+            <IconTable size={14} />
+          </WidgetAction>
+          <WidgetAction onClick={exportPng} label="Export PNG">
+            <IconDownload size={14} />
+          </WidgetAction>
+        </>
+      }
+    >
+      {viewingData ? <DataTable table={chartToTable(spec)} /> : <ChartCanvas key={canvasKey} spec={spec} height={spec.type === "pie" ? 280 : 320} />}
+    </WidgetShell>
+  );
 }

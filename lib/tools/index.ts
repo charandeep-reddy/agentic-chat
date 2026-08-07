@@ -5,6 +5,18 @@ import { renderFlowSchema, renderFlow } from "./render-flow";
 import { fetchUrlSchema, fetchUrl } from "./fetch-url";
 import { parseDataSchema, parseData } from "./parse-data";
 
+export interface ToolMeta {
+  durationMs: number;
+}
+
+function withTiming<A, T extends object>(fn: (args: A) => T | Promise<T>) {
+  return async (args: A): Promise<T & { _meta: ToolMeta }> => {
+    const start = performance.now();
+    const result = await fn(args);
+    return { ...result, _meta: { durationMs: Math.max(1, Math.round(performance.now() - start)) } };
+  };
+}
+
 export const tools = {
   ask_user_question: tool({
     description: [
@@ -14,7 +26,7 @@ export const tools = {
       "Use 2-4 concise options; only use it when a real choice or clarification is needed.",
     ].join(" "),
     inputSchema: askQuestionSchema,
-    execute: async (args) => askQuestion(args),
+    execute: withTiming((args) => askQuestion(args)),
   }),
   render_chart: tool({
     description: [
@@ -25,7 +37,7 @@ export const tools = {
       "Prefer a chart whenever a visual comparison, trend, or distribution helps the user understand the answer.",
     ].join(" "),
     inputSchema: renderChartSchema,
-    execute: async (args) => renderChart(args),
+    execute: withTiming((args) => renderChart(args)),
   }),
   render_flow: tool({
     description: [
@@ -34,7 +46,7 @@ export const tools = {
       "Do not wrap the diagram in code fences.",
     ].join(" "),
     inputSchema: renderFlowSchema,
-    execute: async (args) => renderFlow(args),
+    execute: withTiming((args) => renderFlow(args)),
   }),
   fetch_url: tool({
     description: [
@@ -44,7 +56,7 @@ export const tools = {
       "Cannot access local/private addresses. Responses are capped at 2 MB.",
     ].join(" "),
     inputSchema: fetchUrlSchema,
-    execute: async (args) => fetchUrl(args),
+    execute: withTiming((args) => fetchUrl(args)),
   }),
   parse_data: tool({
     description: [
@@ -53,7 +65,7 @@ export const tools = {
       "You receive the table preview in the result; use the values for calculations and charts.",
     ].join(" "),
     inputSchema: parseDataSchema,
-    execute: async (args) => parseData(args),
+    execute: withTiming((args) => parseData(args)),
   }),
 };
 

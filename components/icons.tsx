@@ -1,3 +1,5 @@
+"use client";
+
 import type { SVGProps } from "react";
 
 type IconProps = SVGProps<SVGSVGElement> & { size?: number };
@@ -30,8 +32,10 @@ export function IconSpark(props: IconProps) {
 export function IconChart(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <path d="M4 19V5M4 19h16" />
-      <path d="M8 16V10M12 16V7M16 16v-5M20 16v-8" />
+      <path d="M3 3v18h18" />
+      <rect x="7" y="12" width="3" height="6" rx="0.5" />
+      <rect x="12" y="8" width="3" height="10" rx="0.5" />
+      <rect x="17" y="5" width="3" height="13" rx="0.5" />
     </svg>
   );
 }
@@ -69,8 +73,8 @@ export function IconQuestion(props: IconProps) {
   return (
     <svg {...base(props)}>
       <circle cx="12" cy="12" r="9" />
-      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.25c-.7.35-1.1.9-1.1 1.75V14" />
-      <circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="none" />
+      <path d="M9.5 9.2a2.6 2.6 0 1 1 3.7 2.4c-.9.4-1.2 1-1.2 1.9" />
+      <circle cx="12" cy="16.8" r="0.4" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -79,7 +83,7 @@ export function IconSettings(props: IconProps) {
   return (
     <svg {...base(props)}>
       <circle cx="12" cy="12" r="3" />
-      <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4l1.4-1.4M17 7l1.4-1.4" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1z" />
     </svg>
   );
 }
@@ -87,7 +91,7 @@ export function IconSettings(props: IconProps) {
 export function IconSend(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <path d="M5 12h14M13 6l6 6-6 6" />
+      <path d="M12 19V5M5 12l7-7 7 7" />
     </svg>
   );
 }
@@ -103,8 +107,8 @@ export function IconStop(props: IconProps) {
 export function IconKey(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <circle cx="8" cy="15" r="4" />
-      <path d="M11.5 12.5 20 4l2 2-2 2-1.5-1.5L16 9l1.5 1.5" />
+      <circle cx="8" cy="15" r="4.5" />
+      <path d="M11.2 11.8 20 3m-4 4 2.5 2.5M13.5 9.5 16 12" />
     </svg>
   );
 }
@@ -128,7 +132,7 @@ export function IconPlus(props: IconProps) {
 export function IconCheck(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <path d="M5 12.5 10 17l9-10" />
+      <path d="M4 12.5 9.5 18 20 6.5" />
     </svg>
   );
 }
@@ -136,8 +140,8 @@ export function IconCheck(props: IconProps) {
 export function IconAlert(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <path d="M12 4 3 19h18L12 4z" />
-      <path d="M12 10v4M12 16.5v.5" />
+      <path d="M12 3 2.5 19.5h19L12 3z" />
+      <path d="M12 10v4.5M12 17.2v.1" />
     </svg>
   );
 }
@@ -145,16 +149,15 @@ export function IconAlert(props: IconProps) {
 export function IconChevron(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <path d="M9 6l6 6-6 6" />
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
 
 export function IconLoader(props: IconProps) {
   return (
-    <svg {...base({ ...props, className: `${props.className ?? ""} animate-spin-slow` })}>
-      <path d="M12 3a9 9 0 1 1-9 9" opacity="0.35" />
-      <path d="M12 3a9 9 0 0 1 9 9" />
+    <svg {...base(props)} className={`animate-spin ${props.className ?? ""}`}>
+      <path d="M12 3a9 9 0 1 0 9 9" />
     </svg>
   );
 }
@@ -162,8 +165,8 @@ export function IconLoader(props: IconProps) {
 export function IconUser(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <circle cx="12" cy="8" r="3.5" />
-      <path d="M5 19.5c1.5-3.5 4-5 7-5s5.5 1.5 7 5" />
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" />
     </svg>
   );
 }
@@ -171,9 +174,8 @@ export function IconUser(props: IconProps) {
 export function IconAgent(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <rect x="5" y="7" width="14" height="11" rx="3" />
-      <path d="M9 11h.01M15 11h.01M9.5 14.5c.8.8 1.7 1.2 2.5 1.2s1.7-.4 2.5-1.2" />
-      <path d="M12 7V4M9 4h6" />
+      <rect x="5" y="5" width="14" height="14" rx="3" />
+      <path d="M9 9h6M9 12.5h4" />
     </svg>
   );
 }
@@ -181,7 +183,25 @@ export function IconAgent(props: IconProps) {
 export function IconArrowUp(props: IconProps) {
   return (
     <svg {...base(props)}>
-      <path d="M12 19V5M6 11l6-6 6 6" />
+      <path d="M12 19V5M5 12l7-7 7 7" />
+    </svg>
+  );
+}
+
+export function IconCopy(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="9" y="9" width="11" height="11" rx="1.5" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h8" />
+    </svg>
+  );
+}
+
+export function IconDownload(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3v12m0 0 4-4m-4 4-4-4" />
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
     </svg>
   );
 }
