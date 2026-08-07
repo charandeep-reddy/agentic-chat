@@ -9,7 +9,7 @@
  */
 import { makeSignature } from "better-auth/crypto";
 import { getCookies } from "better-auth/cookies";
-import { loadEnv } from "../lib/load-env";
+import { loadEnv } from "../src/lib/load-env";
 
 loadEnv();
 
@@ -25,8 +25,8 @@ if (!secret) {
   process.exit(1);
 }
 
-const { db } = await import("../lib/db");
-const { session, user } = await import("../lib/db/schema");
+const { db } = await import("../src/lib/db");
+const { session, user } = await import("../src/lib/db/schema");
 
 const email = process.argv[2] ?? "dev@localhost";
 const userId = `dev_${email.replace(/[^a-z0-9]/gi, "_")}`;
