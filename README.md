@@ -113,23 +113,23 @@ Try: *"Build me an interactive compound-interest calculator"*, paste a CSV and a
 
 **Persistence.** The user message is written before the stream starts, so a dropped connection still leaves your question in the transcript; the assistant message is written from the stream's `onEnd` with its tool parts intact, which is why widgets survive a reload. Editing or regenerating truncates everything at a higher ordinal, keeping the stored transcript identical to what the model saw.
 
-**Memory.** Relevant memories are selected per-request by keyword overlap and inlined into the system prompt. Deliberately not embeddings: memories are short, few, and written in the user's own words, so token overlap gets the right answer without an extra model call per turn. `lib/memory-store.ts` is the single place to swap in pgvector.
+**Memory.** Relevant memories are selected per-request by keyword overlap and inlined into the system prompt. Deliberately not embeddings: memories are short, few, and written in the user's own words, so token overlap gets the right answer without an extra model call per turn. `src/lib/memory-store.ts` is the single place to swap in pgvector.
 
 **BYOK.** The key is read from `localStorage`, sent as the `x-model-key` header, and used to build a provider per request. It is never written to the server or the database.
 
 ## Project layout
 
 ```
-app/api/chat/route.ts     Agent loop: auth, memory injection, streaming, persistence
-app/api/…                 REST for chats, memories, packs, settings, account
-app/c/[id]                A conversation
-app/share/[shareId]       Public read-only transcript
-app/pack/[slug]           Memory pack landing page
-lib/db/                   Drizzle schema and every query
-lib/tools/                Pure, unit-tested tool implementations
-lib/prompts.ts            System prompt composition
-components/               Chat UI, widgets, sidebar, palette, settings
-tests/                    Vitest suite
+src/app/api/chat/route.ts Agent loop: auth, memory injection, streaming, persistence
+src/app/api/…             REST for chats, memories, packs, settings, account
+src/app/c/[id]             A conversation
+src/app/share/[shareId]    Public read-only transcript
+src/app/pack/[slug]        Memory pack landing page
+src/lib/db/                Drizzle schema and every query
+src/lib/tools/             Pure, unit-tested tool implementations
+src/lib/prompts.ts         System prompt composition
+src/components/            Chat UI, widgets, sidebar, palette, settings
+tests/                      Vitest suite
 ```
 
 ## Scripts

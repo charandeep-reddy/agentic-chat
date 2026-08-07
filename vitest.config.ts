@@ -8,7 +8,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": fileURLToPath(new URL("./", import.meta.url)),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
       // `server-only` throws on import outside a React Server Component. Under
       // Vitest there is no RSC boundary, so it is stubbed out; the guard still
       // does its job in the Next.js build.

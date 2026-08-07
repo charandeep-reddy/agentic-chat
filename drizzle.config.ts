@@ -1,10 +1,10 @@
 import { defineConfig } from "drizzle-kit";
-import { loadEnv } from "./lib/load-env";
+import { loadEnv } from "./src/lib/load-env";
 
 loadEnv();
 
 export default defineConfig({
-  schema: "./lib/db/schema.ts",
+  schema: "./src/lib/db/schema.ts",
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
