@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
@@ -12,6 +12,7 @@ import { QuestionCard } from "./question-card";
 import { DataTable } from "./data-table";
 import { SettingsPanel } from "./settings-panel";
 import { KEY_STORAGE, MODEL_STORAGE } from "./settings-panel";
+import { getStorage, setStorage, removeStorage, subscribeStorage } from "@/lib/local-storage";
 import type { ChartSpec } from "@/lib/tools/render-chart";
 import type { FlowSpec } from "@/lib/tools/render-flow";
 import type { QuestionPayload } from "@/lib/tools/ask-question";
@@ -26,17 +27,6 @@ const SUGGESTIONS = [
 ];
 
 const DEFAULT_MODEL = "deepseek-v4-flash";
-
-function loadStorage(key: string): string {
-  if (typeof window === "undefined") return "";
-  return window.localStorage.getItem(key) ?? "";
-}
-
-function loadModel(): string {
-  const stored = loadStorage(MODEL_STORAGE);
-  if (stored.startsWith("openrouter/")) return DEFAULT_MODEL;
-  return stored || DEFAULT_MODEL;
-}
 
 const TOOL_LABELS: Record<string, string> = {
   ask_user_question: "Asking you",
@@ -137,11 +127,24 @@ function ToolPartView({
 }
 
 export function Chat() {
-  const [apiKey, setApiKey] = useState(() => loadStorage(KEY_STORAGE));
-  const [model, setModel] = useState(loadModel);
+  const apiKey = useSyncExternalStore(
+    (cb) => subscribeStorage(KEY_STORAGE, cb),
+    () => getStorage(KEY_STORAGE),
+    () => "",
+  );
+  const storedModel = useSyncExternalStore(
+    (cb) => subscribeStorage(MODEL_STORAGE, cb),
+    () => getStorage(MODEL_STORAGE),
+    () => "",
+  );
+  const model = storedModel.startsWith("openrouter/") ? DEFAULT_MODEL : storedModel || DEFAULT_MODEL;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (storedModel.startsWith("openrouter/")) setStorage(MODEL_STORAGE, DEFAULT_MODEL);
+  }, [storedModel]);
 
   const transport = useMemo(
     () =>
@@ -170,14 +173,12 @@ export function Chat() {
   }, [messages, busy]);
 
   const handleKeyChange = (key: string) => {
-    setApiKey(key);
-    if (key) window.localStorage.setItem(KEY_STORAGE, key);
-    else window.localStorage.removeItem(KEY_STORAGE);
+    if (key) setStorage(KEY_STORAGE, key);
+    else removeStorage(KEY_STORAGE);
   };
 
   const handleModelChange = (m: string) => {
-    setModel(m);
-    window.localStorage.setItem(MODEL_STORAGE, m);
+    setStorage(MODEL_STORAGE, m);
   };
 
   const handleAnswerQuestion = (option: string) => {
