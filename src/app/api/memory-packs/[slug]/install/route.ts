@@ -1,5 +1,6 @@
 import { getPackBySlug, installPack, uninstallPack } from "@/lib/db/queries";
 import { requireUserApi } from "@/lib/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,11 @@ type Params = { params: Promise<{ slug: string }> };
 export async function POST(_req: Request, { params }: Params) {
   const authed = await requireUserApi();
   if ("error" in authed) return authed.error;
+
+  // An install copies every entry into the caller's memories, so a loop here
+  // writes unbounded rows on their behalf.
+  const limit = rateLimit("packInstall", authed.user.id);
+  if (!limit.ok) return rateLimitResponse(limit);
 
   const { slug } = await params;
   const pack = await getPackBySlug(slug);

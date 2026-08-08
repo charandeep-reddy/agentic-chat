@@ -28,6 +28,37 @@ export interface ChatProps {
 
 const metadataSchema = z.object({ answerTo: z.string().optional() });
 
+/** Codes the route returns without a sentence of its own. */
+const ERROR_TEXT: Record<string, string> = {
+  unauthorized: "Your session expired. Sign in again.",
+  bad_request: "The app sent a malformed request.",
+  no_messages: "There was nothing to send.",
+  missing_chat_id: "This chat has no id — reload the page.",
+  too_many_requests: "Too many requests. Give it a moment.",
+  too_many_streams: "Another response is still generating.",
+};
+
+/**
+ * A failed response reaches us as an Error whose message is the raw body, which
+ * for this API is JSON — so the banner was showing `{"error":"…"}` verbatim.
+ * Prefer the sentence the route wrote, and only offer the Settings shortcut for
+ * the failures Settings can actually fix.
+ */
+function describeError(error: Error): { message: string; showSettings: boolean } {
+  let parsed: { error?: string; message?: string };
+  try {
+    parsed = JSON.parse(error.message) as typeof parsed;
+  } catch {
+    return { message: error.message, showSettings: true };
+  }
+
+  const code = parsed.error ?? "";
+  return {
+    message: parsed.message ?? ERROR_TEXT[code] ?? error.message,
+    showSettings: code === "missing_api_key" || code === "provider",
+  };
+}
+
 export function Chat({
   chatId,
   initialMessages,
@@ -247,15 +278,20 @@ export function Chat({
           )}
 
           {error && (
-            <div className="mt-6 flex items-center gap-3 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
-              <span className="min-w-0 flex-1">{error.message}</span>
-              <button
-                type="button"
-                onClick={() => setSettingsOpen(true)}
-                className="shrink-0 rounded-md border border-danger/40 px-2.5 py-1 text-xs hover:bg-danger/10"
-              >
-                Settings
-              </button>
+            <div
+              role="alert"
+              className="mt-6 flex items-center gap-3 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger"
+            >
+              <span className="min-w-0 flex-1">{describeError(error).message}</span>
+              {describeError(error).showSettings && (
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(true)}
+                  className="shrink-0 rounded-md border border-danger/40 px-2.5 py-1 text-xs hover:bg-danger/10"
+                >
+                  Settings
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -13,6 +13,7 @@ import { buildTools } from "@/lib/tools";
 import { buildSystemPrompt } from "@/lib/prompts";
 import { createProvider, DEFAULT_MODEL, resolveModelId } from "@/lib/provider";
 import { requireUserApi } from "@/lib/session";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createDbMemoryStore, selectPromptMemories } from "@/lib/memory-store";
 import { createDbSkillStore, selectPromptSkills } from "@/lib/skill-store";
 import { createChat, getChat, getSettings, saveMessages, truncateFrom } from "@/lib/db/queries";
@@ -127,6 +128,13 @@ export async function POST(req: Request) {
     generateTitleInBackground({ chat, userId: user.id, apiKey, text: lastUserText(messages) });
   }
 
+  // Claimed here rather than at the top of the handler so a request that never
+  // reaches the model does not spend the user's budget, and so the gap between
+  // claiming a slot and handing back the stream that releases it is as small as
+  // possible.
+  const limit = rateLimit("chat", user.id);
+  if (!limit.ok) return rateLimitResponse(limit);
+
   const provider = createProvider(apiKey);
 
   const tools = buildTools({
@@ -187,10 +195,13 @@ export async function POST(req: Request) {
     // and `onEnd` still writes the answer to the database. Without it the
     // cancel propagates and the reply is lost mid-sentence.
     consumeSseStream: ({ stream }) => {
+      // This copy is drained to completion whatever the client does, which
+      // makes it the one place guaranteed to observe the end of the turn — so
+      // it is also where the concurrency slot is given back.
       void consumeStream({
         stream,
         onError: (error) => console.error("[api/chat] background stream error:", error),
-      });
+      }).finally(limit.release);
     },
   });
 }
