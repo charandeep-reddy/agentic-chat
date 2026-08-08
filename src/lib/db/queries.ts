@@ -110,7 +110,9 @@ export async function createChat(
 export async function updateChat(
   chatId: string,
   userId: string,
-  patch: Partial<Pick<Chat, "title" | "pinned" | "archived" | "model">>,
+  patch: Partial<
+    Pick<Chat, "title" | "pinned" | "archived" | "model" | "memoryScope" | "memoryIds">
+  >,
 ): Promise<Chat | null> {
   const [row] = await db
     .update(chat)

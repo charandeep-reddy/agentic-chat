@@ -8,6 +8,7 @@ import { DEFAULT_MODEL } from "@/lib/models";
 import { useChats } from "./chats-provider";
 import { ConfirmDialog } from "./confirm-dialog";
 import { Skeleton } from "./skeleton";
+import { setPrice, usePrices } from "./use-prices";
 import { IconClose, IconKey } from "./icons";
 
 export const KEY_STORAGE = "agentic-chat.key";
@@ -26,6 +27,68 @@ const SHORTCUTS = [
 function maskKey(key: string): string {
   if (key.length <= 10) return "•".repeat(Math.min(key.length, 8));
   return `…${key.slice(-4)}`;
+}
+
+/**
+ * Per-million-token prices for the selected model.
+ *
+ * Typed in by hand because there is nothing to look them up from: the provider
+ * is any OpenAI-compatible endpoint, and none of them publish a machine-readable
+ * price list. Without a price the app still shows token counts — it just does
+ * not pretend to know what they cost.
+ */
+function PriceFields({ model }: { model: string }) {
+  const prices = usePrices();
+  const price = prices[model];
+
+  const update = (field: "input" | "output", raw: string) => {
+    const value = raw.trim() === "" ? NaN : Number(raw);
+    const next = {
+      input: price?.input ?? 0,
+      output: price?.output ?? 0,
+      [field]: Number.isFinite(value) && value >= 0 ? value : 0,
+    };
+    // Both back to zero means "no price", not "free" — drop the entry so the
+    // cost estimate disappears instead of reading $0.
+    setPrice(model, next.input === 0 && next.output === 0 ? null : next);
+  };
+
+  return (
+    <div className="mt-6">
+      <h3 className="mb-1.5 text-[12px] font-medium text-text-secondary">
+        Price per 1M tokens
+      </h3>
+      <div className="flex gap-2">
+        {(
+          [
+            { field: "input" as const, label: "Input" },
+            { field: "output" as const, label: "Output" },
+          ]
+        ).map(({ field, label }) => (
+          <label key={field} className="min-w-0 flex-1">
+            <span className="mb-1 block text-[11px] text-text-faint">{label}</span>
+            <div className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-3 py-2 focus-within:border-accent">
+              <span className="text-[13px] text-text-faint">$</span>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                value={price?.[field] ?? ""}
+                onChange={(e) => update(field, e.target.value)}
+                placeholder="0.00"
+                className="min-w-0 flex-1 bg-transparent font-mono text-[13px] text-text placeholder:text-text-faint focus:outline-none"
+              />
+            </div>
+          </label>
+        ))}
+      </div>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-text-faint">
+        Optional, and only for <span className="font-mono">{model}</span>. Stored in this browser;
+        token counts show either way.
+      </p>
+    </div>
+  );
 }
 
 export function SettingsPanel({
@@ -196,6 +259,8 @@ export function SettingsPanel({
             )}
           </div>
         )}
+        <PriceFields model={model} />
+
         <div className="mt-6">
           <h3 className="mb-2 text-[12px] font-medium text-text-secondary">Shortcuts</h3>
           <dl className="space-y-1.5">

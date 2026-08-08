@@ -3,9 +3,15 @@ import "server-only";
 import { createMemory, deleteMemory, listMemories, markMemoriesUsed } from "@/lib/db/queries";
 import type { MemoryStore } from "@/lib/tools/memory";
 import type { Memory } from "@/lib/db/schema";
+import type { ChatMemoryScope } from "@/lib/memory-scope";
 
 /** Memories over this count get filtered by relevance instead of all injected. */
 const PROMPT_BUDGET = 40;
+
+/** Every enabled memory, before any per-chat scope is applied. */
+export function listCandidateMemories(userId: string): Promise<Memory[]> {
+  return listMemories(userId, { enabledOnly: true });
+}
 
 export function createDbMemoryStore(userId: string): MemoryStore {
   return {
@@ -71,12 +77,30 @@ function tokenize(text: string): string[] {
  * Picks the memories to inline into the system prompt: everything when the
  * user has few, otherwise the most-used ones plus anything matching the
  * current message.
+ *
+ * The chat's own scope is applied first. It narrows what this conversation can
+ * see; it cannot widen it past the account-level toggle, which the caller
+ * checks separately.
+ *
+ * Pure, and takes the candidate list rather than fetching it. The chat row and
+ * the memory list are read concurrently in the route — the scope is not known
+ * until the former lands, and making this query wait for it would put another
+ * round trip in front of the first token.
  */
-export async function selectPromptMemories(
-  userId: string,
+export function selectPromptMemories(
+  all: Memory[],
   latestUserText: string,
-): Promise<Memory[]> {
-  const all = await listMemories(userId, { enabledOnly: true });
+  chatScope: ChatMemoryScope = { scope: "all", ids: [] },
+): Memory[] {
+  if (chatScope.scope === "none") return [];
+
+  if (chatScope.scope === "selected") {
+    // An explicit selection is the user's own shortlist, so it is used whole
+    // rather than run through the relevance budget below.
+    const wanted = new Set(chatScope.ids);
+    return all.filter((m) => wanted.has(m.id));
+  }
+
   if (all.length <= PROMPT_BUDGET) return all;
 
   const relevant = rankMemories(all, latestUserText).slice(0, PROMPT_BUDGET / 2);

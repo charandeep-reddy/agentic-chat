@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { signOut } from "@/lib/auth-client";
 import { useChats, type ChatSummary } from "./chats-provider";
 import { ConfirmDialog } from "./confirm-dialog";
+import { useMenu } from "./use-menu";
 import { ChatListSkeleton } from "./skeleton";
 import {
   IconArchive,
@@ -65,16 +66,14 @@ function ChatRow({ chat, active }: { chat: ChatSummary; active: boolean }) {
   const [confirming, setConfirming] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(chat.title);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onClick = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [menuOpen]);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useMenu<HTMLDivElement>({
+    open: menuOpen,
+    onClose: closeMenu,
+    roving: true,
+    trigger: triggerRef,
+  });
 
   const commitRename = () => {
     const title = draft.trim();
@@ -117,8 +116,11 @@ function ChatRow({ chat, active }: { chat: ChatSummary; active: boolean }) {
       </Link>
 
       <button
+        ref={triggerRef}
         type="button"
         aria-label={`Actions for ${chat.title}`}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
         onClick={(e) => {
           e.preventDefault();
           setMenuOpen((v) => !v);
@@ -133,6 +135,8 @@ function ChatRow({ chat, active }: { chat: ChatSummary; active: boolean }) {
       {menuOpen && (
         <div
           ref={menuRef}
+          role="menu"
+          aria-label={`Actions for ${chat.title}`}
           className="absolute right-1 top-full z-30 mt-1 w-44 overflow-hidden rounded-lg border border-border bg-surface-raised py-1 shadow-xl"
         >
           {[
@@ -155,6 +159,7 @@ function ChatRow({ chat, active }: { chat: ChatSummary; active: boolean }) {
             <button
               key={item.label}
               type="button"
+              role="menuitem"
               onClick={() => {
                 setMenuOpen(false);
                 item.run();
@@ -165,9 +170,10 @@ function ChatRow({ chat, active }: { chat: ChatSummary; active: boolean }) {
               {item.label}
             </button>
           ))}
-          <div className="my-1 border-t border-border-subtle" />
+          <div className="my-1 border-t border-border-subtle" role="separator" />
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               setMenuOpen(false);
               setConfirming(true);
@@ -201,24 +207,28 @@ function UserMenu({ user }: { user: SidebarUser }) {
   const [open, setOpen] = useState(false);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useMenu<HTMLDivElement>({
+    open,
+    onClose: close,
+    roving: true,
+    trigger: triggerRef,
+  });
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       {open && (
-        <div className="absolute bottom-full left-0 z-30 mb-1 w-full overflow-hidden rounded-lg border border-border bg-surface-raised py-1 shadow-xl">
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label="Account"
+          className="absolute bottom-full left-0 z-30 mb-1 w-full overflow-hidden rounded-lg border border-border bg-surface-raised py-1 shadow-xl"
+        >
           <Link
             href="/profile"
+            role="menuitem"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-text-secondary hover:bg-surface hover:text-text"
           >
@@ -227,6 +237,7 @@ function UserMenu({ user }: { user: SidebarUser }) {
           </Link>
           <Link
             href="/memory"
+            role="menuitem"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-text-secondary hover:bg-surface hover:text-text"
           >
@@ -235,6 +246,7 @@ function UserMenu({ user }: { user: SidebarUser }) {
           </Link>
           <Link
             href="/skills"
+            role="menuitem"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-text-secondary hover:bg-surface hover:text-text"
           >
@@ -281,7 +293,11 @@ function UserMenu({ user }: { user: SidebarUser }) {
       )}
 
       <button
+        ref={triggerRef}
         type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Account menu for ${user.name}`}
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-surface"
       >

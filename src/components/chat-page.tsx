@@ -4,6 +4,7 @@ import type { UIMessage } from "ai";
 import { AppShell } from "./app-shell";
 import { Chat } from "./chat";
 import type { SidebarUser } from "./sidebar";
+import type { MemoryScope } from "@/lib/memory-scope";
 
 export function ChatPage({
   user,
@@ -12,6 +13,8 @@ export function ChatPage({
   initialTitle,
   initialShareId,
   isNew,
+  memoryScope,
+  memoryIds,
 }: {
   user: SidebarUser;
   chatId: string;
@@ -19,6 +22,8 @@ export function ChatPage({
   initialTitle: string;
   initialShareId: string | null;
   isNew: boolean;
+  memoryScope: MemoryScope;
+  memoryIds: string[];
 }) {
   return (
     <AppShell user={user}>
@@ -32,6 +37,8 @@ export function ChatPage({
           initialTitle={initialTitle}
           initialShareId={initialShareId}
           isNew={isNew}
+          memoryScope={memoryScope}
+          memoryIds={memoryIds}
           onToggleSidebar={toggleSidebar}
         />
       )}

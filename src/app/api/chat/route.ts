@@ -13,10 +13,17 @@ import { buildTools } from "@/lib/tools";
 import { buildSystemPrompt } from "@/lib/prompts";
 import { createProvider, DEFAULT_MODEL, resolveModelId } from "@/lib/provider";
 import { requireUserApi } from "@/lib/session";
-import { createDbMemoryStore, selectPromptMemories } from "@/lib/memory-store";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  createDbMemoryStore,
+  listCandidateMemories,
+  selectPromptMemories,
+} from "@/lib/memory-store";
+import { isMemoryScope } from "@/lib/memory-scope";
 import { createDbSkillStore, selectPromptSkills } from "@/lib/skill-store";
 import { createChat, getChat, getSettings, saveMessages, truncateFrom } from "@/lib/db/queries";
 import { generateTitleInBackground } from "@/lib/title";
+import { toMessageUsage } from "@/lib/usage";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -79,7 +86,7 @@ export async function POST(req: Request) {
   const [settings, existingChat, candidateMemories, skills] = await Promise.all([
     getSettings(user.id),
     getChat(chatId, user.id),
-    selectPromptMemories(user.id, lastUserText(messages)),
+    listCandidateMemories(user.id),
     selectPromptSkills(user.id),
   ]);
 
@@ -93,9 +100,17 @@ export async function POST(req: Request) {
     await truncateFrom(chatId, body.truncateFromId);
   }
 
+  // Two gates, in order: the account-level toggle, then this conversation's
+  // own scope. The chat can narrow what the model sees; it cannot widen it.
   const memoryEnabled = settings?.memoryEnabled ?? true;
   const memoryStore = memoryEnabled ? createDbMemoryStore(user.id) : null;
-  const memories = memoryEnabled ? candidateMemories : [];
+  const chatScope = {
+    scope: isMemoryScope(chat.memoryScope) ? chat.memoryScope : ("all" as const),
+    ids: chat.memoryIds ?? [],
+  };
+  const memories = memoryEnabled
+    ? selectPromptMemories(candidateMemories, lastUserText(messages), chatScope)
+    : [];
 
   const system = buildSystemPrompt({
     userName: user.name,
@@ -126,6 +141,13 @@ export async function POST(req: Request) {
     userSaved.catch(() => {});
     generateTitleInBackground({ chat, userId: user.id, apiKey, text: lastUserText(messages) });
   }
+
+  // Claimed here rather than at the top of the handler so a request that never
+  // reaches the model does not spend the user's budget, and so the gap between
+  // claiming a slot and handing back the stream that releases it is as small as
+  // possible.
+  const limit = rateLimit("chat", user.id);
+  if (!limit.ok) return rateLimitResponse(limit);
 
   const provider = createProvider(apiKey);
 
@@ -163,6 +185,22 @@ export async function POST(req: Request) {
       // It also travels to the client in the `start` chunk, which keeps the
       // id the browser renders identical to the one on disk.
       generateMessageId: generateId,
+      // BYOK means the user pays the provider directly, so the token count is
+      // their bill. `finish` carries the usage for the whole turn, tool steps
+      // included. It rides along as message metadata, which `saveMessages`
+      // already persists — so the number survives a reload with no new column.
+      messageMetadata: ({ part }) => {
+        if (part.type !== "finish") return undefined;
+        const usage = toMessageUsage(part.totalUsage);
+        // The model travels with the usage: pricing is per model, and an old
+        // turn must be costed with the model that actually wrote it, not
+        // whatever is selected now.
+        // What the model was actually told about the user. `selectPromptMemories`
+        // picks silently, so without this there is no way to tell whether an
+        // answer leaned on a memory — or which one.
+        const injected = memories.map((m) => ({ id: m.id, content: m.content }));
+        return usage ? { usage, model: modelId, memories: injected } : { memories: injected };
+      },
       onEnd: async ({ responseMessage }) => {
         if (!responseMessage) return;
         try {
@@ -187,10 +225,13 @@ export async function POST(req: Request) {
     // and `onEnd` still writes the answer to the database. Without it the
     // cancel propagates and the reply is lost mid-sentence.
     consumeSseStream: ({ stream }) => {
+      // This copy is drained to completion whatever the client does, which
+      // makes it the one place guaranteed to observe the end of the turn — so
+      // it is also where the concurrency slot is given back.
       void consumeStream({
         stream,
         onError: (error) => console.error("[api/chat] background stream error:", error),
-      });
+      }).finally(limit.release);
     },
   });
 }

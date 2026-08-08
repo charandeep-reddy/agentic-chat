@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { UIMessage } from "ai";
 import { chatToMarkdown } from "@/lib/export-markdown";
+import { useMenu } from "./use-menu";
 import { IconCheck, IconCopy, IconDownload, IconShare, IconTrash } from "./icons";
 
 export function ShareButton({
@@ -20,16 +21,11 @@ export function ShareButton({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // Not `roving`: this panel holds a text field, so the arrow keys belong to
+  // whatever the user is typing in.
+  const panelRef = useMenu<HTMLDivElement>({ open, onClose: close, trigger: triggerRef });
 
   // Read during render, so it has to survive the server pass too — this is a
   // client component, but Next still prerenders it. The origin is only needed
@@ -64,11 +60,14 @@ export function ShareButton({
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="Share this chat"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
           shareId
             ? "border-info/40 text-info hover:bg-info-soft"
@@ -80,7 +79,12 @@ export function ShareButton({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1.5 w-80 rounded-xl border border-border bg-surface-raised p-3 shadow-xl">
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-label="Share this chat"
+          className="absolute right-0 top-full z-30 mt-1.5 w-80 rounded-xl border border-border bg-surface-raised p-3 shadow-xl"
+        >
           <h3 className="text-[13px] font-medium text-text">Share this chat</h3>
           <p className="mt-1 text-[11px] leading-relaxed text-text-faint">
             Anyone with the link can read the conversation. New messages you send afterwards appear

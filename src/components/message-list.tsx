@@ -11,7 +11,10 @@ import { QuestionCard, type QuestionState } from "./question-card";
 import { ToolChipRow, type ToolPart, isToolPart } from "./tool-part";
 import { MemoryNotice } from "./memory-notice";
 import { Skeleton } from "./skeleton";
-import { IconCheck, IconCopy, IconEdit, IconRefresh } from "./icons";
+import { messageModel, messageUsage } from "./conversation-cost";
+import { usePrices } from "./use-prices";
+import { estimateCost, formatCost, formatTokens } from "@/lib/usage";
+import { IconBrain, IconCheck, IconCopy, IconEdit, IconRefresh } from "./icons";
 import type { ChartSpec } from "@/lib/tools/render-chart";
 import type { FlowSpec } from "@/lib/tools/render-flow";
 import type { HtmlSpec } from "@/lib/tools/render-html";
@@ -194,6 +197,62 @@ function UserMessage({
   );
 }
 
+/**
+ * The memories this turn was given, if any.
+ *
+ * `selectPromptMemories` picks silently, so until now there was no way to tell
+ * whether an answer leaned on something the model remembered — or which thing.
+ */
+function MemoryNote({ message }: { message: UIMessage }) {
+  const memories = (message.metadata as { memories?: Array<{ id: string; content: string }> })
+    ?.memories;
+  if (!memories?.length) return null;
+
+  return (
+    <span
+      title={`Memories used in this turn:\n${memories.map((m) => `· ${m.content}`).join("\n")}`}
+      className="ml-1 flex items-center gap-1 text-[11px] text-text-faint"
+    >
+      <IconBrain size={11} />
+      {memories.length}
+    </span>
+  );
+}
+
+/**
+ * What one turn cost, in the action row.
+ *
+ * Deliberately quiet: it sits with copy and regenerate at the same weight as
+ * the rest of that row, and disappears entirely when the provider reported no
+ * usage — which plenty of OpenAI-compatible endpoints do.
+ */
+function UsageNote({ message }: { message: UIMessage }) {
+  const prices = usePrices();
+  const usage = messageUsage(message);
+  if (!usage) return null;
+
+  const model = messageModel(message);
+  const cost = model ? estimateCost(usage, prices[model]) : undefined;
+
+  const detail = [
+    usage.input !== undefined ? `${usage.input.toLocaleString()} in` : "",
+    usage.output !== undefined ? `${usage.output.toLocaleString()} out` : "",
+    usage.reasoning ? `${usage.reasoning.toLocaleString()} reasoning (of out)` : "",
+    usage.cached ? `${usage.cached.toLocaleString()} cached (of in)` : "",
+    model ?? "",
+    cost === undefined && model ? "Set a price in Settings to estimate cost" : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return (
+    <span title={detail} className="ml-1 font-mono text-[11px] text-text-faint">
+      {formatTokens(usage.total ?? 0)} tok
+      {cost !== undefined && <span className="ml-1.5">{formatCost(cost)}</span>}
+    </span>
+  );
+}
+
 function AssistantMessage({
   message,
   busy,
@@ -255,6 +314,8 @@ function AssistantMessage({
               <IconRefresh size={13} />
             </button>
           )}
+          <MemoryNote message={message} />
+          <UsageNote message={message} />
         </div>
       )}
     </div>
@@ -321,12 +382,34 @@ export function MessageList({
         </div>
       ) : (
         busy && (
-          <div className="flex items-center gap-2 text-xs text-text-faint">
+          <div role="status" className="flex items-center gap-2 text-xs text-text-faint">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
             Working…
           </div>
         )
       )}
+
+      <StreamAnnouncer messages={messages} busy={busy || waiting} />
+    </div>
+  );
+}
+
+/**
+ * Announces the answer to a screen reader, which otherwise gets nothing at all
+ * — the transcript is an ordinary div and text arriving into it is silent.
+ *
+ * The finished answer is announced once rather than each token as it lands: a
+ * live region fed a stream repeats itself constantly and is unusable. So the
+ * region says only that work is happening while it streams, then reads the
+ * result when it settles.
+ */
+function StreamAnnouncer({ messages, busy }: { messages: UIMessage[]; busy: boolean }) {
+  const last = messages[messages.length - 1];
+  const finished = !busy && last?.role === "assistant" ? messageText(last) : "";
+
+  return (
+    <div aria-live="polite" aria-atomic="true" className="sr-only">
+      {busy ? "Generating a response" : finished}
     </div>
   );
 }
