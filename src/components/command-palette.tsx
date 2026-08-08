@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ChatSummary } from "./chats-provider";
-import { IconBrain, IconMessage, IconPlus, IconSearch, IconUser } from "./icons";
+import { IconBrain, IconMessage, IconPlus, IconSearch, IconSpark, IconUser } from "./icons";
 
 interface Command {
   id: string;
@@ -16,8 +16,14 @@ interface Command {
 const PAGES: Command[] = [
   { id: "new", label: "New chat", hint: "⌘ ⇧ O", icon: IconPlus, href: "/" },
   { id: "memory", label: "Memory & packs", icon: IconBrain, href: "/memory" },
+  { id: "skills", label: "Skills", icon: IconSpark, href: "/skills" },
   { id: "profile", label: "Profile & settings", icon: IconUser, href: "/profile" },
 ];
+
+/** Stable per-row id, so `aria-activedescendant` has something to point at. */
+function optionId(id: string): string {
+  return `palette-option-${id}`;
+}
 
 /**
  * ⌘K switcher. It runs its own chat query rather than borrowing the sidebar's,
@@ -117,6 +123,15 @@ export function CommandPalette() {
             autoFocus
             value={query}
             placeholder="Search chats or jump to a page…"
+            // A combobox driving a listbox: the focus never leaves the input,
+            // so `aria-activedescendant` is the only thing that tells a screen
+            // reader which row is highlighted.
+            role="combobox"
+            aria-expanded
+            aria-controls="palette-listbox"
+            aria-activedescendant={commands[cursor] ? optionId(commands[cursor].id) : undefined}
+            aria-autocomplete="list"
+            aria-label="Search chats or jump to a page"
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") setOpen(false);
@@ -127,6 +142,14 @@ export function CommandPalette() {
               if (e.key === "ArrowUp") {
                 e.preventDefault();
                 setCursor((c) => Math.max(c - 1, 0));
+              }
+              if (e.key === "Home") {
+                e.preventDefault();
+                setCursor(0);
+              }
+              if (e.key === "End") {
+                e.preventDefault();
+                setCursor(Math.max(0, commands.length - 1));
               }
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -142,15 +165,27 @@ export function CommandPalette() {
         </div>
 
         {commands.length === 0 ? (
-          <p className="px-4 py-8 text-center text-[13px] text-text-faint">
+          <p role="status" className="px-4 py-8 text-center text-[13px] text-text-faint">
             Nothing matches &ldquo;{query}&rdquo;.
           </p>
         ) : (
-          <ul ref={listRef} className="scroll-thin max-h-[45vh] overflow-y-auto p-1.5">
+          <ul
+            ref={listRef}
+            id="palette-listbox"
+            role="listbox"
+            aria-label="Results"
+            className="scroll-thin max-h-[45vh] overflow-y-auto p-1.5"
+          >
             {commands.map((command, i) => (
-              <li key={command.id}>
+              <li key={command.id} role="presentation">
                 <button
                   type="button"
+                  id={optionId(command.id)}
+                  role="option"
+                  aria-selected={i === cursor}
+                  // The input keeps focus, so these must not be tab stops of
+                  // their own — the arrow keys are the way through the list.
+                  tabIndex={-1}
                   onMouseEnter={() => setCursor(i)}
                   onClick={() => go(command.href)}
                   className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors ${

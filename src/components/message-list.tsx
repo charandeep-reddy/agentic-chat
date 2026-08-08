@@ -359,12 +359,34 @@ export function MessageList({
         </div>
       ) : (
         busy && (
-          <div className="flex items-center gap-2 text-xs text-text-faint">
+          <div role="status" className="flex items-center gap-2 text-xs text-text-faint">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
             Working…
           </div>
         )
       )}
+
+      <StreamAnnouncer messages={messages} busy={busy || waiting} />
+    </div>
+  );
+}
+
+/**
+ * Announces the answer to a screen reader, which otherwise gets nothing at all
+ * — the transcript is an ordinary div and text arriving into it is silent.
+ *
+ * The finished answer is announced once rather than each token as it lands: a
+ * live region fed a stream repeats itself constantly and is unusable. So the
+ * region says only that work is happening while it streams, then reads the
+ * result when it settles.
+ */
+function StreamAnnouncer({ messages, busy }: { messages: UIMessage[]; busy: boolean }) {
+  const last = messages[messages.length - 1];
+  const finished = !busy && last?.role === "assistant" ? messageText(last) : "";
+
+  return (
+    <div aria-live="polite" aria-atomic="true" className="sr-only">
+      {busy ? "Generating a response" : finished}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { withTheme, type HtmlSpec } from "@/lib/tools/render-html";
 import { WidgetAction } from "./widget-shell";
 import { useTheme } from "./theme-provider";
+import { useMenu } from "./use-menu";
 import { IconCode, IconCopy, IconDownload, IconExpand, IconEye, IconExternal } from "./icons";
 
 /**
@@ -68,14 +69,14 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   }, [spec.html]);
 
-  useEffect(() => {
-    if (!fullscreen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFullscreen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [fullscreen]);
+  // Escape, focus in and back out, and Tab kept inside — which is what
+  // `aria-modal` on the overlay already claims is happening.
+  const closeFullscreen = useCallback(() => setFullscreen(false), []);
+  const overlayRef = useMenu<HTMLDivElement>({
+    open: fullscreen,
+    onClose: closeFullscreen,
+    trap: true,
+  });
 
   return (
     <>
@@ -138,6 +139,7 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
 
       {fullscreen && (
         <div
+          ref={overlayRef}
           className="fixed inset-0 z-50 flex flex-col bg-black/80 p-4 backdrop-blur-sm sm:p-8"
           role="dialog"
           aria-modal="true"
