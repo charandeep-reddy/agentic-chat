@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { UIMessage } from "ai";
 import { ChatPage } from "@/components/chat-page";
+import { isMemoryScope } from "@/lib/memory-scope";
 import { getChat, getMessages } from "@/lib/db/queries";
 import { requireUser } from "@/lib/session";
 
@@ -38,6 +39,8 @@ export default async function ExistingChatPage({ params }: Props) {
       initialTitle={chat.title}
       initialShareId={chat.shareId}
       isNew={false}
+      memoryScope={isMemoryScope(chat.memoryScope) ? chat.memoryScope : "all"}
+      memoryIds={chat.memoryIds ?? []}
     />
   );
 }

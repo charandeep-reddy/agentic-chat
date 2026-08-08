@@ -16,6 +16,8 @@ import { ShareButton } from "./share-button";
 import { DEFAULT_MODEL } from "@/lib/models";
 import { usageSchema } from "@/lib/usage";
 import { ConversationCost } from "./conversation-cost";
+import { MemoryScopeButton } from "./memory-scope-button";
+import type { MemoryScope } from "@/lib/memory-scope";
 import { IconChevron, IconKey, IconSidebar } from "./icons";
 
 export interface ChatProps {
@@ -25,6 +27,8 @@ export interface ChatProps {
   initialShareId: string | null;
   /** True for a chat that has not been written to the database yet. */
   isNew: boolean;
+  memoryScope: MemoryScope;
+  memoryIds: string[];
   onToggleSidebar: () => void;
 }
 
@@ -32,6 +36,8 @@ const metadataSchema = z.object({
   answerTo: z.string().optional(),
   usage: usageSchema.optional(),
   model: z.string().optional(),
+  /** The saved memories this turn was actually given. */
+  memories: z.array(z.object({ id: z.string(), content: z.string() })).optional(),
 });
 
 /** Codes the route returns without a sentence of its own. */
@@ -71,6 +77,8 @@ export function Chat({
   initialTitle,
   initialShareId,
   isNew,
+  memoryScope,
+  memoryIds,
   onToggleSidebar,
 }: ChatProps) {
   const apiKey = useSyncExternalStore(
@@ -240,6 +248,12 @@ export function Chat({
         </h1>
 
         <ConversationCost messages={messages} />
+
+        <MemoryScopeButton
+          chatId={chatId}
+          initialScope={memoryScope}
+          initialIds={memoryIds}
+        />
 
         {messages.length > 0 && (
           <ShareButton
