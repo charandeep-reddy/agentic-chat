@@ -14,6 +14,8 @@ import { EmptyState } from "./empty-state";
 import { MessageList } from "./message-list";
 import { ShareButton } from "./share-button";
 import { DEFAULT_MODEL } from "@/lib/models";
+import { usageSchema } from "@/lib/usage";
+import { ConversationCost } from "./conversation-cost";
 import { IconChevron, IconKey, IconSidebar } from "./icons";
 
 export interface ChatProps {
@@ -26,7 +28,11 @@ export interface ChatProps {
   onToggleSidebar: () => void;
 }
 
-const metadataSchema = z.object({ answerTo: z.string().optional() });
+const metadataSchema = z.object({
+  answerTo: z.string().optional(),
+  usage: usageSchema.optional(),
+  model: z.string().optional(),
+});
 
 /** Codes the route returns without a sentence of its own. */
 const ERROR_TEXT: Record<string, string> = {
@@ -232,6 +238,8 @@ export function Chat({
         <h1 className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-secondary">
           {title}
         </h1>
+
+        <ConversationCost messages={messages} />
 
         {messages.length > 0 && (
           <ShareButton

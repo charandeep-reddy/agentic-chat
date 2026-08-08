@@ -18,6 +18,7 @@ import { createDbMemoryStore, selectPromptMemories } from "@/lib/memory-store";
 import { createDbSkillStore, selectPromptSkills } from "@/lib/skill-store";
 import { createChat, getChat, getSettings, saveMessages, truncateFrom } from "@/lib/db/queries";
 import { generateTitleInBackground } from "@/lib/title";
+import { toMessageUsage } from "@/lib/usage";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -171,6 +172,18 @@ export async function POST(req: Request) {
       // It also travels to the client in the `start` chunk, which keeps the
       // id the browser renders identical to the one on disk.
       generateMessageId: generateId,
+      // BYOK means the user pays the provider directly, so the token count is
+      // their bill. `finish` carries the usage for the whole turn, tool steps
+      // included. It rides along as message metadata, which `saveMessages`
+      // already persists — so the number survives a reload with no new column.
+      messageMetadata: ({ part }) => {
+        if (part.type !== "finish") return undefined;
+        const usage = toMessageUsage(part.totalUsage);
+        // The model travels with the usage: pricing is per model, and an old
+        // turn must be costed with the model that actually wrote it, not
+        // whatever is selected now.
+        return usage ? { usage, model: modelId } : undefined;
+      },
       onEnd: async ({ responseMessage }) => {
         if (!responseMessage) return;
         try {

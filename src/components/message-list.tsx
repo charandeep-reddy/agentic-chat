@@ -11,6 +11,9 @@ import { QuestionCard, type QuestionState } from "./question-card";
 import { ToolChipRow, type ToolPart, isToolPart } from "./tool-part";
 import { MemoryNotice } from "./memory-notice";
 import { Skeleton } from "./skeleton";
+import { messageModel, messageUsage } from "./conversation-cost";
+import { usePrices } from "./use-prices";
+import { estimateCost, formatCost, formatTokens } from "@/lib/usage";
 import { IconCheck, IconCopy, IconEdit, IconRefresh } from "./icons";
 import type { ChartSpec } from "@/lib/tools/render-chart";
 import type { FlowSpec } from "@/lib/tools/render-flow";
@@ -194,6 +197,40 @@ function UserMessage({
   );
 }
 
+/**
+ * What one turn cost, in the action row.
+ *
+ * Deliberately quiet: it sits with copy and regenerate at the same weight as
+ * the rest of that row, and disappears entirely when the provider reported no
+ * usage — which plenty of OpenAI-compatible endpoints do.
+ */
+function UsageNote({ message }: { message: UIMessage }) {
+  const prices = usePrices();
+  const usage = messageUsage(message);
+  if (!usage) return null;
+
+  const model = messageModel(message);
+  const cost = model ? estimateCost(usage, prices[model]) : undefined;
+
+  const detail = [
+    usage.input !== undefined ? `${usage.input.toLocaleString()} in` : "",
+    usage.output !== undefined ? `${usage.output.toLocaleString()} out` : "",
+    usage.reasoning ? `${usage.reasoning.toLocaleString()} reasoning (of out)` : "",
+    usage.cached ? `${usage.cached.toLocaleString()} cached (of in)` : "",
+    model ?? "",
+    cost === undefined && model ? "Set a price in Settings to estimate cost" : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return (
+    <span title={detail} className="ml-1 font-mono text-[11px] text-text-faint">
+      {formatTokens(usage.total ?? 0)} tok
+      {cost !== undefined && <span className="ml-1.5">{formatCost(cost)}</span>}
+    </span>
+  );
+}
+
 function AssistantMessage({
   message,
   busy,
@@ -255,6 +292,7 @@ function AssistantMessage({
               <IconRefresh size={13} />
             </button>
           )}
+          <UsageNote message={message} />
         </div>
       )}
     </div>
