@@ -1,0 +1,29 @@
+import { AppShell } from "@/components/app-shell";
+import { requireUser } from "@/lib/session";
+
+/**
+ * The frame every signed-in route renders inside.
+ *
+ * Its whole job is to exist above the pages rather than inside them. Next.js
+ * preserves a layout across navigations within its segment, so moving between
+ * chats — or opening a new one — replaces only the content column. The sidebar,
+ * the chat list, the command palette and the drawer state all survive, along
+ * with the sidebar's scroll position.
+ *
+ * The route group `(app)` adds no path segment: `/`, `/c/[id]`, `/memory`,
+ * `/profile` and `/skills` keep the URLs they had. `/share`, `/pack` and
+ * `/sign-in` sit outside it because they are reachable signed-out and have no
+ * sidebar.
+ */
+export default async function AppLayout({ children }: LayoutProps<"/">) {
+  // One session lookup for the whole frame. Pages under here still call
+  // `requireUser` for their own data, and Better Auth reads the same request,
+  // so this does not add a round trip per navigation.
+  const user = await requireUser();
+
+  return (
+    <AppShell user={{ name: user.name, email: user.email, image: user.image ?? null }}>
+      {children}
+    </AppShell>
+  );
+}

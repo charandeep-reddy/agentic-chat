@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageShell, Section } from "./page-shell";
-import type { SidebarUser } from "./sidebar";
 import {
   parseSkillMarkdown,
   slugifySkillName,
@@ -323,7 +322,7 @@ function SkillRow({
   );
 }
 
-export function SkillsPage({ user, skills }: { user: SidebarUser; skills: SkillItem[] }) {
+export function SkillsPage({ skills }: { skills: SkillItem[] }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -374,7 +373,6 @@ export function SkillsPage({ user, skills }: { user: SidebarUser; skills: SkillI
 
   return (
     <PageShell
-      user={user}
       title="Skills"
       description="Instructions you write once and the model opens when they apply. Only each skill's name and description sit in the prompt — the body is fetched on demand, so a big library stays cheap."
       tabs={[

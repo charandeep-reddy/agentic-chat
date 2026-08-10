@@ -7,8 +7,9 @@ import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
 import { SettingsPanel, KEY_STORAGE, MODEL_STORAGE } from "./settings-panel";
+import { useSidebarToggle } from "./app-shell";
 import { getStorage, setStorage, removeStorage, subscribeStorage } from "@/lib/local-storage";
-import { useChats } from "./chats-provider";
+import { useChatsActions } from "./chats-provider";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { MessageList } from "./message-list";
@@ -29,7 +30,6 @@ export interface ChatProps {
   isNew: boolean;
   memoryScope: MemoryScope;
   memoryIds: string[];
-  onToggleSidebar: () => void;
 }
 
 const metadataSchema = z.object({
@@ -79,8 +79,8 @@ export function Chat({
   isNew,
   memoryScope,
   memoryIds,
-  onToggleSidebar,
 }: ChatProps) {
+  const toggleSidebar = useSidebarToggle();
   const apiKey = useSyncExternalStore(
     (cb) => subscribeStorage(KEY_STORAGE, cb),
     () => getStorage(KEY_STORAGE),
@@ -94,7 +94,7 @@ export function Chat({
   const model = storedModel || DEFAULT_MODEL;
 
   const router = useRouter();
-  const { refresh } = useChats();
+  const { refresh } = useChatsActions();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState(initialTitle);
@@ -120,6 +120,10 @@ export function Chat({
   });
 
   const busy = status === "submitted" || status === "streaming";
+
+  // Parsed once per error rather than once per read — it was being called twice
+  // in the same render, JSON.parse included.
+  const failure = useMemo(() => (error ? describeError(error) : null), [error]);
 
   const pendingQuestion = useMemo(() => {
     for (const message of messages) {
@@ -168,26 +172,43 @@ export function Chat({
     [sendMessage],
   );
 
+  /**
+   * The live transcript, for callbacks that need to read it without depending
+   * on it.
+   *
+   * `messages` is a new array on every streamed token. Any callback listing it
+   * as a dependency is therefore rebuilt token by token, and every memoized
+   * message that receives the callback re-renders with it — which is exactly
+   * what made a long conversation get slower as the answer grew.
+   */
+  const messagesRef = useRef(messages);
+  const busyRef = useRef(busy);
+  useEffect(() => {
+    messagesRef.current = messages;
+    busyRef.current = busy;
+  }, [messages, busy]);
+
   /** Rewrites a user message and re-runs everything downstream of it. */
   const editMessage = useCallback(
     (messageId: string, text: string) => {
-      const index = messages.findIndex((m) => m.id === messageId);
-      if (index === -1 || busy) return;
-      setMessages(messages.slice(0, index));
+      const current = messagesRef.current;
+      const index = current.findIndex((m) => m.id === messageId);
+      if (index === -1 || busyRef.current) return;
+      setMessages(current.slice(0, index));
       void sendMessage(
         { role: "user", parts: [{ type: "text", text }] },
         { body: { truncateFromId: messageId } },
       );
     },
-    [messages, busy, setMessages, sendMessage],
+    [setMessages, sendMessage],
   );
 
   const regenerateMessage = useCallback(
     (messageId: string) => {
-      if (busy) return;
+      if (busyRef.current) return;
       void regenerate({ messageId, body: { truncateFromId: messageId } });
     },
-    [busy, regenerate],
+    [regenerate],
   );
 
   // Keep the viewport pinned to the newest content unless the user scrolled up
@@ -235,7 +256,7 @@ export function Chat({
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
         <button
           type="button"
-          onClick={onToggleSidebar}
+          onClick={toggleSidebar}
           aria-label="Toggle sidebar"
           title="Toggle sidebar (⌘B)"
           className="rounded-md p-1.5 text-text-faint hover:bg-surface hover:text-text"
@@ -299,13 +320,13 @@ export function Chat({
             />
           )}
 
-          {error && (
+          {failure && (
             <div
               role="alert"
               className="mt-6 flex items-center gap-3 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger"
             >
-              <span className="min-w-0 flex-1">{describeError(error).message}</span>
-              {describeError(error).showSettings && (
+              <span className="min-w-0 flex-1">{failure.message}</span>
+              {failure.showSettings && (
                 <button
                   type="button"
                   onClick={() => setSettingsOpen(true)}

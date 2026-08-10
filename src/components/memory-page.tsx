@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageShell, Section } from "./page-shell";
 import { Skeleton } from "./skeleton";
-import type { SidebarUser } from "./sidebar";
 import { MEMORY_CATEGORIES } from "@/lib/tools/memory";
 import {
   IconBrain,
@@ -216,12 +215,10 @@ function PackCard({
 }
 
 export function MemoryPage({
-  user,
   memories: initialMemories,
   ownedPacks,
   discoverPacks,
 }: {
-  user: SidebarUser;
   memories: MemoryItem[];
   ownedPacks: PackItem[];
   discoverPacks: PackItem[];
@@ -375,7 +372,6 @@ export function MemoryPage({
 
   return (
     <PageShell
-      user={user}
       title="Memory"
       description="What the model remembers about you between conversations, and packs of memories you can share or borrow."
       tabs={[

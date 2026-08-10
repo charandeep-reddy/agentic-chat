@@ -97,7 +97,6 @@ export function ProfilePage({
 
   return (
     <PageShell
-      user={{ name: user.name, email: user.email, image: user.image }}
       title="Profile & settings"
       description="How you sign in, what the model knows about you, and what happens to your data."
       tabs={[

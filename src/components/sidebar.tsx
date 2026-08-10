@@ -2,9 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { signOut } from "@/lib/auth-client";
-import { useChats, type ChatSummary } from "./chats-provider";
+import {
+  useChatsActions,
+  useChatsFilter,
+  useChatsList,
+  type ChatSummary,
+} from "./chats-provider";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useMenu } from "./use-menu";
 import { ChatListSkeleton } from "./skeleton";
@@ -59,8 +64,26 @@ function groupChats(chats: ChatSummary[]): Array<{ label: string; items: ChatSum
     .map(([label, items]) => ({ label, items }));
 }
 
-function ChatRow({ chat, active }: { chat: ChatSummary; active: boolean }) {
-  const { patchChat, removeChat } = useChats();
+/**
+ * One row in the chat list.
+ *
+ * Memoized because there can be a couple of hundred of these: without it, any
+ * sidebar re-render — a keystroke in the filter, a title arriving for a new
+ * chat — re-rendered every row and every one of their menus. `chat` objects are
+ * replaced wholesale by the provider rather than mutated, so the default
+ * shallow comparison is exactly right here.
+ *
+ * It reads only the *actions* context, which never changes after mount, so
+ * subscribing here costs nothing.
+ */
+const ChatRow = memo(function ChatRow({
+  chat,
+  active,
+}: {
+  chat: ChatSummary;
+  active: boolean;
+}) {
+  const { patchChat, removeChat } = useChatsActions();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -201,7 +224,7 @@ function ChatRow({ chat, active }: { chat: ChatSummary; active: boolean }) {
       )}
     </div>
   );
-}
+});
 
 function UserMenu({ user }: { user: SidebarUser }) {
   const [open, setOpen] = useState(false);
@@ -332,10 +355,14 @@ export function Sidebar({
   collapsed: boolean;
   onClose: () => void;
 }) {
-  const { chats, loading, search, setSearch, showArchived, setShowArchived } = useChats();
+  const { chats, loading } = useChatsList();
+  const { search, showArchived } = useChatsFilter();
+  const { setSearch, setShowArchived } = useChatsActions();
   const pathname = usePathname();
   const activeId = pathname.startsWith("/c/") ? pathname.slice(3) : null;
-  const groups = groupChats(chats);
+  // Grouping walks the whole list and builds a Date per chat; without this it
+  // re-ran on every keystroke in the filter box.
+  const groups = useMemo(() => groupChats(chats), [chats]);
 
   return (
     <>

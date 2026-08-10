@@ -11,7 +11,6 @@ export default async function Skills() {
 
   return (
     <SkillsPage
-      user={{ name: user.name, email: user.email, image: user.image ?? null }}
       skills={skills.map((s) => ({
         id: s.id,
         name: s.name,

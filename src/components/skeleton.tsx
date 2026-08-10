@@ -18,31 +18,6 @@ export function Skeleton({
   );
 }
 
-/**
- * Static stand-in for the sidebar. Route-level `loading.tsx` replaces the whole
- * page — the sidebar included, since it's rendered inside the page rather than
- * the layout — so the skeleton has to redraw the frame or the app appears to
- * collapse to a blank screen on every navigation.
- */
-export function SidebarSkeleton() {
-  return (
-    <div className="hidden w-[270px] shrink-0 flex-col border-r border-border-subtle bg-bg-elevated lg:flex">
-      <div className="flex items-center px-3 py-3">
-        <Skeleton className="h-5 w-32" />
-      </div>
-      <div className="px-3 pb-2">
-        <Skeleton className="h-[42px] w-full rounded-xl" />
-      </div>
-      <div className="px-3 pb-2">
-        <Skeleton className="h-[38px] w-full rounded-lg" />
-      </div>
-      <div className="px-2 pt-2">
-        <ChatListSkeleton />
-      </div>
-    </div>
-  );
-}
-
 /** Grouped rows with varied widths, matching the real sidebar's chat list. */
 export function ChatListSkeleton() {
   return (
@@ -77,14 +52,17 @@ function HeaderSkeleton() {
 }
 
 /**
- * Full-page fallback for the chat route: frame, transcript, composer.
- * `empty` is the new-chat case — there is no transcript to stand in for, and
+ * Fallback for the chat route: transcript and composer, no frame.
+ *
+ * It fills the content column beside the persistent sidebar, so navigating
+ * between chats replaces only the transcript — the sidebar, its scroll
+ * position, and the highlighted row all stay put.
+ *
+ * `empty` is the new-chat case: there is no transcript to stand in for, and
  * drawing messages that will never appear is worse than drawing nothing.
  */
 export function ChatSkeleton({ empty = false }: { empty?: boolean }) {
   return (
-    <div className="flex h-dvh overflow-hidden">
-      <SidebarSkeleton />
       <div className="flex h-dvh min-w-0 flex-1 flex-col">
         <HeaderSkeleton />
         <div className="min-h-0 flex-1 overflow-hidden">
@@ -118,7 +96,6 @@ export function ChatSkeleton({ empty = false }: { empty?: boolean }) {
           <Skeleton className="h-[52px] w-full rounded-2xl" />
         </div>
       </div>
-    </div>
   );
 }
 
@@ -146,13 +123,11 @@ export function PublicPageSkeleton({ width = "max-w-3xl" }: { width?: string }) 
 }
 
 /**
- * Full-page fallback for the non-chat routes, mirroring `PageShell`.
+ * Fallback for the non-chat routes, mirroring `PageShell`'s content column.
  * `sections` is how many card outlines to draw.
  */
 export function PageSkeleton({ sections = 3 }: { sections?: number }) {
   return (
-    <div className="flex h-dvh overflow-hidden">
-      <SidebarSkeleton />
       <div className="flex h-dvh min-w-0 flex-1 flex-col">
         <HeaderSkeleton />
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -176,6 +151,5 @@ export function PageSkeleton({ sections = 3 }: { sections?: number }) {
           </div>
         </div>
       </div>
-    </div>
   );
 }

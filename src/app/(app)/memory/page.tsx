@@ -19,7 +19,6 @@ export default async function Memory() {
 
   return (
     <MemoryPage
-      user={{ name: user.name, email: user.email, image: user.image ?? null }}
       memories={memories.map((m) => ({
         id: m.id,
         content: m.content,

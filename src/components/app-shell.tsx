@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useSyncExternalStore, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+  useState,
+  type ReactNode,
+} from "react";
 import { ChatsProvider } from "./chats-provider";
 import { CommandPalette } from "./command-palette";
 import { Sidebar, type SidebarUser } from "./sidebar";
@@ -35,21 +44,36 @@ function setCollapsed(next: boolean) {
 }
 
 /**
- * Sidebar + content frame shared by every signed-in page. The sidebar is a
- * static column from `lg` up and an overlay drawer below it, so the chat gets
- * the full width on a phone.
+ * The sidebar toggle, published to whatever page is mounted.
  *
- * `children` is a render prop because the content needs the drawer toggle for
- * its own header button; that also means every page using the shell is a
- * client component, which is fine — they all need interactivity anyway.
+ * Pages own their header — the chat header carries a title and a share button,
+ * the settings pages carry tabs — but the button in it belongs to the shell.
+ * A context is how it reaches them now that the shell is a layout: passing it
+ * down would mean every page taking a prop from a component that no longer
+ * renders it.
+ *
+ * The value is a single stable function, so this context never causes a
+ * re-render after mount.
  */
-export function AppShell({
-  user,
-  children,
-}: {
-  user: SidebarUser;
-  children: (props: { toggleSidebar: () => void }) => ReactNode;
-}) {
+const SidebarToggleContext = createContext<() => void>(() => {});
+
+export function useSidebarToggle(): () => void {
+  return useContext(SidebarToggleContext);
+}
+
+/**
+ * Sidebar + content frame for every signed-in page. The sidebar is a static
+ * column from `lg` up and an overlay drawer below it, so the chat gets the full
+ * width on a phone.
+ *
+ * Rendered once, by `app/(app)/layout.tsx`, and deliberately not by the pages
+ * themselves. A layout survives navigation: moving between chats, or opening a
+ * new one, swaps only the content beside it. When each page mounted its own
+ * shell, every navigation tore down the sidebar, the chat list provider and the
+ * command palette and rebuilt them — which meant a refetch of `/api/chats`, a
+ * skeleton flash, and the sidebar scroll position lost, on every click.
+ */
+export function AppShell({ user, children }: { user: SidebarUser; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const collapsed = useSyncExternalStore(subscribeCollapsed, getCollapsed, () => false);
 
@@ -60,6 +84,8 @@ export function AppShell({
     if (window.matchMedia("(min-width: 1024px)").matches) setCollapsed(!getCollapsed());
     else setOpen((v) => !v);
   }, []);
+
+  const closeDrawer = useCallback(() => setOpen(false), []);
 
   // Close the drawer on resize into desktop, so it can't be stuck open.
   useEffect(() => {
@@ -81,25 +107,26 @@ export function AppShell({
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleSidebar]);
 
-  // The pages pass an inline render prop, but the function itself is stable
-  // between AppShell re-renders (only the shell's own state changes on a
-  // sidebar toggle). Memoizing the result keeps the whole chat subtree from
-  // re-rendering on the main thread while the drawer is animating — that
-  // re-render is what made the mobile slide drop frames.
-  const content = useMemo(() => children({ toggleSidebar }), [children, toggleSidebar]);
+  /**
+   * The page subtree is held still while the shell's own state changes.
+   *
+   * Opening the drawer re-renders AppShell, and without this the entire chat —
+   * every message, every chart, every sandboxed frame — would re-render on the
+   * main thread during the slide. That is what made the mobile drawer drop
+   * frames. `children` comes from a server component, so its identity is stable
+   * across these renders and the memo actually holds.
+   */
+  const content = useMemo(() => children, [children]);
 
   return (
-    <ChatsProvider>
-      <div className="flex h-dvh overflow-hidden">
-        <Sidebar
-          user={user}
-          open={open}
-          collapsed={collapsed}
-          onClose={() => setOpen(false)}
-        />
-        {content}
-      </div>
-      <CommandPalette />
-    </ChatsProvider>
+    <SidebarToggleContext.Provider value={toggleSidebar}>
+      <ChatsProvider>
+        <div className="flex h-dvh overflow-hidden">
+          <Sidebar user={user} open={open} collapsed={collapsed} onClose={closeDrawer} />
+          {content}
+        </div>
+        <CommandPalette />
+      </ChatsProvider>
+    </SidebarToggleContext.Provider>
   );
 }

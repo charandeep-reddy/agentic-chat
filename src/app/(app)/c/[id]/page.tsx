@@ -33,7 +33,6 @@ export default async function ExistingChatPage({ params }: Props) {
 
   return (
     <ChatPage
-      user={{ name: user.name, email: user.email, image: user.image ?? null }}
       chatId={chat.id}
       initialMessages={messages}
       initialTitle={chat.title}

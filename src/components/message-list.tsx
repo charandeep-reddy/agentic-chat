@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { UIMessage } from "ai";
 import { Markdown } from "./markdown";
 import { ChartWidget } from "./chart-view";
@@ -93,7 +93,20 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function UserMessage({
+/**
+ * Memoized, along with `AssistantMessage` below.
+ *
+ * The transcript re-renders on every streamed token, so without this each token
+ * re-rendered every earlier message: re-parsing their Markdown, re-running
+ * Mermaid, and re-mounting nothing but still doing the work. A long
+ * conversation got measurably slower the longer the answer ran.
+ *
+ * The AI SDK replaces message objects rather than mutating them, so a shallow
+ * prop comparison is enough — only the message actually being streamed has a
+ * new identity. The callbacks that come with it are stable by construction; see
+ * `messagesRef` in `chat.tsx` for why that took work.
+ */
+const UserMessage = memo(function UserMessage({
   message,
   busy,
   readOnly,
@@ -195,7 +208,7 @@ function UserMessage({
       </div>
     </div>
   );
-}
+});
 
 /**
  * The memories this turn was given, if any.
@@ -253,7 +266,7 @@ function UsageNote({ message }: { message: UIMessage }) {
   );
 }
 
-function AssistantMessage({
+const AssistantMessage = memo(function AssistantMessage({
   message,
   busy,
   isLast,
@@ -320,7 +333,7 @@ function AssistantMessage({
       )}
     </div>
   );
-}
+});
 
 export function MessageList({
   messages,

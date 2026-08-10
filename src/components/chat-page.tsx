@@ -1,13 +1,14 @@
 "use client";
 
 import type { UIMessage } from "ai";
-import { AppShell } from "./app-shell";
 import { Chat } from "./chat";
-import type { SidebarUser } from "./sidebar";
 import type { MemoryScope } from "@/lib/memory-scope";
 
+/**
+ * The chat pane. The sidebar frame around it is the layout's, not this
+ * component's — see `app/(app)/layout.tsx`.
+ */
 export function ChatPage({
-  user,
   chatId,
   initialMessages,
   initialTitle,
@@ -16,7 +17,6 @@ export function ChatPage({
   memoryScope,
   memoryIds,
 }: {
-  user: SidebarUser;
   chatId: string;
   initialMessages: UIMessage[];
   initialTitle: string;
@@ -26,22 +26,17 @@ export function ChatPage({
   memoryIds: string[];
 }) {
   return (
-    <AppShell user={user}>
-      {({ toggleSidebar }) => (
-        <Chat
-          // Remounting per chat id resets the streaming state cleanly when the
-          // user jumps between conversations.
-          key={chatId}
-          chatId={chatId}
-          initialMessages={initialMessages}
-          initialTitle={initialTitle}
-          initialShareId={initialShareId}
-          isNew={isNew}
-          memoryScope={memoryScope}
-          memoryIds={memoryIds}
-          onToggleSidebar={toggleSidebar}
-        />
-      )}
-    </AppShell>
+    <Chat
+      // Remounting per chat id resets the streaming state cleanly when the
+      // user jumps between conversations.
+      key={chatId}
+      chatId={chatId}
+      initialMessages={initialMessages}
+      initialTitle={initialTitle}
+      initialShareId={initialShareId}
+      isNew={isNew}
+      memoryScope={memoryScope}
+      memoryIds={memoryIds}
+    />
   );
 }

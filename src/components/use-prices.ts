@@ -8,6 +8,24 @@ import type { ModelPrice } from "@/lib/usage";
 const EMPTY: Record<string, ModelPrice> = {};
 
 /**
+ * Last parse, keyed by the raw string it came from.
+ *
+ * `parsePrices` returns a fresh object every call, and this hook is used once
+ * per assistant message as well as in the header — so on a streaming turn it
+ * was running JSON.parse for every message on every token, and handing back a
+ * new object identity each time, which broke the `useMemo` in
+ * `ConversationCost` that depends on it. Caching on the raw string makes the
+ * result referentially stable until the stored prices actually change.
+ */
+let cache: { raw: string; parsed: Record<string, ModelPrice> } | null = null;
+
+function parseOnce(raw: string): Record<string, ModelPrice> {
+  if (!raw) return EMPTY;
+  if (cache?.raw !== raw) cache = { raw, parsed: parsePrices(raw) };
+  return cache.parsed;
+}
+
+/**
  * Per-model prices, kept in localStorage next to the API key.
  *
  * They live in the browser for the same reason the key does: the provider is
@@ -21,7 +39,7 @@ export function usePrices(): Record<string, ModelPrice> {
     () => getStorage(PRICES_STORAGE),
     () => "",
   );
-  return raw ? parsePrices(raw) : EMPTY;
+  return parseOnce(raw);
 }
 
 /** Writes one model's price. Passing null removes it. */

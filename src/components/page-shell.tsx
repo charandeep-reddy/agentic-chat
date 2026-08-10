@@ -2,75 +2,71 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AppShell } from "./app-shell";
-import type { SidebarUser } from "./sidebar";
+import { useSidebarToggle } from "./app-shell";
 import { IconSidebar } from "./icons";
 
 /**
- * Non-chat pages inside the app frame: same sidebar, a titled scroll column
- * instead of a transcript.
+ * Non-chat pages inside the app frame: a titled scroll column instead of a
+ * transcript. The sidebar beside it belongs to the layout, so moving between
+ * these tabs never rebuilds it.
  */
 export function PageShell({
-  user,
   title,
   description,
   tabs,
   children,
 }: {
-  user: SidebarUser;
   title: string;
   description?: string;
   tabs?: Array<{ href: string; label: string; active: boolean }>;
   children: ReactNode;
 }) {
+  const toggleSidebar = useSidebarToggle();
+
   return (
-    <AppShell user={user}>
-      {({ toggleSidebar }) => (
-        <div className="flex h-dvh min-w-0 flex-1 flex-col">
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              aria-label="Toggle sidebar"
-              title="Toggle sidebar (⌘B)"
-              className="rounded-md p-1.5 text-text-faint hover:bg-surface hover:text-text"
-            >
-              <IconSidebar size={16} />
-            </button>
-            <h1 className="text-[13px] font-medium text-text-secondary">{title}</h1>
-          </header>
+    <div className="flex h-dvh min-w-0 flex-1 flex-col">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          aria-label="Toggle sidebar"
+          title="Toggle sidebar (⌘B)"
+          className="rounded-md p-1.5 text-text-faint hover:bg-surface hover:text-text"
+        >
+          <IconSidebar size={16} />
+        </button>
+        <h1 className="text-[13px] font-medium text-text-secondary">{title}</h1>
+      </header>
 
-          <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-2xl px-4 py-8">
-              <h2 className="text-xl font-semibold tracking-tight text-text">{title}</h2>
-              {description && (
-                <p className="mt-1.5 text-[13px] leading-relaxed text-text-muted">{description}</p>
-              )}
+      <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-2xl px-4 py-8">
+          <h2 className="text-xl font-semibold tracking-tight text-text">{title}</h2>
+          {description && (
+            <p className="mt-1.5 text-[13px] leading-relaxed text-text-muted">{description}</p>
+          )}
 
-              {tabs && (
-                <nav className="mt-6 flex gap-1 border-b border-border-subtle">
-                  {tabs.map((tab) => (
-                    <Link
-                      key={tab.href}
-                      href={tab.href}
-                      className={`-mb-px border-b-2 px-3 py-2 text-[13px] transition-colors ${
-                        tab.active
-                          ? "border-accent text-text"
-                          : "border-transparent text-text-muted hover:text-text-secondary"
-                      }`}
-                    >
-                      {tab.label}
-                    </Link>
-                  ))}
-                </nav>
-              )}
+          {tabs && (
+            <nav className="mt-6 flex gap-1 border-b border-border-subtle">
+              {tabs.map((tab) => (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className={`-mb-px border-b-2 px-3 py-2 text-[13px] transition-colors ${
+                    tab.active
+                      ? "border-accent text-text"
+                      : "border-transparent text-text-muted hover:text-text-secondary"
+                  }`}
+                >
+                  {tab.label}
+                </Link>
+              ))}
+            </nav>
+          )}
 
-              <div className="mt-8 space-y-8 pb-16">{children}</div>
-            </div>
-          </div>
+          <div className="mt-8 space-y-8 pb-16">{children}</div>
         </div>
-      )}
-    </AppShell>
+      </div>
+    </div>
   );
 }
 

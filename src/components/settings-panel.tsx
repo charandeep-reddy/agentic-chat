@@ -2,11 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { ModelInfo } from "@/app/api/models/route";
 import { DEFAULT_MODEL } from "@/lib/models";
-import { useChats } from "./chats-provider";
-import { ConfirmDialog } from "./confirm-dialog";
 import { Skeleton } from "./skeleton";
 import { setPrice, usePrices } from "./use-prices";
 import { IconClose, IconKey } from "./icons";
@@ -106,14 +103,10 @@ export function SettingsPanel({
   open: boolean;
   onClose: () => void;
 }) {
-  const router = useRouter();
-  const { refresh } = useChats();
   const [draftKey, setDraftKey] = useState("");
   const [prevOpen, setPrevOpen] = useState(false);
   const [models, setModels] = useState<{ key: string; list: ModelInfo[] } | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
-  const [clearing, setClearing] = useState(false);
-  const [clearError, setClearError] = useState(false);
 
   // Reset the draft when the panel opens (derived state during render).
   if (open && !prevOpen) {
@@ -123,7 +116,6 @@ export function SettingsPanel({
   if (!open && prevOpen) {
     setPrevOpen(false);
     setErrorKey(null);
-    setClearError(false);
   }
 
   const loadingModels = open && apiKey !== "" && models?.key !== apiKey && errorKey !== apiKey;
