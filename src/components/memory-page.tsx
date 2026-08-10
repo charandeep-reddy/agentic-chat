@@ -382,6 +382,7 @@ export function MemoryPage({
         { href: "/profile", label: "Profile", active: false },
         { href: "/memory", label: "Memory", active: true },
         { href: "/skills", label: "Skills", active: false },
+        { href: "/documents", label: "Documents", active: false },
       ]}
     >
       {notice && (

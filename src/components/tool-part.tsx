@@ -11,6 +11,7 @@ import {
   IconFetch,
   IconFlow,
   IconQuestion,
+  IconSearch,
   IconSpark,
   IconTable,
 } from "./icons";
@@ -38,6 +39,7 @@ const TOOL_ICONS: Record<string, typeof IconChart> = {
   forget_memory: IconBrain,
   load_skill: IconSpark,
   read_skill_resource: IconSpark,
+  search_documents: IconSearch,
 };
 
 /**
@@ -88,6 +90,7 @@ function chipLabel(name: string, part: ToolPart, pending: boolean): string {
     forget_memory: ["Forgetting", "Forgotten"],
     load_skill: ["Opening skill", "Skill"],
     read_skill_resource: ["Reading", "Skill file"],
+    search_documents: ["Searching documents", "Documents"],
   };
   const pair = labels[name];
   if (!pair) return name.replace(/_/g, " ");
@@ -124,6 +127,10 @@ function outcome(output: unknown): string {
       return String(o.name);
     case "skill_resource":
       return String(o.path);
+    case "document_search": {
+      const passages = (o.passages as unknown[]) ?? [];
+      return `${passages.length} passage${passages.length === 1 ? "" : "s"}`;
+    }
     default:
       return "";
   }
@@ -185,6 +192,22 @@ function summary(name: string, output: unknown): string[] {
     }
     case "read_skill_resource":
       return [`${String(o.name)} · ${String(o.path)}`, `${String(o.content ?? "").length} chars`];
+    case "search_documents": {
+      const passages =
+        (o.passages as Array<{
+          documentTitle: string;
+          heading: string | null;
+          matchedBy: string[];
+        }>) ?? [];
+      if (passages.length === 0) return ["No matching passages."];
+      // Which retriever found each passage is shown on purpose: it is the one
+      // number that explains a surprising result, and the reason the answer is
+      // traceable to a source rather than to the model's own recall.
+      return passages.map(
+        (p, i) =>
+          `[${i + 1}] ${p.documentTitle}${p.heading ? ` › ${p.heading}` : ""} (${p.matchedBy.join(" + ")})`,
+      );
+    }
     default:
       return [];
   }

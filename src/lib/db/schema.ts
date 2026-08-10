@@ -8,8 +8,9 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  vector,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 /* ------------------------------------------------------------------ *
  * Better Auth core tables
@@ -260,6 +261,98 @@ export const skill = pgTable(
   ],
 );
 
+/**
+ * A document the user uploaded for retrieval — the source of truth, kept whole.
+ *
+ * The original text is stored alongside the chunks so the corpus can be
+ * re-chunked or re-embedded later without asking the user to upload anything
+ * again. That happens more often than it sounds: a better chunk size, a better
+ * embedding model, or a dimension change all mean rebuilding every vector, and
+ * a store that only kept the chunks would have thrown away the input.
+ *
+ * `status` drives the UI while ingestion runs. Embedding a long document takes
+ * several seconds of provider round trips, so the row is written first and
+ * filled in as chunks land.
+ */
+export const document = pgTable(
+  "document",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    /** Where it came from: a filename, a URL, or "pasted". Shown in citations. */
+    source: text("source").notNull().default("pasted"),
+    mimeType: text("mime_type").notNull().default("text/plain"),
+    content: text("content").notNull(),
+    /** "pending" | "ready" | "failed" — ingestion state, not user intent. */
+    status: text("status").notNull().default("pending"),
+    /** Populated when `status` is "failed", so the UI can say what went wrong. */
+    error: text("error"),
+    chunkCount: integer("chunk_count").notNull().default(0),
+    /** Which model produced the vectors, so a model change can be detected. */
+    embeddingModel: text("embedding_model"),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("document_user_idx").on(t.userId, t.enabled)],
+);
+
+/**
+ * One embeddable passage of a document, with its vector.
+ *
+ * The vector width is fixed at DDL time — `vector(1536)` is a real column type,
+ * not a blob — so it must match `EMBEDDING_DIMENSIONS` in `lib/rag/embed.ts`.
+ *
+ * The HNSW index is what makes this a vector *database* rather than a table of
+ * floats. Without it every search is a sequential scan computing distance to
+ * every row; with it, Postgres walks a navigable small-world graph and touches
+ * a fraction of them. It is an *approximate* index: it trades a small chance of
+ * missing a true nearest neighbour for orders of magnitude less work, which is
+ * the right trade when the results are being read by a model that gets several
+ * candidates anyway.
+ *
+ * The operator class must match the operator used in the query. This one is
+ * built for cosine distance (`<=>`); a search written with `<->` (L2) would
+ * silently ignore the index and scan.
+ */
+export const documentChunk = pgTable(
+  "document_chunk",
+  {
+    id: text("id").primaryKey(),
+    documentId: text("document_id")
+      .notNull()
+      .references(() => document.id, { onDelete: "cascade" }),
+    /** Denormalised from `document` so search filters by owner without a join. */
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** Position within the document, so retrieved passages can be ordered. */
+    ordinal: integer("ordinal").notNull().default(0),
+    /** The Markdown heading trail above this passage, e.g. "Billing > Refunds". */
+    heading: text("heading"),
+    content: text("content").notNull(),
+    embedding: vector("embedding", { dimensions: 1536 }).notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("document_chunk_document_idx").on(t.documentId, t.ordinal),
+    index("document_chunk_embedding_idx").using(
+      "hnsw",
+      t.embedding.op("vector_cosine_ops"),
+    ),
+    // Keyword search over the same passages, for the hybrid half of retrieval.
+    // Vectors miss exact tokens — error codes, product names, IDs — because
+    // those carry little semantic weight; this index is what catches them.
+    index("document_chunk_fts_idx").using(
+      "gin",
+      sql`to_tsvector('english', ${t.content})`,
+    ),
+  ],
+);
+
 /** Per-user preferences: custom instructions, default model, feature toggles. */
 export const userSettings = pgTable("user_settings", {
   userId: text("user_id")
@@ -282,6 +375,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
   chats: many(chat),
   memories: many(memory),
   skills: many(skill),
+  documents: many(document),
   settings: one(userSettings, {
     fields: [user.id],
     references: [userSettings.userId],
@@ -305,7 +399,18 @@ export const skillRelations = relations(skill, ({ one }) => ({
   user: one(user, { fields: [skill.userId], references: [user.id] }),
 }));
 
+export const documentRelations = relations(document, ({ one, many }) => ({
+  user: one(user, { fields: [document.userId], references: [user.id] }),
+  chunks: many(documentChunk),
+}));
+
+export const documentChunkRelations = relations(documentChunk, ({ one }) => ({
+  document: one(document, { fields: [documentChunk.documentId], references: [document.id] }),
+}));
+
 export type User = typeof user.$inferSelect;
+export type Document = typeof document.$inferSelect;
+export type DocumentChunk = typeof documentChunk.$inferSelect;
 export type Skill = typeof skill.$inferSelect;
 export type Chat = typeof chat.$inferSelect;
 export type Message = typeof message.$inferSelect;

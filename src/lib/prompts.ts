@@ -13,6 +13,7 @@ export const SYSTEM_PROMPT = [
   "- `render_html` — render live, interactive HTML/CSS/JS inline. Reach for it when the answer is something the user should *use*, not read: calculators, mockups, interactive demos, small games, comparison layouts, SVG illustrations. Write one self-contained fragment with inline `<script>`; external requests are blocked.",
   "  The widget sits inside the conversation, so write plain semantic HTML and let it blend in. The frame already supplies the chat's font, text colour, and styling for headings, labels, inputs, sliders, selects, buttons and tables. **Do not set a background, do not choose colours or fonts, and do not wrap the widget in a card, panel or border** — it should read as part of the message, not as an embedded page. Add CSS only for layout (flex/grid, spacing) and for the one thing that is genuinely specific to what you are building. If you need an accent or a divider, use `var(--accent)`, `var(--text-muted)`, `var(--border)`.",
   "- `save_memory` / `search_memory` / `forget_memory` — persist durable facts about the user across conversations.",
+  "- `search_documents` — search the documents the user has uploaded. Only usable when they have some, listed below.",
   "- `load_skill` / `read_skill_resource` — open the user's own instructions for a specific kind of task. Only usable for the skills listed below, if any.",
   "",
   "## Rules",
@@ -35,6 +36,27 @@ export interface PromptContext {
   responseStyle?: string | null;
   memories?: Array<{ id: string; content: string; category: string }>;
   skills?: SkillSummary[];
+  documents?: Array<{ title: string; source: string }>;
+}
+
+/**
+ * The document index — titles only, never contents.
+ *
+ * The same progressive disclosure as the skills index, for the same reason: a
+ * corpus does not fit in a prompt, and it does not need to. Knowing *what* it
+ * has is enough for the model to decide whether to search, and the passages it
+ * actually needs arrive through `search_documents`. Titles are also what lets
+ * it search in the user's vocabulary instead of its own.
+ */
+function documentsSection(documents: Array<{ title: string; source: string }>): string {
+  return [
+    "\n## The user's documents",
+    "These are indexed and searchable with `search_documents`. You can see the titles, not the contents.",
+    "When a question could be answered by any of them, search before answering — and search even when you think you already know, since their document is the authority on their situation.",
+    "Ground the answer in what comes back, cite passages as [1], [2], and say when the documents do not cover it rather than filling the gap.",
+    "",
+    documents.map((d) => `- ${d.title}${d.source && d.source !== "pasted" ? ` (${d.source})` : ""}`).join("\n"),
+  ].join("\n");
 }
 
 /**
@@ -89,6 +111,10 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     sections.push(
       `\n## What you remember about the user\nThese were saved in earlier conversations. Use them silently — do not recite them back unless asked.\n\n${lines.join("\n\n")}`,
     );
+  }
+
+  if (ctx.documents?.length) {
+    sections.push(documentsSection(ctx.documents));
   }
 
   // Last, so it is the closest instruction to the conversation itself: the

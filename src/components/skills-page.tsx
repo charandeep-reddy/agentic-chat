@@ -381,6 +381,7 @@ export function SkillsPage({ user, skills }: { user: SidebarUser; skills: SkillI
         { href: "/profile", label: "Profile", active: false },
         { href: "/memory", label: "Memory", active: false },
         { href: "/skills", label: "Skills", active: true },
+        { href: "/documents", label: "Documents", active: false },
       ]}
     >
       <Section

@@ -117,6 +117,10 @@ Try: *"Build me an interactive compound-interest calculator"*, paste a CSV and a
 
 **Memory.** Relevant memories are selected per-request by keyword overlap and inlined into the system prompt. Deliberately not embeddings: memories are short, few, and written in the user's own words, so token overlap gets the right answer without an extra model call per turn. `src/lib/memory-store.ts` is the single place to swap in pgvector.
 
+**Documents (RAG).** Ingestion and retrieval run in a FastAPI service (`services/rag`) that shares this app's Postgres. Uploads — PDF, DOCX, Markdown, text — are extracted, split on document structure, embedded, and stored as `vector(1536)` with an HNSW index. Retrieval is hybrid: pgvector cosine search and Postgres full-text search run over the same chunks, their *ranks* are fused with RRF, and an optional cross-encoder reranks the survivors. Embeddings miss exact tokens (error codes, IDs); keywords miss paraphrase. The model reaches it through `search_documents` rather than an automatic prefix, so a turn that needs no retrieval pays nothing. Only document *titles* sit in the prompt. See [docs/rag.md](docs/rag.md).
+
+**Why a second service.** Next.js keeps what it is best at — sessions, the stream protocol, the Drizzle schema. Python got the parts with no real JS equivalent: PyMuPDF for PDFs, tiktoken for token-accurate chunking, and sentence-transformers for cross-encoder reranking. The boundary is two HTTP endpoints and a shared secret; no cookies cross it, and Drizzle remains the only writer of migrations.
+
 **BYOK.** The key is read from `localStorage`, sent as the `x-model-key` header, and used to build a provider per request. It is never written to the server or the database.
 
 ## Project layout
@@ -128,7 +132,9 @@ src/app/c/[id]             A conversation
 src/app/share/[shareId]    Public read-only transcript
 src/app/pack/[slug]        Memory pack landing page
 src/lib/db/                Drizzle schema and every query
+src/lib/rag/               Document CRUD + client for the RAG service
 src/lib/tools/             Pure, unit-tested tool implementations
+services/rag/              FastAPI: extraction, chunking, embeddings, retrieval
 src/lib/prompts.ts         System prompt composition
 src/components/            Chat UI, widgets, sidebar, palette, settings
 tests/                      Vitest suite

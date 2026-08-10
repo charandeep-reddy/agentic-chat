@@ -1,0 +1,51 @@
+[project]
+name = "agentic-chat-rag"
+version = "0.1.0"
+description = "Ingestion and retrieval service for Agentic Chat"
+requires-python = ">=3.11"
+
+# Core: everything /search and text /ingest need. Deliberately small so the
+# service starts fast and the container stays under a few hundred MB.
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.27",
+    "asyncpg>=0.30",
+    "pgvector>=0.3.6",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "tiktoken>=0.8",
+    # Not optional despite only /ingest/file using it: FastAPI validates form
+    # parameters at import time, so the app will not start without it.
+    "python-multipart>=0.0.20",
+]
+
+[project.optional-dependencies]
+# Document extraction. Split out because PyMuPDF is a large native wheel and a
+# deployment that only ingests Markdown has no reason to carry it.
+extract = [
+    "pymupdf>=1.24",
+    "python-docx>=1.1",
+]
+
+# Cross-encoder reranking. This pulls in torch — gigabytes — so it is opt-in,
+# and `rerank.py` degrades to fusion-only order when it is not installed.
+rerank = [
+    "sentence-transformers>=3.3",
+]
+
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

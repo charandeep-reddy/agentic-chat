@@ -253,6 +253,15 @@ function UserMenu({ user }: { user: SidebarUser }) {
             <IconSpark size={14} />
             Skills
           </Link>
+          <Link
+            href="/documents"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-text-secondary hover:bg-surface hover:text-text"
+          >
+            <IconSearch size={14} />
+            Documents
+          </Link>
           <div className="my-1 border-t border-border-subtle" />
           <button
             type="button"

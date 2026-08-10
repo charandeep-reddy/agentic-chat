@@ -21,6 +21,13 @@ import {
   readSkillResourceSchema,
 } from "./skills";
 import type { SkillStore } from "./skills";
+import {
+  formatPassages,
+  searchDocuments,
+  searchDocumentsSchema,
+  type DocumentSearchResult,
+  type DocumentStore,
+} from "./documents";
 
 export interface ToolMeta {
   durationMs: number;
@@ -162,6 +169,26 @@ export function memoryTools(store: MemoryStore) {
   };
 }
 
+/** Document retrieval, bound to one user's corpus. */
+export function documentTools(store: DocumentStore) {
+  return {
+    search_documents: tool({
+      description: [
+        "Search the user's uploaded documents for passages relevant to their question.",
+        "Call this whenever the answer could plausibly live in their own material — anything about their notes, specs, policies, contracts, papers, or docs — and before answering from general knowledge.",
+        "Write the query as the passage you expect to find, not as a question: 'refund window for annual plans', not 'how long do I have to get a refund?'.",
+        "Search again with different wording if the first passages miss; the corpus is the user's, so their vocabulary wins over yours.",
+        "Cite the passages you use as [1], [2] matching the numbering in the result, and say plainly when the documents do not answer the question.",
+      ].join(" "),
+      inputSchema: searchDocumentsSchema,
+      execute: withTiming((args) => searchDocuments(args, store)),
+      // The UI renders the passages as source cards from the full payload; the
+      // model gets the flattened, citation-labelled text instead.
+      toModelOutput: ({ output }) => ack(formatPassages(output as DocumentSearchResult)),
+    }),
+  };
+}
+
 /** Skill tools, bound to one user's library. */
 export function skillTools(store: SkillStore) {
   return {
@@ -194,14 +221,17 @@ export function skillTools(store: SkillStore) {
 export function buildTools({
   memory,
   skills,
+  documents,
 }: {
   memory: MemoryStore | null;
   skills: SkillStore | null;
+  documents: DocumentStore | null;
 }) {
   return {
     ...baseTools,
     ...(memory ? memoryTools(memory) : {}),
     ...(skills ? skillTools(skills) : {}),
+    ...(documents ? documentTools(documents) : {}),
   };
 }
 
@@ -210,6 +240,7 @@ export const tools = {
   ...baseTools,
   ...memoryTools({} as MemoryStore),
   ...skillTools({} as SkillStore),
+  ...documentTools({} as DocumentStore),
 };
 
 export type AgentTools = typeof tools;

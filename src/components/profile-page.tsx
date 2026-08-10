@@ -104,6 +104,7 @@ export function ProfilePage({
         { href: "/profile", label: "Profile", active: true },
         { href: "/memory", label: "Memory", active: false },
         { href: "/skills", label: "Skills", active: false },
+        { href: "/documents", label: "Documents", active: false },
       ]}
     >
       <Section title="Account">

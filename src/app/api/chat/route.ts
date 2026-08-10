@@ -21,6 +21,7 @@ import {
 } from "@/lib/memory-store";
 import { isMemoryScope } from "@/lib/memory-scope";
 import { createDbSkillStore, selectPromptSkills } from "@/lib/skill-store";
+import { createDbDocumentStore, selectPromptDocuments } from "@/lib/document-store";
 import { createChat, getChat, getSettings, saveMessages, truncateFrom } from "@/lib/db/queries";
 import { generateTitleInBackground } from "@/lib/title";
 import { toMessageUsage } from "@/lib/usage";
@@ -83,11 +84,14 @@ export async function POST(req: Request) {
   // that doing them in sequence was the bulk of the delay before the first
   // token. Memories are fetched even when the setting turns out to be off —
   // it's on by default, so speculating costs far less than waiting.
-  const [settings, existingChat, candidateMemories, skills] = await Promise.all([
+  const [settings, existingChat, candidateMemories, skills, documents] = await Promise.all([
     getSettings(user.id),
     getChat(chatId, user.id),
     listCandidateMemories(user.id),
     selectPromptSkills(user.id),
+    // Titles only, and the same shape as the skills index: what the corpus
+    // holds goes in the prompt, what it says arrives through the tool.
+    selectPromptDocuments(user.id),
   ]);
 
   const modelId = resolveModelId(body.model, settings?.defaultModel);
@@ -118,6 +122,7 @@ export async function POST(req: Request) {
     responseStyle: settings?.responseStyle,
     memories: memories.map((m) => ({ id: m.id, content: m.content, category: m.category })),
     skills,
+    documents,
   });
 
   // Persist the incoming user message so a dropped connection mid-stream still
@@ -156,6 +161,9 @@ export async function POST(req: Request) {
     // No skills means no skill tools: the model cannot usefully call them, and
     // leaving them in the registry only invites hallucinated skill names.
     skills: skills.length > 0 ? createDbSkillStore(user.id) : null,
+    // Same rule for the corpus: an empty index makes `search_documents` a tool
+    // that can only ever return nothing, so it is left out entirely.
+    documents: documents.length > 0 ? createDbDocumentStore(user.id, apiKey) : null,
   });
 
   const result = streamText({

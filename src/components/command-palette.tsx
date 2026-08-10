@@ -17,6 +17,7 @@ const PAGES: Command[] = [
   { id: "new", label: "New chat", hint: "⌘ ⇧ O", icon: IconPlus, href: "/" },
   { id: "memory", label: "Memory & packs", icon: IconBrain, href: "/memory" },
   { id: "skills", label: "Skills", icon: IconSpark, href: "/skills" },
+  { id: "documents", label: "Documents", icon: IconSearch, href: "/documents" },
   { id: "profile", label: "Profile & settings", icon: IconUser, href: "/profile" },
 ];
 
