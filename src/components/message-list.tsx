@@ -14,7 +14,7 @@ import { Skeleton } from "./skeleton";
 import { messageModel, messageUsage } from "./conversation-cost";
 import { usePrices } from "./use-prices";
 import { estimateCost, formatCost, formatTokens } from "@/lib/usage";
-import { IconBrain, IconCheck, IconCopy, IconEdit, IconRefresh } from "./icons";
+import { IconCheck, IconCopy, IconEdit, IconRefresh } from "./icons";
 import type { ChartSpec } from "@/lib/tools/render-chart";
 import type { FlowSpec } from "@/lib/tools/render-flow";
 import type { HtmlSpec } from "@/lib/tools/render-html";
@@ -211,28 +211,6 @@ const UserMessage = memo(function UserMessage({
 });
 
 /**
- * The memories this turn was given, if any.
- *
- * `selectPromptMemories` picks silently, so until now there was no way to tell
- * whether an answer leaned on something the model remembered — or which thing.
- */
-function MemoryNote({ message }: { message: UIMessage }) {
-  const memories = (message.metadata as { memories?: Array<{ id: string; content: string }> })
-    ?.memories;
-  if (!memories?.length) return null;
-
-  return (
-    <span
-      title={`Memories used in this turn:\n${memories.map((m) => `· ${m.content}`).join("\n")}`}
-      className="ml-1 flex items-center gap-1 text-[11px] text-text-faint"
-    >
-      <IconBrain size={11} />
-      {memories.length}
-    </span>
-  );
-}
-
-/**
  * What one turn cost, in the action row.
  *
  * Deliberately quiet: it sits with copy and regenerate at the same weight as
@@ -327,7 +305,6 @@ const AssistantMessage = memo(function AssistantMessage({
               <IconRefresh size={13} />
             </button>
           )}
-          <MemoryNote message={message} />
           <UsageNote message={message} />
         </div>
       )}

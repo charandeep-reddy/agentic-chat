@@ -107,14 +107,6 @@ export const chat = pgTable(
     model: text("model"),
     pinned: boolean("pinned").notNull().default(false),
     archived: boolean("archived").notNull().default(false),
-    /**
-     * Which saved memories this conversation may see: "all" (the default),
-     * "none", or "selected" — an explicit list in `memoryIds`. The global
-     * toggle in settings is all-or-nothing, which leaves someone with work and
-     * personal memories in one account no way to keep them apart per chat.
-     */
-    memoryScope: text("memory_scope").notNull().default("all"),
-    memoryIds: jsonb("memory_ids").$type<string[]>().notNull().default([]),
     /** Non-null once the chat has been shared; the public link key. */
     shareId: text("share_id").unique(),
     sharedAt: timestamp("shared_at"),

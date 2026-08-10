@@ -19,8 +19,6 @@ export default function NewChatPage() {
       initialTitle="New chat"
       initialShareId={null}
       isNew
-      memoryScope="all"
-      memoryIds={[]}
     />
   );
 }

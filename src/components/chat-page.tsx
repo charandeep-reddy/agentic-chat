@@ -2,7 +2,6 @@
 
 import type { UIMessage } from "ai";
 import { Chat } from "./chat";
-import type { MemoryScope } from "@/lib/memory-scope";
 
 /**
  * The chat pane. The sidebar frame around it is the layout's, not this
@@ -14,16 +13,12 @@ export function ChatPage({
   initialTitle,
   initialShareId,
   isNew,
-  memoryScope,
-  memoryIds,
 }: {
   chatId: string;
   initialMessages: UIMessage[];
   initialTitle: string;
   initialShareId: string | null;
   isNew: boolean;
-  memoryScope: MemoryScope;
-  memoryIds: string[];
 }) {
   return (
     <Chat
@@ -35,8 +30,6 @@ export function ChatPage({
       initialTitle={initialTitle}
       initialShareId={initialShareId}
       isNew={isNew}
-      memoryScope={memoryScope}
-      memoryIds={memoryIds}
     />
   );
 }
