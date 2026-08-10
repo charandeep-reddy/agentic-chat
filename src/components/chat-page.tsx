@@ -15,7 +15,7 @@ export function ChatPage({
   initialShareId,
   isNew,
   memoryScope,
-  memoryIds,
+  memoryAccountEnabled,
 }: {
   chatId: string;
   initialMessages: UIMessage[];
@@ -23,7 +23,7 @@ export function ChatPage({
   initialShareId: string | null;
   isNew: boolean;
   memoryScope: MemoryScope;
-  memoryIds: string[];
+  memoryAccountEnabled: boolean;
 }) {
   return (
     <Chat
@@ -36,7 +36,7 @@ export function ChatPage({
       initialShareId={initialShareId}
       isNew={isNew}
       memoryScope={memoryScope}
-      memoryIds={memoryIds}
+      memoryAccountEnabled={memoryAccountEnabled}
     />
   );
 }

@@ -186,6 +186,9 @@ export function skillTools(store: SkillStore) {
   };
 }
 
+/** The three tool names `memoryTools` contributes. */
+export const MEMORY_TOOL_NAMES = ["save_memory", "search_memory", "forget_memory"] as const;
+
 /**
  * Full registry for a request. Memory tools are omitted when memory is off,
  * and skill tools when the user has no skills — an unusable tool in the

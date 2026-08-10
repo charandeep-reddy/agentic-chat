@@ -112,6 +112,9 @@ export const chat = pgTable(
      * "none", or "selected" — an explicit list in `memoryIds`. The global
      * toggle in settings is all-or-nothing, which leaves someone with work and
      * personal memories in one account no way to keep them apart per chat.
+     *
+     * "none" is the only one that also stops memories being written: the
+     * memory tools are left out of the request entirely.
      */
     memoryScope: text("memory_scope").notNull().default("all"),
     memoryIds: jsonb("memory_ids").$type<string[]>().notNull().default([]),

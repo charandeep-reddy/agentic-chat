@@ -3,6 +3,7 @@
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { getStorage, removeStorage, setStorage } from "@/lib/local-storage";
 import { IconArrowUp, IconStop } from "./icons";
+import { MemoryToggle } from "./memory-toggle";
 
 const MAX_HEIGHT = 200;
 const DRAFT_SAVE_DELAY = 250;
@@ -16,6 +17,10 @@ export function Composer({
   busy,
   blocked,
   model,
+  memoryOn,
+  memoryAccountEnabled,
+  memorySaving,
+  onMemoryToggle,
   onSend,
   onStop,
   onOpenSettings,
@@ -27,6 +32,11 @@ export function Composer({
   busy: boolean;
   blocked: boolean;
   model: string;
+  /** Whether this chat currently reads and writes memories. */
+  memoryOn: boolean;
+  memoryAccountEnabled: boolean;
+  memorySaving: boolean;
+  onMemoryToggle: () => void;
   onSend: (text: string) => void;
   onStop: () => void;
   onOpenSettings: () => void;
@@ -75,18 +85,25 @@ export function Composer({
     removeStorage(draftKey(chatId));
   };
 
+  const memoryOff = memoryAccountEnabled && !memoryOn;
+
   const placeholder = blocked
     ? "Pick an option above to continue"
-    : hasKey
-      ? "Ask anything"
-      : "Connect an API key to start chatting";
+    : !hasKey
+      ? "Connect an API key to start chatting"
+      : memoryOff
+        ? "Ask anything — memory off"
+        : "Ask anything";
 
   return (
     <div className="relative z-10 mx-auto w-full max-w-3xl shrink-0 px-4 pb-4 pt-2 sm:pb-6">
       <div
-        className={`rounded-2xl border border-border bg-surface/90 backdrop-blur-xl transition-shadow ${
-          busy ? "composer-active" : "shadow-[0_8px_32px_-12px_rgba(0,0,0,0.55)]"
-        }`}
+        // The box you are typing into carries the state, not just the pill
+        // inside it: this is the moment someone decides whether to trust the
+        // product with what they are about to say.
+        className={`rounded-2xl border bg-surface/90 backdrop-blur-xl transition-shadow ${
+          memoryOff ? "border-warn/40" : "border-border"
+        } ${busy ? "composer-active" : "shadow-[0_8px_32px_-12px_rgba(0,0,0,0.55)]"}`}
       >
         <textarea
           ref={inner}
@@ -116,6 +133,12 @@ export function Composer({
             >
               {model}
             </button>
+            <MemoryToggle
+              on={memoryOn}
+              saving={memorySaving}
+              accountEnabled={memoryAccountEnabled}
+              onToggle={onMemoryToggle}
+            />
             <span className="hidden text-[11px] text-text-faint sm:inline">
               <kbd className="rounded border border-border-subtle px-1 font-mono text-[10px]">↵</kbd>{" "}
               send

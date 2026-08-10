@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState } from "react";
+import { Fragment, memo, useMemo, useState } from "react";
 import type { UIMessage } from "ai";
 import { Markdown } from "./markdown";
 import { ChartWidget } from "./chart-view";
@@ -14,6 +14,7 @@ import { Skeleton } from "./skeleton";
 import { messageModel, messageUsage } from "./conversation-cost";
 import { usePrices } from "./use-prices";
 import { estimateCost, formatCost, formatTokens } from "@/lib/usage";
+import { lastTurnMemoryOff, memoryBoundaries } from "@/lib/memory-boundaries";
 import { IconBrain, IconCheck, IconCopy, IconEdit, IconRefresh } from "./icons";
 import type { ChartSpec } from "@/lib/tools/render-chart";
 import type { FlowSpec } from "@/lib/tools/render-flow";
@@ -335,6 +336,28 @@ const AssistantMessage = memo(function AssistantMessage({
   );
 });
 
+/**
+ * Where memory was switched on or off, drawn in the transcript.
+ *
+ * The toggle is per conversation but sits in the composer, which reads as a
+ * per-message control — and turning it off cannot unsend what earlier turns
+ * already saw. Marking the boundary settles both: it shows the setting is
+ * sticky, shows exactly where it took effect, and stops the model looking like
+ * it forgot something it demonstrably used two messages ago.
+ */
+function MemoryBoundary({ off }: { off: boolean }) {
+  return (
+    <div className="flex items-center gap-3" role="separator">
+      <span className="h-px flex-1 bg-border-subtle" />
+      <span className="flex items-center gap-1.5 text-[11px] text-text-faint">
+        <IconBrain size={11} />
+        {off ? "Memory off from here" : "Memory on from here"}
+      </span>
+      <span className="h-px flex-1 bg-border-subtle" />
+    </div>
+  );
+}
+
 export function MessageList({
   messages,
   busy,
@@ -344,6 +367,7 @@ export function MessageList({
   onAnswerQuestion,
   onEdit,
   onRegenerate,
+  nextTurnMemoryOff,
 }: {
   messages: UIMessage[];
   busy: boolean;
@@ -355,31 +379,41 @@ export function MessageList({
   onAnswerQuestion: (option: string, toolCallId: string) => void;
   onEdit: (id: string, text: string) => void;
   onRegenerate: (id: string) => void;
+  /** What the *next* turn will run with, so a flip shows before it is sent. */
+  nextTurnMemoryOff?: boolean;
 }) {
+  const boundaries = useMemo(() => memoryBoundaries(messages), [messages]);
+
+  // Turn metadata only arrives when a turn finishes, so without this the
+  // transcript would not acknowledge a flip until after the next answer — the
+  // one moment the user is looking for confirmation.
+  const pending =
+    nextTurnMemoryOff !== undefined &&
+    messages.length > 0 &&
+    nextTurnMemoryOff !== lastTurnMemoryOff(messages);
+
   return (
     <div className="space-y-6">
-      {messages.map((message, index) =>
-        message.role === "user" ? (
-          <UserMessage
-            key={message.id}
-            message={message}
-            busy={busy}
-            readOnly={readOnly}
-            onEdit={onEdit}
-          />
-        ) : (
-          <AssistantMessage
-            key={message.id}
-            message={message}
-            busy={busy && index === messages.length - 1}
-            isLast={index === messages.length - 1}
-            readOnly={readOnly}
-            answeredQuestions={answeredQuestions}
-            onAnswerQuestion={onAnswerQuestion}
-            onRegenerate={onRegenerate}
-          />
-        ),
-      )}
+      {messages.map((message, index) => (
+        <Fragment key={message.id}>
+          {boundaries.has(index) && <MemoryBoundary off={boundaries.get(index) === true} />}
+          {message.role === "user" ? (
+            <UserMessage message={message} busy={busy} readOnly={readOnly} onEdit={onEdit} />
+          ) : (
+            <AssistantMessage
+              message={message}
+              busy={busy && index === messages.length - 1}
+              isLast={index === messages.length - 1}
+              readOnly={readOnly}
+              answeredQuestions={answeredQuestions}
+              onAnswerQuestion={onAnswerQuestion}
+              onRegenerate={onRegenerate}
+            />
+          )}
+        </Fragment>
+      ))}
+
+      {pending && <MemoryBoundary off={nextTurnMemoryOff === true} />}
 
       {/*
         Two different waits. Before the first chunk there is nothing on screen

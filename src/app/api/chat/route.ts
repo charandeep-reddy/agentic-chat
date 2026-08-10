@@ -5,11 +5,13 @@ import {
   generateId,
   hasToolCall,
   isStepCount,
+  NoSuchToolError,
   streamText,
   toUIMessageStream,
 } from "ai";
 import type { UIMessage } from "ai";
-import { buildTools } from "@/lib/tools";
+import { buildTools, MEMORY_TOOL_NAMES } from "@/lib/tools";
+import { ToolError } from "@/lib/tools/errors";
 import { buildSystemPrompt } from "@/lib/prompts";
 import { createProvider, DEFAULT_MODEL, resolveModelId } from "@/lib/provider";
 import { requireUserApi } from "@/lib/session";
@@ -34,8 +36,29 @@ interface ChatRequestBody {
   id?: string;
   messages?: UIMessage[];
   model?: unknown;
+  /** Only read when this request creates the chat; ignored afterwards. */
+  memoryScope?: string;
   /** Present on edit/regenerate: drop this message and everything after it. */
   truncateFromId?: string;
+}
+
+/**
+ * Drops past memory tool calls from the history handed to the model.
+ *
+ * Turning memory off mid-conversation leaves earlier turns holding
+ * `tool-save_memory` parts, and those travel back into the prompt on every
+ * request after — the model reads its own past call, learns the tool by name,
+ * and tries again. The stored transcript is untouched: this only shapes what
+ * one request sees, and the UI still renders the history as it happened.
+ */
+const MEMORY_PART_TYPES = new Set(MEMORY_TOOL_NAMES.map((name) => `tool-${name}`));
+
+export function withoutMemoryCalls(messages: UIMessage[]): UIMessage[] {
+  return messages
+    .map((m) => ({ ...m, parts: m.parts.filter((p) => !MEMORY_PART_TYPES.has(p.type)) }))
+    // A message whose only content was a memory call has nothing left to send,
+    // and an empty parts array is not a message the provider will accept.
+    .filter((m) => m.parts.length > 0);
 }
 
 function lastUserText(messages: UIMessage[]): string {
@@ -91,7 +114,16 @@ export async function POST(req: Request) {
   ]);
 
   const modelId = resolveModelId(body.model, settings?.defaultModel);
-  const chat = existingChat ?? (await createChat(user.id, { id: chatId, model: modelId }));
+  const chat =
+    existingChat ??
+    (await createChat(user.id, {
+      id: chatId,
+      model: modelId,
+      // Only on creation: an existing chat's scope lives in its row, and
+      // letting the request body override it would make a stale client tab
+      // silently reopen a chat the user had closed.
+      memoryScope: isMemoryScope(body.memoryScope) ? body.memoryScope : undefined,
+    }));
 
   // Edit / regenerate: the client sends the truncation point, and the message
   // list it wants to continue from. Rewriting history before we persist keeps
@@ -102,13 +134,19 @@ export async function POST(req: Request) {
 
   // Two gates, in order: the account-level toggle, then this conversation's
   // own scope. The chat can narrow what the model sees; it cannot widen it.
+  //
+  // "none" cuts both ways: no memories go into the prompt, and `memoryStore`
+  // stays null so the save/forget/search tools are never registered for this
+  // request. "No memories" is only half a promise if the model can still write
+  // what is said here back out.
   const memoryEnabled = settings?.memoryEnabled ?? true;
-  const memoryStore = memoryEnabled ? createDbMemoryStore(user.id) : null;
   const chatScope = {
     scope: isMemoryScope(chat.memoryScope) ? chat.memoryScope : ("all" as const),
     ids: chat.memoryIds ?? [],
   };
-  const memories = memoryEnabled
+  const memoryAllowed = memoryEnabled && chatScope.scope !== "none";
+  const memoryStore = memoryAllowed ? createDbMemoryStore(user.id) : null;
+  const memories = memoryAllowed
     ? selectPromptMemories(candidateMemories, lastUserText(messages), chatScope)
     : [];
 
@@ -118,6 +156,9 @@ export async function POST(req: Request) {
     responseStyle: settings?.responseStyle,
     memories: memories.map((m) => ({ id: m.id, content: m.content, category: m.category })),
     skills,
+    // Matches the registry below: a prompt that still describes memory tools
+    // the model has not been given makes it call names that do not exist.
+    memoryTools: memoryAllowed,
   });
 
   // Persist the incoming user message so a dropped connection mid-stream still
@@ -164,7 +205,9 @@ export async function POST(req: Request) {
     // `tools` has to be passed here too, or `toModelOutput` is skipped for
     // history and every artifact the model ever rendered is replayed into the
     // prompt in full on every subsequent turn.
-    messages: await convertToModelMessages(messages, { tools }),
+    messages: await convertToModelMessages(memoryAllowed ? messages : withoutMemoryCalls(messages), {
+      tools,
+    }),
     tools,
     temperature: 0.5,
     // Loading a skill costs a step before any real work starts, and a skill
@@ -180,6 +223,19 @@ export async function POST(req: Request) {
     stream: toUIMessageStream({
       stream: result.stream,
       originalMessages: messages,
+      // The SDK masks every error as "An error occurred." so server details
+      // never reach the browser. That is the right default, but it also hides
+      // the messages `ToolError` exists to show — they are written for the
+      // user and carry no internals. Anything else stays generic, and the real
+      // one goes to the server log.
+      onError: (error) => {
+        console.error("[api/chat] tool/stream error:", error);
+        if (NoSuchToolError.isInstance(error)) {
+          return `The model called a tool that is not available in this chat (${error.toolName}).`;
+        }
+        if (error instanceof ToolError) return error.message;
+        return "Something went wrong running that step.";
+      },
       // Without this the SDK leaves the response message id as "", so every
       // answer upserts onto the same empty-id row instead of being stored.
       // It also travels to the client in the `start` chunk, which keeps the
@@ -199,7 +255,14 @@ export async function POST(req: Request) {
         // picks silently, so without this there is no way to tell whether an
         // answer leaned on a memory — or which one.
         const injected = memories.map((m) => ({ id: m.id, content: m.content }));
-        return usage ? { usage, model: modelId, memories: injected } : { memories: injected };
+        // Recorded per turn, not per chat: the toggle can be flipped mid
+        // conversation, and the transcript is the only honest record of which
+        // answers ran with memory and which did not. Written only when off, so
+        // the common case adds nothing to every stored message.
+        const off = memoryAllowed ? {} : { memoryOff: true as const };
+        return usage
+          ? { usage, model: modelId, memories: injected, ...off }
+          : { memories: injected, ...off };
       },
       onEnd: async ({ responseMessage }) => {
         if (!responseMessage) return;

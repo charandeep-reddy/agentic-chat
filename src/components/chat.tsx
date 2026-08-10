@@ -11,13 +11,13 @@ import { useSidebarToggle } from "./app-shell";
 import { getStorage, setStorage, removeStorage, subscribeStorage } from "@/lib/local-storage";
 import { useChatsActions } from "./chats-provider";
 import { Composer } from "./composer";
+import { useChatMemory } from "./use-chat-memory";
 import { EmptyState } from "./empty-state";
 import { MessageList } from "./message-list";
 import { ShareButton } from "./share-button";
 import { DEFAULT_MODEL } from "@/lib/models";
 import { usageSchema } from "@/lib/usage";
 import { ConversationCost } from "./conversation-cost";
-import { MemoryScopeButton } from "./memory-scope-button";
 import type { MemoryScope } from "@/lib/memory-scope";
 import { IconChevron, IconKey, IconSidebar } from "./icons";
 
@@ -29,7 +29,8 @@ export interface ChatProps {
   /** True for a chat that has not been written to the database yet. */
   isNew: boolean;
   memoryScope: MemoryScope;
-  memoryIds: string[];
+  /** The account-level memory switch, which the per-chat one cannot override. */
+  memoryAccountEnabled: boolean;
 }
 
 const metadataSchema = z.object({
@@ -38,6 +39,8 @@ const metadataSchema = z.object({
   model: z.string().optional(),
   /** The saved memories this turn was actually given. */
   memories: z.array(z.object({ id: z.string(), content: z.string() })).optional(),
+  /** Set when the turn ran with memory switched off for the chat. */
+  memoryOff: z.boolean().optional(),
 });
 
 /** Codes the route returns without a sentence of its own. */
@@ -78,7 +81,7 @@ export function Chat({
   initialShareId,
   isNew,
   memoryScope,
-  memoryIds,
+  memoryAccountEnabled,
 }: ChatProps) {
   const toggleSidebar = useSidebarToggle();
   const apiKey = useSyncExternalStore(
@@ -98,6 +101,10 @@ export function Chat({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState(initialTitle);
+  const { on: memoryOn, saving: memorySaving, toggle: toggleMemory } = useChatMemory(
+    chatId,
+    memoryScope !== "none",
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const startedRef = useRef(false);
@@ -107,9 +114,12 @@ export function Chat({
       new DefaultChatTransport({
         api: "/api/chat",
         headers: apiKey ? { "x-model-key": apiKey } : {},
-        body: { id: chatId, model },
+        // `memoryScope` matters only on the request that creates the chat: a
+        // toggle flipped before the first message has no row to PATCH, so the
+        // choice travels with the message instead.
+        body: { id: chatId, model, memoryScope: memoryOn ? "all" : "none" },
       }),
-    [apiKey, model, chatId],
+    [apiKey, model, chatId, memoryOn],
   );
 
   const { messages, sendMessage, setMessages, regenerate, status, error, stop } = useChat({
@@ -240,6 +250,9 @@ export function Chat({
       if (meta && e.shiftKey && e.key.toLowerCase() === "o") {
         e.preventDefault();
         router.push("/");
+      } else if (meta && e.shiftKey && e.key.toLowerCase() === "m") {
+        e.preventDefault();
+        if (memoryAccountEnabled) void toggleMemory();
       } else if (meta && e.key === "/") {
         e.preventDefault();
         composerRef.current?.focus();
@@ -249,7 +262,7 @@ export function Chat({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [router, busy, stop]);
+  }, [router, busy, stop, toggleMemory, memoryAccountEnabled]);
 
   return (
     <div className="relative flex h-dvh min-w-0 flex-1 flex-col">
@@ -269,12 +282,6 @@ export function Chat({
         </h1>
 
         <ConversationCost messages={messages} />
-
-        <MemoryScopeButton
-          chatId={chatId}
-          initialScope={memoryScope}
-          initialIds={memoryIds}
-        />
 
         {messages.length > 0 && (
           <ShareButton
@@ -317,6 +324,7 @@ export function Chat({
               onAnswerQuestion={answerQuestion}
               onEdit={editMessage}
               onRegenerate={regenerateMessage}
+              nextTurnMemoryOff={memoryAccountEnabled ? !memoryOn : undefined}
             />
           )}
 
@@ -363,6 +371,10 @@ export function Chat({
         busy={busy}
         blocked={pendingQuestion !== null}
         model={model}
+        memoryOn={memoryOn}
+        memoryAccountEnabled={memoryAccountEnabled}
+        memorySaving={memorySaving}
+        onMemoryToggle={() => void toggleMemory()}
         onSend={send}
         onStop={stop}
         onOpenSettings={() => setSettingsOpen(true)}

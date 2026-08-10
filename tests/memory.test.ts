@@ -3,6 +3,7 @@ import { forgetMemory, saveMemory, searchMemory } from "@/lib/tools/memory";
 import type { MemoryStore } from "@/lib/tools/memory";
 import { rankMemories } from "@/lib/memory-store";
 import { buildSystemPrompt } from "@/lib/prompts";
+import { withoutMemoryCalls } from "@/app/api/chat/route";
 import { ToolError } from "@/lib/tools/errors";
 import type { Memory } from "@/lib/db/schema";
 
@@ -153,5 +154,72 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).toContain("Answer in haiku.");
     expect(prompt).toContain("unless it conflicts with a rule above");
+  });
+});
+
+describe("buildSystemPrompt memory instructions", () => {
+  it("describes the memory tools by default", () => {
+    const prompt = buildSystemPrompt({});
+    expect(prompt).toContain("save_memory");
+    expect(prompt).toContain("## Memory");
+  });
+
+  // The tools are absent from the registry for a chat scoped to "none", so
+  // naming them in the prompt only invites a call that cannot resolve.
+  it("says nothing about memory when the tools are not registered", () => {
+    const prompt = buildSystemPrompt({ memoryTools: false });
+    expect(prompt).not.toContain("save_memory");
+    expect(prompt).not.toContain("search_memory");
+    expect(prompt).not.toContain("forget_memory");
+    expect(prompt).not.toContain("## Memory");
+  });
+
+  it("still carries the rest of the instructions without memory", () => {
+    const prompt = buildSystemPrompt({ memoryTools: false });
+    expect(prompt).toContain("## Tools");
+    expect(prompt).toContain("## Rules");
+    expect(prompt).toContain("render_chart");
+    expect(prompt).toContain("prefer the matching render tool");
+  });
+});
+
+describe("withoutMemoryCalls", () => {
+  const part = (type: string) => ({ type, toolCallId: "t1", state: "output-available" });
+
+  it("drops memory tool parts and keeps everything else", () => {
+    const messages = [
+      {
+        id: "m1",
+        role: "assistant" as const,
+        parts: [
+          { type: "text" as const, text: "Noted." },
+          part("tool-save_memory"),
+          part("tool-render_chart"),
+        ],
+      },
+    ] as unknown as Parameters<typeof withoutMemoryCalls>[0];
+
+    const [message] = withoutMemoryCalls(messages);
+    expect(message.parts.map((p) => p.type)).toEqual(["text", "tool-render_chart"]);
+  });
+
+  // An assistant turn that only saved a memory has nothing left to send, and
+  // an empty parts array is not a message the provider accepts.
+  it("drops a message left with no parts", () => {
+    const messages = [
+      { id: "m1", role: "user" as const, parts: [{ type: "text" as const, text: "hi" }] },
+      { id: "m2", role: "assistant" as const, parts: [part("tool-search_memory")] },
+    ] as unknown as Parameters<typeof withoutMemoryCalls>[0];
+
+    expect(withoutMemoryCalls(messages).map((m) => m.id)).toEqual(["m1"]);
+  });
+
+  it("leaves the input array untouched", () => {
+    const messages = [
+      { id: "m1", role: "assistant" as const, parts: [part("tool-forget_memory")] },
+    ] as unknown as Parameters<typeof withoutMemoryCalls>[0];
+
+    withoutMemoryCalls(messages);
+    expect(messages[0].parts).toHaveLength(1);
   });
 });

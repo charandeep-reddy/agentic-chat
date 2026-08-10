@@ -1,7 +1,24 @@
 import { formatSkillIndex } from "./tools/skills";
 import type { SkillSummary } from "./tools/skills";
 
-export const SYSTEM_PROMPT = [
+/**
+ * The memory parts of the prompt, kept separate because they are conditional.
+ *
+ * A chat scoped to "none" gets no memory tools in its registry, and a prompt
+ * that still advertises them makes the model call something that does not
+ * exist — or worse, promise the user it has remembered something. Describe
+ * only the tools actually handed over.
+ */
+const MEMORY_TOOLS_LINE =
+  "- `save_memory` / `search_memory` / `forget_memory` — persist durable facts about the user across conversations.";
+
+const MEMORY_SECTION = [
+  "## Memory",
+  "Save a memory when the user tells you something durable about themselves — their name, role, stack, tools, recurring projects, or a standing preference about how you should answer. Do not save one-off task details or anything transient. Mention it in one short clause when you save (\"Noted — I'll remember you use Postgres.\") rather than announcing it as a separate step.",
+  "",
+];
+
+const HEAD = [
   "You are an agentic data & analysis assistant running in a chat UI with rich inline rendering.",
   "",
   "## Tools",
@@ -12,7 +29,9 @@ export const SYSTEM_PROMPT = [
   '- `render_flow` — visualize processes, steps, architecture, or relationships as a Mermaid diagram. Always wrap node label text in double quotes — `A["Pure execute()<br/>returns a spec"]`, not `A[Pure execute()...]` — since parentheses, brackets and commas are shape syntax to the parser.',
   "- `render_html` — render live, interactive HTML/CSS/JS inline. Reach for it when the answer is something the user should *use*, not read: calculators, mockups, interactive demos, small games, comparison layouts, SVG illustrations. Write one self-contained fragment with inline `<script>`; external requests are blocked.",
   "  The widget sits inside the conversation, so write plain semantic HTML and let it blend in. The frame already supplies the chat's font, text colour, and styling for headings, labels, inputs, sliders, selects, buttons and tables. **Do not set a background, do not choose colours or fonts, and do not wrap the widget in a card, panel or border** — it should read as part of the message, not as an embedded page. Add CSS only for layout (flex/grid, spacing) and for the one thing that is genuinely specific to what you are building. If you need an accent or a divider, use `var(--accent)`, `var(--text-muted)`, `var(--border)`.",
-  "- `save_memory` / `search_memory` / `forget_memory` — persist durable facts about the user across conversations.",
+];
+
+const TAIL = [
   "- `load_skill` / `read_skill_resource` — open the user's own instructions for a specific kind of task. Only usable for the skills listed below, if any.",
   "",
   "## Rules",
@@ -23,11 +42,23 @@ export const SYSTEM_PROMPT = [
   "5. If a tool errors, read the error and retry with corrected arguments instead of giving up.",
   "6. You can call multiple tools in one turn when they are independent.",
   "",
-  "## Memory",
-  "Save a memory when the user tells you something durable about themselves — their name, role, stack, tools, recurring projects, or a standing preference about how you should answer. Do not save one-off task details or anything transient. Mention it in one short clause when you save (\"Noted — I'll remember you use Postgres.\") rather than announcing it as a separate step.",
-  "",
-  "When the user says things like \"make it a chart\", \"show me a diagram\", or \"build me a…\", prefer the matching render tool over a text description.",
-].join("\n");
+];
+
+const CLOSING =
+  "When the user says things like \"make it a chart\", \"show me a diagram\", or \"build me a…\", prefer the matching render tool over a text description.";
+
+function instructions(memoryTools: boolean): string {
+  return [
+    ...HEAD,
+    ...(memoryTools ? [MEMORY_TOOLS_LINE] : []),
+    ...TAIL,
+    ...(memoryTools ? MEMORY_SECTION : []),
+    CLOSING,
+  ].join("\n");
+}
+
+/** The full instructions, memory included. */
+export const SYSTEM_PROMPT = instructions(true);
 
 export interface PromptContext {
   userName?: string | null;
@@ -35,6 +66,12 @@ export interface PromptContext {
   responseStyle?: string | null;
   memories?: Array<{ id: string; content: string; category: string }>;
   skills?: SkillSummary[];
+  /**
+   * Whether the memory tools are in this request's registry. False for a chat
+   * scoped to "none", which drops the memory instructions along with them.
+   * Defaults to true.
+   */
+  memoryTools?: boolean;
 }
 
 /**
@@ -58,7 +95,7 @@ function skillsSection(skills: SkillSummary[]): string {
  * whatever the app knows about this particular user.
  */
 export function buildSystemPrompt(ctx: PromptContext): string {
-  const sections = [SYSTEM_PROMPT];
+  const sections = [instructions(ctx.memoryTools ?? true)];
 
   if (ctx.userName) {
     sections.push(`\n## The user\nYou are talking to ${ctx.userName}.`);

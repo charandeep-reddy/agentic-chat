@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { UIMessage } from "ai";
 import { ChatPage } from "@/components/chat-page";
 import { isMemoryScope } from "@/lib/memory-scope";
-import { getChat, getMessages } from "@/lib/db/queries";
+import { getChat, getMessages, getSettings } from "@/lib/db/queries";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export default async function ExistingChatPage({ params }: Props) {
   const chat = await getChat(id, user.id);
   if (!chat) notFound();
 
-  const stored = await getMessages(id);
+  const [stored, settings] = await Promise.all([getMessages(id), getSettings(user.id)]);
   const messages: UIMessage[] = stored.map((m) => ({
     id: m.id,
     role: m.role as UIMessage["role"],
@@ -39,7 +39,7 @@ export default async function ExistingChatPage({ params }: Props) {
       initialShareId={chat.shareId}
       isNew={false}
       memoryScope={isMemoryScope(chat.memoryScope) ? chat.memoryScope : "all"}
-      memoryIds={chat.memoryIds ?? []}
+      memoryAccountEnabled={settings?.memoryEnabled ?? true}
     />
   );
 }

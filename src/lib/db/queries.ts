@@ -14,6 +14,7 @@ import {
   userSettings,
 } from "./schema";
 import type { Chat, Memory, MemoryPack, Skill, UserSettings } from "./schema";
+import type { MemoryScope } from "@/lib/memory-scope";
 
 export function newId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`;
@@ -93,7 +94,7 @@ export async function getSharedChat(shareId: string) {
 
 export async function createChat(
   userId: string,
-  opts: { id?: string; title?: string; model?: string } = {},
+  opts: { id?: string; title?: string; model?: string; memoryScope?: MemoryScope } = {},
 ): Promise<Chat> {
   const [row] = await db
     .insert(chat)
@@ -102,6 +103,9 @@ export async function createChat(
       userId,
       title: opts.title ?? "New chat",
       model: opts.model ?? null,
+      // A chat has no row to PATCH until this insert, so the composer's memory
+      // toggle arrives with the first message rather than ahead of it.
+      ...(opts.memoryScope ? { memoryScope: opts.memoryScope } : {}),
     })
     .returning();
   return row;
