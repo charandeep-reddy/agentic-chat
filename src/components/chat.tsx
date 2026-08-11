@@ -106,6 +106,12 @@ export function Chat({
   );
   const model = storedModel || DEFAULT_MODEL;
 
+  // Keeps the pre-paint attribute honest after the key is added or cleared, so
+  // the CSS above and the React state below never disagree.
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-has-key", apiKey !== "");
+  }, [apiKey]);
+
   const router = useRouter();
   const { refresh } = useChatsActions();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -360,17 +366,18 @@ export function Chat({
           />
         )}
 
+        {/* Both labels are rendered and CSS drops one, so the first painted
+            frame is already right. Driving this from `apiKey` alone meant a
+            visible "Add API key" in warning colours on every refresh, for
+            everyone — the value is not readable until after hydration. */}
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
-            apiKey
-              ? "border-accent/40 text-accent hover:bg-accent-soft"
-              : "border-warn/40 text-warn hover:bg-warn-soft"
-          }`}
+          className="key-pill flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors"
         >
           <IconKey size={12} />
-          {apiKey ? "Connected" : "Add API key"}
+          <span data-when="key">Connected</span>
+          <span data-when="no-key">Add API key</span>
         </button>
       </header>
 

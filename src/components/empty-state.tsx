@@ -118,15 +118,20 @@ export function EmptyState({
       <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent">
         <IconSpark size={22} />
       </span>
+      {/* Both headings and both blocks below are rendered, with CSS dropping
+          the wrong one — `hasKey` is not readable until after hydration, so
+          driving it from React alone meant every returning user watched the
+          new-user onboarding paint and then vanish. */}
       <h2 className="text-2xl font-semibold tracking-tight text-text">
-        {hasKey ? "What are we working on?" : "Bring your key. Ask anything."}
+        <span data-when="key">What are we working on?</span>
+        <span data-when="no-key">Bring your key. Ask anything.</span>
       </h2>
       <p className="mt-2 max-w-lg text-sm leading-relaxed text-text-muted">
         Your model, your data — charts, diagrams, tables, live fetches and interactive HTML,
         rendered inline.
       </p>
 
-      {!hasKey ? (
+      <div data-when="no-key" className="flex flex-col items-center">
         <>
           <div className="mt-8 grid w-full max-w-xl gap-3 sm:grid-cols-3">
             {[
@@ -153,7 +158,9 @@ export function EmptyState({
             Connect your key
           </button>
         </>
-      ) : (
+      </div>
+
+      <div data-when="key" className="flex w-full flex-col items-center">
         <div className="mt-8 grid w-full max-w-2xl gap-2 sm:grid-cols-2">
           {CAPABILITIES.map((c) => (
             <button
@@ -173,15 +180,13 @@ export function EmptyState({
             </button>
           ))}
         </div>
-      )}
 
-      {/* The app's only reliable door to private mode.
+        {/* The app's only reliable door to private mode.
           The sidebar button is behind a collapse on desktop and behind a
           closed drawer on mobile, so a user who never opens either would never
           learn the feature exists. This screen is where every new chat starts,
           it is full width on a phone, and it is the moment the choice is
-          actually being made. */}
-      {hasKey && (
+            actually being made. */}
         <Link
           href="/private"
           className="mt-8 inline-flex items-center gap-2 rounded-xl border border-dashed border-border-subtle px-3.5 py-2 text-[12px] text-text-muted transition-colors hover:border-border-strong hover:text-text-secondary"
@@ -189,7 +194,7 @@ export function EmptyState({
           <IconIncognito size={13} className="shrink-0" />
           Or start a private chat — nothing saved, no memories
         </Link>
-      )}
+      </div>
     </div>
   );
 }

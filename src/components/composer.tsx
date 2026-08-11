@@ -82,13 +82,16 @@ export function Composer({
     if (!ephemeral) removeStorage(draftKey(chatId));
   };
 
+  // Deliberately independent of `hasKey`. A placeholder is an attribute, so
+  // unlike the key pill it cannot be swapped by CSS, and keying it on a value
+  // that is unreadable until after hydration put a third flash on every
+  // refresh. The missing-key state is already carried by the disabled input,
+  // the key pill in the header and the empty state's own copy.
   const placeholder = blocked
     ? "Pick an option above to continue"
-    : !hasKey
-      ? "Connect an API key to start chatting"
-      : ephemeral
-        ? "Ask anything — this chat isn't saved"
-        : "Ask anything";
+    : ephemeral
+      ? "Ask anything — this chat isn't saved"
+      : "Ask anything";
 
   return (
     <div className="relative z-10 mx-auto w-full max-w-3xl shrink-0 px-4 pb-4 pt-2 sm:pb-6">

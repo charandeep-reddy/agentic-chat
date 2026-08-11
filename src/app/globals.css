@@ -312,3 +312,35 @@ body {
   margin: 1rem 0;
   border-color: var(--border);
 }
+
+/*
+ * Whether a model key is stored is known before paint, from the attribute
+ * HAS_KEY_INIT_SCRIPT writes on <html>. React cannot supply it during
+ * hydration — `useSyncExternalStore` hands the *server* snapshot to the
+ * hydration render, so every visitor painted the no-key state and swapped a
+ * moment later. Components render both variants and CSS drops the wrong one,
+ * which makes the first frame correct and React's later catch-up invisible.
+ */
+:root:not([data-has-key]) [data-when="key"],
+:root[data-has-key] [data-when="no-key"] {
+  display: none;
+}
+
+/* The key pill's colours, for the same reason its text needs two variants. */
+.key-pill {
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+  color: var(--warn);
+}
+
+.key-pill:hover {
+  background: var(--warn-soft);
+}
+
+:root[data-has-key] .key-pill {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent);
+}
+
+:root[data-has-key] .key-pill:hover {
+  background: var(--accent-soft);
+}

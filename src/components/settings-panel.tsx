@@ -8,8 +8,10 @@ import { Skeleton } from "./skeleton";
 import { setPrice, usePrices } from "./use-prices";
 import { IconClose, IconKey } from "./icons";
 
-export const KEY_STORAGE = "agentic-chat.key";
-export const MODEL_STORAGE = "agentic-chat.model";
+// Defined in `lib/storage-keys` and re-exported here so existing importers are
+// unchanged. The key name has to be reachable from the root layout's
+// pre-paint script, which cannot import a client component.
+export { KEY_STORAGE, MODEL_STORAGE } from "@/lib/storage-keys";
 
 const SHORTCUTS = [
   { keys: "⌘ K", label: "Search chats / jump" },
