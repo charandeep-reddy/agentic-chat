@@ -14,10 +14,12 @@ import {
   userSettings,
 } from "./schema";
 import type { Chat, Memory, MemoryPack, Skill, UserSettings } from "./schema";
+import { newId } from "@/lib/id";
 
-export function newId(prefix: string): string {
-  return `${prefix}_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`;
-}
+// Re-exported so the call sites that already import it from here keep working,
+// while the implementation stays free of this module's database imports — the
+// browser mints a new chat's id and must not pull `node-postgres` in with it.
+export { newId };
 
 /* ------------------------------------------------------------------ *
  * Chats

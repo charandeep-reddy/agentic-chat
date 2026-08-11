@@ -17,6 +17,9 @@ import { ShareButton } from "./share-button";
 import { DEFAULT_MODEL } from "@/lib/models";
 import { usageSchema } from "@/lib/usage";
 import { ConversationCost } from "./conversation-cost";
+import { ConfirmDialog } from "./confirm-dialog";
+import { PrivateButton } from "./private-button";
+import { requestLeave, setLeaveGuard } from "./leave-guard";
 import { IconChevron, IconKey, IconSidebar } from "./icons";
 
 export interface ChatProps {
@@ -26,6 +29,12 @@ export interface ChatProps {
   initialShareId: string | null;
   /** True for a chat that has not been written to the database yet. */
   isNew: boolean;
+  /**
+   * A private chat. Nothing is persisted — not the transcript, not the title,
+   * not a draft — and the server is told to withhold memories, settings and
+   * skills. Closing the tab loses it, which is what it is for.
+   */
+  ephemeral: boolean;
 }
 
 const metadataSchema = z.object({
@@ -33,6 +42,17 @@ const metadataSchema = z.object({
   usage: usageSchema.optional(),
   model: z.string().optional(),
 });
+
+/**
+ * Messages a private chat must hold before leaving it asks for confirmation.
+ *
+ * Two is one exchange: a question and the answer to it. The threshold was
+ * higher when leaving meant deliberately navigating elsewhere, but the mode
+ * toggle now sits in the header a few pixels from the rest of the controls,
+ * and a single stray click there discards work that exists nowhere else. Still
+ * not zero — an empty or half-typed chat should not argue with you.
+ */
+const LEAVE_GUARD_AFTER = 2;
 
 /** Codes the route returns without a sentence of its own. */
 const ERROR_TEXT: Record<string, string> = {
@@ -71,6 +91,7 @@ export function Chat({
   initialTitle,
   initialShareId,
   isNew,
+  ephemeral,
 }: ChatProps) {
   const toggleSidebar = useSidebarToggle();
   const apiKey = useSyncExternalStore(
@@ -99,9 +120,13 @@ export function Chat({
       new DefaultChatTransport({
         api: "/api/chat",
         headers: apiKey ? { "x-model-key": apiKey } : {},
-        body: { id: chatId, model },
+        // `private` rides on every turn rather than being stored, because a
+        // private chat has no row to store it on. The server treats it as
+        // narrowing-only, so a request that loses it is no worse than a
+        // normal one.
+        body: { id: chatId, model, ...(ephemeral ? { private: true } : {}) },
       }),
-    [apiKey, model, chatId],
+    [apiKey, model, chatId, ephemeral],
   );
 
   const { messages, sendMessage, setMessages, regenerate, status, error, stop } = useChat({
@@ -135,12 +160,13 @@ export function Chat({
    * sidebar — without a navigation, which would remount and drop the stream.
    */
   const claimUrl = useCallback(() => {
-    if (!isNew || startedRef.current) return;
+    // A private chat has no row to claim and never reaches the sidebar.
+    if (ephemeral || !isNew || startedRef.current) return;
     startedRef.current = true;
     window.history.replaceState(null, "", `/c/${chatId}`);
     // The title is generated server-side after the first message lands.
     setTimeout(() => void refresh(), 1500);
-  }, [isNew, chatId, refresh]);
+  }, [ephemeral, isNew, chatId, refresh]);
 
   const send = useCallback(
     (text: string) => {
@@ -187,20 +213,22 @@ export function Chat({
       const index = current.findIndex((m) => m.id === messageId);
       if (index === -1 || busyRef.current) return;
       setMessages(current.slice(0, index));
+      // A private chat has no stored history to rewrite; dropping the messages
+      // here is the whole of it.
       void sendMessage(
         { role: "user", parts: [{ type: "text", text }] },
-        { body: { truncateFromId: messageId } },
+        ephemeral ? undefined : { body: { truncateFromId: messageId } },
       );
     },
-    [setMessages, sendMessage],
+    [setMessages, sendMessage, ephemeral],
   );
 
   const regenerateMessage = useCallback(
     (messageId: string) => {
       if (busyRef.current) return;
-      void regenerate({ messageId, body: { truncateFromId: messageId } });
+      void regenerate(ephemeral ? { messageId } : { messageId, body: { truncateFromId: messageId } });
     },
-    [regenerate],
+    [regenerate, ephemeral],
   );
 
   // Keep the viewport pinned to the newest content unless the user scrolled up
@@ -225,13 +253,72 @@ export function Chat({
     });
   }, [messages, busy, pinned]);
 
+  /**
+   * A private transcript exists only in this tab, so anything that leaves the
+   * page destroys it. Three exits have to be covered and they are all
+   * different: reload and tab close (`beforeunload`), a link click anywhere in
+   * the shell (the capture listener below), and a programmatic `router.push`
+   * from the palette or a shortcut (`requestLeave`).
+   */
+  const guardActive = ephemeral && messages.length >= LEAVE_GUARD_AFTER;
+  const [leaveDecision, setLeaveDecision] = useState<((ok: boolean) => void) | null>(null);
+
+  useEffect(() => {
+    if (!guardActive) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [guardActive]);
+
+  // Publishes the veto to the sidebar, the palette and this component's own
+  // shortcuts. Storing the resolver is what turns a promise into a dialog:
+  // whoever wanted to navigate waits until a button is pressed.
+  useEffect(() => {
+    if (!guardActive) return;
+    setLeaveGuard(() => new Promise<boolean>((resolve) => setLeaveDecision(() => resolve)));
+    return () => setLeaveGuard(null);
+  }, [guardActive]);
+
+  /**
+   * Catches link clicks before React Router sees them, which is what makes
+   * this work without every `<Link>` in the app knowing about private chats.
+   *
+   * Modifier-clicks are left alone deliberately: ⌘-click opens a new tab and
+   * this one survives, so there is nothing to confirm.
+   */
+  useEffect(() => {
+    if (!guardActive) return;
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = (e.target as HTMLElement | null)?.closest?.("a[href]");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      // Internal navigations only. An external link opens elsewhere, and a
+      // fragment stays on the page.
+      if (!href?.startsWith("/")) return;
+      const target = anchor.getAttribute("target");
+      if (target && target !== "_self") return;
+      e.preventDefault();
+      e.stopPropagation();
+      void requestLeave().then((ok) => {
+        if (ok) router.push(href);
+      });
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [guardActive, router]);
+
   // Keyboard shortcuts, matching what the big three settled on.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
       if (meta && e.shiftKey && e.key.toLowerCase() === "o") {
         e.preventDefault();
-        router.push("/");
+        void requestLeave().then((ok) => ok && router.push("/"));
+      } else if (meta && e.shiftKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        void requestLeave().then((ok) => ok && router.push("/private"));
       } else if (meta && e.key === "/") {
         e.preventDefault();
         composerRef.current?.focus();
@@ -262,7 +349,9 @@ export function Chat({
 
         <ConversationCost messages={messages} />
 
-        {messages.length > 0 && (
+        <PrivateButton active={ephemeral} />
+
+        {!ephemeral && messages.length > 0 && (
           <ShareButton
             chatId={chatId}
             title={title}
@@ -291,6 +380,7 @@ export function Chat({
             <EmptyState
               hasKey={apiKey !== ""}
               busy={busy}
+              ephemeral={ephemeral}
               onSend={send}
               onOpenSettings={() => setSettingsOpen(true)}
             />
@@ -345,6 +435,7 @@ export function Chat({
       <Composer
         ref={composerRef}
         chatId={chatId}
+        ephemeral={ephemeral}
         hasKey={apiKey !== ""}
         busy={busy}
         blocked={pendingQuestion !== null}
@@ -363,8 +454,38 @@ export function Chat({
         onClose={() => setSettingsOpen(false)}
       />
 
-      {/* Title is server-generated; this keeps the header honest after a refresh. */}
-      <TitleSync chatId={chatId} current={title} onChange={setTitle} active={messages.length > 0} />
+      {/* Title is server-generated; this keeps the header honest after a
+          refresh. A private chat is never titled, so there is nothing to poll
+          for — and polling would mean a request naming a chat that does not
+          exist. */}
+      {!ephemeral && (
+        <TitleSync chatId={chatId} current={title} onChange={setTitle} active={messages.length > 0} />
+      )}
+
+      {/* Spoken on arrival rather than left to be discovered. The composer's
+          own label is the visual channel; this is the same fact for a screen
+          reader, before anything has been typed. */}
+      {ephemeral && (
+        <p role="status" className="sr-only">
+          Private chat. This conversation is not saved, and no memories are read or written.
+        </p>
+      )}
+
+      {leaveDecision && (
+        <ConfirmDialog
+          title="Leave this private chat?"
+          description="It was never saved. Leaving discards the conversation, and it cannot be recovered."
+          confirmLabel="Leave and discard"
+          onConfirm={() => {
+            leaveDecision(true);
+            setLeaveDecision(null);
+          }}
+          onCancel={() => {
+            leaveDecision(false);
+            setLeaveDecision(null);
+          }}
+        />
+      )}
     </div>
   );
 }
