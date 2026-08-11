@@ -3,7 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ChatSummary } from "./chats-provider";
-import { IconBrain, IconMessage, IconPlus, IconSearch, IconSpark, IconUser } from "./icons";
+import { requestLeave } from "./leave-guard";
+import {
+  IconBrain,
+  IconIncognito,
+  IconMessage,
+  IconPlus,
+  IconSearch,
+  IconSpark,
+  IconUser,
+} from "./icons";
 
 interface Command {
   id: string;
@@ -15,6 +24,7 @@ interface Command {
 
 const PAGES: Command[] = [
   { id: "new", label: "New chat", hint: "⌘ ⇧ O", icon: IconPlus, href: "/" },
+  { id: "private", label: "New private chat", hint: "⌘ ⇧ P", icon: IconIncognito, href: "/private" },
   { id: "memory", label: "Memory & packs", icon: IconBrain, href: "/memory" },
   { id: "skills", label: "Skills", icon: IconSpark, href: "/skills" },
   { id: "profile", label: "Profile & settings", icon: IconUser, href: "/profile" },
@@ -101,7 +111,12 @@ export function CommandPalette() {
   const go = (href: string) => {
     setOpen(false);
     setQuery("");
-    router.push(href);
+    // Closed first either way: leaving the palette open behind a confirmation
+    // dialog stacks two overlays, and cancelling should return the user to the
+    // chat they are protecting rather than to the switcher.
+    void requestLeave().then((ok) => {
+      if (ok) router.push(href);
+    });
   };
 
   if (!open) return null;

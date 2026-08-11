@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
+import { HAS_KEY_INIT_SCRIPT } from "@/lib/storage-keys";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Before first paint — see THEME_INIT_SCRIPT for why this can't be a
             component. The content is a build-time constant, never user input. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {/* Same reason, different preference: whether a model key is stored.
+            See HAS_KEY_INIT_SCRIPT. */}
+        <script dangerouslySetInnerHTML={{ __html: HAS_KEY_INIT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>{children}</ThemeProvider>

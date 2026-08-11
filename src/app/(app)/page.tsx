@@ -1,24 +1,14 @@
 import { ChatPage } from "@/components/chat-page";
-import { newId } from "@/lib/db/queries";
-
-export const dynamic = "force-dynamic";
 
 /**
- * A fresh conversation. The id is minted here but no row is written until the
- * first message lands, so opening the app repeatedly does not litter the
- * sidebar with empty chats.
+ * A fresh conversation. The id is minted in the browser and no row is written
+ * until the first message lands, so opening the app repeatedly does not litter
+ * the sidebar with empty chats.
  *
- * No session lookup: the layout already required one, and this page reads
- * nothing that belongs to the user.
+ * Nothing here is dynamic: the page reads nothing that belongs to the user —
+ * the layout above already required a session — and holds no per-request value,
+ * which is what lets it be prefetched and rendered without a round trip.
  */
 export default function NewChatPage() {
-  return (
-    <ChatPage
-      chatId={newId("chat")}
-      initialMessages={[]}
-      initialTitle="New chat"
-      initialShareId={null}
-      isNew
-    />
-  );
+  return <ChatPage initialMessages={[]} initialTitle="New chat" initialShareId={null} isNew />;
 }

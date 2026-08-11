@@ -2,7 +2,7 @@
 
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { getStorage, removeStorage, setStorage } from "@/lib/local-storage";
-import { IconArrowUp, IconStop } from "./icons";
+import { IconArrowUp, IconIncognito, IconStop } from "./icons";
 
 const MAX_HEIGHT = 200;
 const DRAFT_SAVE_DELAY = 250;
@@ -12,6 +12,7 @@ const draftKey = (chatId: string) => `composer:draft:${chatId}`;
 export function Composer({
   ref,
   chatId,
+  ephemeral = false,
   hasKey,
   busy,
   blocked,
@@ -23,6 +24,11 @@ export function Composer({
   ref?: Ref<HTMLTextAreaElement>;
   /** Unsent text is kept per chat, so switching chats and back restores it. */
   chatId: string;
+  /**
+   * A private chat keeps no draft. Persisting one to localStorage would leave
+   * behind exactly the text the mode exists to not leave behind.
+   */
+  ephemeral?: boolean;
   hasKey: boolean;
   busy: boolean;
   blocked: boolean;
@@ -45,16 +51,17 @@ export function Composer({
   // Chat remounts the composer per chat id, so this runs once per chat and
   // restores whatever was left unsent last time it was open.
   useEffect(() => {
-    if (inner.current) inner.current.value = getStorage(draftKey(chatId));
+    if (inner.current && !ephemeral) inner.current.value = getStorage(draftKey(chatId));
     resize();
     return () => {
       if (draftTimer.current) clearTimeout(draftTimer.current);
     };
-  }, [chatId]);
+  }, [chatId, ephemeral]);
 
   const disabled = !hasKey || blocked;
 
   const saveDraft = () => {
+    if (ephemeral) return;
     if (draftTimer.current) clearTimeout(draftTimer.current);
     draftTimer.current = setTimeout(() => {
       const value = inner.current?.value ?? "";
@@ -72,27 +79,52 @@ export function Composer({
       resize();
     }
     if (draftTimer.current) clearTimeout(draftTimer.current);
-    removeStorage(draftKey(chatId));
+    if (!ephemeral) removeStorage(draftKey(chatId));
   };
 
+  // Deliberately independent of `hasKey`. A placeholder is an attribute, so
+  // unlike the key pill it cannot be swapped by CSS, and keying it on a value
+  // that is unreadable until after hydration put a third flash on every
+  // refresh. The missing-key state is already carried by the disabled input,
+  // the key pill in the header and the empty state's own copy.
   const placeholder = blocked
     ? "Pick an option above to continue"
-    : hasKey
-      ? "Ask anything"
-      : "Connect an API key to start chatting";
+    : ephemeral
+      ? "Ask anything — this chat isn't saved"
+      : "Ask anything";
 
   return (
     <div className="relative z-10 mx-auto w-full max-w-3xl shrink-0 px-4 pb-4 pt-2 sm:pb-6">
       <div
-        className={`rounded-2xl border border-border bg-surface/90 backdrop-blur-xl transition-shadow ${
-          busy ? "composer-active" : "shadow-[0_8px_32px_-12px_rgba(0,0,0,0.55)]"
-        }`}
+        className={`rounded-2xl bg-surface/90 backdrop-blur-xl transition-shadow ${
+          // Dashed, and deliberately not a new accent colour. Private mode is
+          // the absence of everything the app normally remembers, so it reads
+          // as quieter than an ordinary chat rather than louder — and a broken
+          // outline is the one border that means "not written down".
+          ephemeral ? "border border-dashed border-border-strong" : "border border-border"
+        } ${busy ? "composer-active" : "shadow-[0_8px_32px_-12px_rgba(0,0,0,0.55)]"}`}
       >
+        {/* The signal lives here rather than in the header because this is the
+            element in permanent view and the one you are about to type into.
+            Full text at every breakpoint: the header chip it replaced
+            collapsed to a bare icon on phones, which is where the mode matters
+            most and was least legible. */}
+        {ephemeral && (
+          <p
+            id="composer-private-note"
+            className="flex items-center gap-1.5 border-b border-dashed border-border-subtle px-4 py-2 text-[11px] text-text-muted"
+          >
+            <IconIncognito size={12} className="shrink-0" />
+            Private — not saved, no memories read or written
+          </p>
+        )}
+
         <textarea
           ref={inner}
           rows={1}
           placeholder={placeholder}
           disabled={disabled}
+          aria-describedby={ephemeral ? "composer-private-note" : undefined}
           onInput={() => {
             resize();
             saveDraft();

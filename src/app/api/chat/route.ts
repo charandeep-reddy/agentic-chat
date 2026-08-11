@@ -5,11 +5,13 @@ import {
   generateId,
   hasToolCall,
   isStepCount,
+  NoSuchToolError,
   streamText,
   toUIMessageStream,
 } from "ai";
 import type { UIMessage } from "ai";
 import { buildTools } from "@/lib/tools";
+import { ToolError } from "@/lib/tools/errors";
 import { buildSystemPrompt } from "@/lib/prompts";
 import { createProvider, DEFAULT_MODEL, resolveModelId } from "@/lib/provider";
 import { requireUserApi } from "@/lib/session";
@@ -29,6 +31,12 @@ interface ChatRequestBody {
   id?: string;
   messages?: UIMessage[];
   model?: unknown;
+  /**
+   * An ephemeral conversation: nothing is written and nothing personal is read.
+   * See `isPrivate` below for what it turns off and why trusting the client
+   * with it is sound.
+   */
+  private?: boolean;
   /** Present on edit/regenerate: drop this message and everything after it. */
   truncateFromId?: string;
 }
@@ -74,38 +82,68 @@ export async function POST(req: Request) {
     return Response.json({ error: "missing_chat_id" }, { status: 400 });
   }
 
+  /**
+   * A private chat is ephemeral in both directions.
+   *
+   * Nothing is written — no chat row, no messages, no generated title — and
+   * nothing personal is read in: no memories, no about/style, no name, no skill
+   * index. The memory tools are left out of the registry entirely, which is the
+   * only way the promise holds: a prompt asking the model not to remember is a
+   * request, while an absent tool is a fact.
+   *
+   * The flag comes from the request body on every turn, because there is no row
+   * to hold it. That needs no trust: it can only ever remove capability, never
+   * add it. A client that omits it gets exactly today's behaviour, and one that
+   * sets it gets strictly less.
+   */
+  const isPrivate = body.private === true;
+
   // These four don't depend on each other, and the database is remote enough
   // that doing them in sequence was the bulk of the delay before the first
   // token. Memories are fetched even when the setting turns out to be off —
-  // it's on by default, so speculating costs far less than waiting.
-  const [settings, existingChat, candidateMemories, skills] = await Promise.all([
-    getSettings(user.id),
-    getChat(chatId, user.id),
-    selectPromptMemories(user.id, lastUserText(messages)),
-    selectPromptSkills(user.id),
-  ]);
+  // it's on by default, so speculating costs far less than waiting. A private
+  // chat reads none of them, which is also why it reaches the model soonest.
+  const [settings, existingChat, candidateMemories, skills] = isPrivate
+    ? [null, null, [], []]
+    : await Promise.all([
+        getSettings(user.id),
+        getChat(chatId, user.id),
+        selectPromptMemories(user.id, lastUserText(messages)),
+        selectPromptSkills(user.id),
+      ]);
 
   const modelId = resolveModelId(body.model, settings?.defaultModel);
-  const chat = existingChat ?? (await createChat(user.id, { id: chatId, model: modelId }));
+  const chat = isPrivate
+    ? null
+    : (existingChat ?? (await createChat(user.id, { id: chatId, model: modelId })));
 
   // Edit / regenerate: the client sends the truncation point, and the message
   // list it wants to continue from. Rewriting history before we persist keeps
   // the stored transcript identical to what the model actually saw.
-  if (body.truncateFromId) {
+  //
+  // Skipped when private: this deletes rows, an ephemeral chat has none, and an
+  // id that collided with a real chat's must not be able to destroy it. The
+  // client truncates its own copy either way.
+  if (body.truncateFromId && !isPrivate) {
     await truncateFrom(chatId, body.truncateFromId);
   }
 
-  const memoryEnabled = settings?.memoryEnabled ?? true;
+  const memoryEnabled = !isPrivate && (settings?.memoryEnabled ?? true);
   const memoryStore = memoryEnabled ? createDbMemoryStore(user.id) : null;
   const memories = memoryEnabled ? candidateMemories : [];
 
-  const system = buildSystemPrompt({
-    userName: user.name,
-    aboutUser: settings?.aboutUser,
-    responseStyle: settings?.responseStyle,
-    memories: memories.map((m) => ({ id: m.id, content: m.content, category: m.category })),
-    skills,
-  });
+  const system = isPrivate
+    ? // Deliberately bare. Everything the app knows about the user is omitted,
+      // not merely unmentioned.
+      buildSystemPrompt({ memoryTools: false })
+    : buildSystemPrompt({
+        userName: user.name,
+        aboutUser: settings?.aboutUser,
+        responseStyle: settings?.responseStyle,
+        memories: memories.map((m) => ({ id: m.id, content: m.content, category: m.category })),
+        skills,
+        memoryTools: memoryEnabled,
+      });
 
   // Persist the incoming user message so a dropped connection mid-stream still
   // leaves the question in the transcript. It starts now but is not awaited
@@ -114,7 +152,7 @@ export async function POST(req: Request) {
   // is what keeps the two in ordinal order.
   const incoming = messages[messages.length - 1];
   let userSaved: Promise<void> = Promise.resolve();
-  if (incoming?.role === "user") {
+  if (incoming?.role === "user" && chat) {
     userSaved = saveMessages(chatId, [
       {
         id: incoming.id,
@@ -141,8 +179,9 @@ export async function POST(req: Request) {
   const tools = buildTools({
     memory: memoryStore,
     // No skills means no skill tools: the model cannot usefully call them, and
-    // leaving them in the registry only invites hallucinated skill names.
-    skills: skills.length > 0 ? createDbSkillStore(user.id) : null,
+    // leaving them in the registry only invites hallucinated skill names. A
+    // private chat is never given the index, so it is never given the tools.
+    skills: !isPrivate && skills.length > 0 ? createDbSkillStore(user.id) : null,
   });
 
   const result = streamText({
@@ -167,6 +206,20 @@ export async function POST(req: Request) {
     stream: toUIMessageStream({
       stream: result.stream,
       originalMessages: messages,
+      // The SDK masks every error as "An error occurred." so server details
+      // never reach the browser. That is the right default, but it also hides
+      // the messages `ToolError` exists to show — they are written for the user
+      // and carry no internals. It matters most for a private chat: if the
+      // model reaches for a tool that chat was not given, that must be visible
+      // rather than swallowed. Anything else stays generic and is logged.
+      onError: (error) => {
+        console.error("[api/chat] tool/stream error:", error);
+        if (NoSuchToolError.isInstance(error)) {
+          return `The model called a tool that is not available in this chat (${error.toolName}).`;
+        }
+        if (error instanceof ToolError) return error.message;
+        return "Something went wrong running that step.";
+      },
       // Without this the SDK leaves the response message id as "", so every
       // answer upserts onto the same empty-id row instead of being stored.
       // It also travels to the client in the `start` chunk, which keeps the
@@ -185,7 +238,9 @@ export async function POST(req: Request) {
         return usage ? { usage, model: modelId } : undefined;
       },
       onEnd: async ({ responseMessage }) => {
-        if (!responseMessage) return;
+        // A private chat has nowhere to write. The turn still runs to
+        // completion above, which is what releases the concurrency slot.
+        if (!responseMessage || isPrivate) return;
         try {
           await userSaved;
           await saveMessages(chatId, [

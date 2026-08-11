@@ -155,6 +155,19 @@ export function IconPlus(props: IconProps) {
   );
 }
 
+/** Hat and glasses — the established shorthand for a session that leaves no trace. */
+export function IconIncognito(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6.5 11 8 5.5a1.5 1.5 0 0 1 1.9-1l2.1.6 2.1-.6a1.5 1.5 0 0 1 1.9 1L17.5 11" />
+      <path d="M3.5 11.5h17" />
+      <circle cx="7.75" cy="16" r="2.75" />
+      <circle cx="16.25" cy="16" r="2.75" />
+      <path d="M10.5 16a2.4 2.4 0 0 1 3 0" />
+    </svg>
+  );
+}
+
 export function IconCheck(props: IconProps) {
   return (
     <svg {...base(props)}>
