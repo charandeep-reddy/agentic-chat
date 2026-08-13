@@ -1,10 +1,16 @@
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 
-const optionSchema = z
-  .string()
-  .min(1, "options must not be empty")
-  .max(80, "options must be under 80 characters");
+const optionSchema = z.object({
+  label: z
+    .string()
+    .min(1, "an option label must not be empty")
+    .max(60, "an option label must be under 60 characters"),
+  description: z
+    .string()
+    .max(160, "an option description must be under 160 characters")
+    .optional(),
+});
 
 const questionSchema = z.object({
   question: z
@@ -28,9 +34,22 @@ export const askQuestionSchema = z.object({
 
 export type AskQuestionArgs = z.infer<typeof askQuestionSchema>;
 
+/**
+ * One choice.
+ *
+ * The label is the answer — short enough to read at a glance and short enough
+ * to send back verbatim. The description is the gloss that used to get crammed
+ * into the label in parentheses, where it made the most specific option the
+ * one most likely to be clipped.
+ */
+export interface QuestionOption {
+  label: string;
+  description?: string;
+}
+
 export interface QuestionItem {
   question: string;
-  options: string[];
+  options: QuestionOption[];
   /** Whether the user may pick more than one option. */
   multiSelect: boolean;
 }
@@ -43,7 +62,16 @@ export interface QuestionPayload {
 
 export function askQuestion(args: AskQuestionArgs): QuestionPayload {
   const questions = args.questions.map((q) => {
-    const options = [...new Set(q.options.map((o) => o.trim()).filter(Boolean))];
+    const byLabel = new Map<string, QuestionOption>();
+    for (const option of q.options) {
+      const label = option.label.trim();
+      const description = option.description?.trim();
+      // First wins: a later duplicate is a slip, not a correction.
+      if (label && !byLabel.has(label)) {
+        byLabel.set(label, description ? { label, description } : { label });
+      }
+    }
+    const options = [...byLabel.values()];
     if (options.length < 2) {
       throw new Error(`Provide at least 2 distinct options for "${q.question.trim()}".`);
     }
@@ -60,6 +88,26 @@ export function askQuestion(args: AskQuestionArgs): QuestionPayload {
 }
 
 /**
+ * Options as objects, whatever shape they were stored in.
+ *
+ * Options used to be bare strings. Those rows are in the database and still
+ * render, so every read normalises rather than assuming the current shape.
+ */
+function optionsOf(raw: unknown): QuestionOption[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((o): QuestionOption | null => {
+      if (typeof o === "string") return o.trim() ? { label: o } : null;
+      if (o && typeof o === "object" && typeof (o as QuestionOption).label === "string") {
+        const { label, description } = o as QuestionOption;
+        return description ? { label, description } : { label };
+      }
+      return null;
+    })
+    .filter((o): o is QuestionOption => o !== null);
+}
+
+/**
  * The questions in a stored tool output.
  *
  * Transcripts written before this tool could ask more than one question hold a
@@ -68,24 +116,39 @@ export function askQuestion(args: AskQuestionArgs): QuestionPayload {
  * touching `.questions` directly.
  */
 export function questionsOf(payload: unknown): QuestionItem[] {
-  const p = payload as Partial<QuestionPayload> & { question?: unknown; options?: unknown };
+  const p = payload as
+    | (Partial<QuestionPayload> & { question?: unknown; options?: unknown })
+    | null
+    | undefined;
 
   if (Array.isArray(p?.questions)) {
     return p.questions
-      .filter((q) => typeof q?.question === "string" && Array.isArray(q?.options))
+      .filter((q) => typeof q?.question === "string")
       .map((q) => ({
         question: q.question,
-        options: q.options,
+        options: optionsOf(q.options),
         multiSelect: q.multiSelect === true,
-      }));
+      }))
+      .filter((q) => q.options.length > 0);
   }
 
-  if (typeof p?.question === "string" && Array.isArray(p.options)) {
-    return [{ question: p.question, options: p.options as string[], multiSelect: false }];
+  if (typeof p?.question === "string") {
+    const options = optionsOf(p.options);
+    return options.length > 0 ? [{ question: p.question, options, multiSelect: false }] : [];
   }
 
   return [];
 }
+
+/**
+ * Sent when every question was skipped.
+ *
+ * Skipping is a response, not a silence. The model asked and is waiting; if
+ * nothing goes back it waits forever and the card was merely hidden — which is
+ * what made a skipped question reappear on reload, since the only durable
+ * record of a settled question is a message carrying `answerTo`.
+ */
+export const SKIPPED_ANSWER = "Skipped — no preference, your call.";
 
 /**
  * The user's picks, as the message that gets sent back.

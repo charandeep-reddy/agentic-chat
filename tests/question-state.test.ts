@@ -62,6 +62,21 @@ describe("pendingQuestionOf", () => {
     expect(pendingQuestionOf([ask("t1", "Which?")], new Map(), new Set(["t1"]))).toBeNull();
   });
 
+  it("stays skipped across a reload", () => {
+    // Skip used to close the card without sending anything, so nothing in the
+    // transcript said the question was settled and a reload re-armed it. It
+    // now sends a skip message tagged with `answerTo`, like any other answer.
+    const transcript = [ask("t1", "Which?"), answer("t1", "Skipped — no preference, your call.")];
+    expect(pendingQuestionOf(transcript, questionAnswersOf(transcript), NONE)).toBeNull();
+  });
+
+  it("settles a question answered in prose rather than from the list", () => {
+    // Same failure by a different route: dismissing the card and typing a
+    // reply left the question untagged, so it came back on reload.
+    const transcript = [ask("t1", "Which chart?"), answer("t1", "actually just give me a table")];
+    expect(pendingQuestionOf(transcript, questionAnswersOf(transcript), NONE)).toBeNull();
+  });
+
   it("ignores a question whose output has not arrived", () => {
     const streaming = {
       parts: [{ type: "tool-ask_user_question", state: "input-streaming", toolCallId: "t1" }],

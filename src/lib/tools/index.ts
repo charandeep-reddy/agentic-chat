@@ -4,7 +4,7 @@ import { renderChartSchema, renderChart, type ChartSpec } from "./render-chart";
 import { renderFlowSchema, renderFlow, type FlowSpec } from "./render-flow";
 import { renderHtmlSchema, renderHtml, type HtmlSpec } from "./render-html";
 import { fetchUrlSchema, fetchUrl } from "./fetch-url";
-import { parseDataSchema, parseData } from "./parse-data";
+import { parseDataSchema, parseData, describeTable, type ParsedTable } from "./parse-data";
 import {
   forgetMemory,
   forgetMemorySchema,
@@ -56,7 +56,9 @@ export const baseTools = {
       "Ask the user to choose between options to clarify an ambiguous request or let them make a decision.",
       "Calling this tool pauses the conversation: after calling it, stop working and wait.",
       "The user's answers arrive as a new user message, then you continue.",
-      "Use 2-4 concise options per question; only use it when a real choice or clarification is needed.",
+      "Use 2-4 options per question; only use it when a real choice or clarification is needed.",
+      "Each option is { label, description? }. The label is the answer and must be short enough to read at a glance - a few words, no trailing parenthetical.",
+      "Put the detail in `description` instead: on a phone a long label is clipped, which quietly removes the most specific option from the choice.",
       "Pass up to 4 questions in one call when you need several decisions at once - one call the user answers together beats four rounds of waiting.",
       "Set multiSelect on a question whose options are not mutually exclusive, so the user can pick several.",
     ].join(" "),
@@ -125,10 +127,11 @@ export const baseTools = {
     description: [
       "Parse a CSV or JSON string into a structured table with detected column types.",
       "Use after the user pastes data or after fetch_url returns tabular text.",
-      "You receive the table preview in the result; use the values for calculations and charts.",
+      "This displays the table to the user. The result tells you its shape, not its rows - read values from the data you passed in, and do not restate the table in your reply.",
     ].join(" "),
     inputSchema: parseDataSchema,
     execute: withTiming((args) => parseData(args)),
+    toModelOutput: ({ output }) => ack(describeTable(output as ParsedTable)),
   }),
 };
 
