@@ -8,7 +8,7 @@ export const renderHtmlSchema = z.object({
     .max(200_000, "html must be under 200000 characters"),
   title: z.string().max(120).optional(),
   /** Rendered iframe height in CSS pixels. */
-  height: z.number().int().min(120).max(1600).optional(),
+  height: z.number().int().min(120).max(2000).optional(),
 });
 
 export type RenderHtmlArgs = z.infer<typeof renderHtmlSchema>;
@@ -186,7 +186,10 @@ const BASE_STYLES = `<style>
     color-scheme: light;
   }
   *, *::before, *::after { box-sizing: border-box; }
-  html, body { background: transparent; }
+  /* The frame grows to its content, so the document must never be told to be
+     exactly as tall as the frame. A height of 100% here would make that
+     circular and clip everything below the fold. */
+  html, body { background: transparent; height: auto; }
   body {
     margin: 0;
     color: var(--text);

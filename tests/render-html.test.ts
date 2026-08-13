@@ -19,7 +19,7 @@ describe("renderHtml", () => {
     // type and palette instead of arriving as a coloured slab.
     const out = renderHtml({ html: "<div>Hi</div>" }).html;
 
-    expect(out).toContain("html, body { background: transparent; }");
+    expect(out).toContain("html, body { background: transparent; height: auto; }");
     expect(out).toContain("--accent: #10b981;");
     expect(out).toContain("accent-color: var(--accent);");
   });
@@ -27,7 +27,7 @@ describe("renderHtml", () => {
   it("gives a model-authored document the same base styles", () => {
     const out = renderHtml({ html: "<html><head></head><body><p>Mine</p></body></html>" }).html;
 
-    expect(out).toContain("html, body { background: transparent; }");
+    expect(out).toContain("html, body { background: transparent; height: auto; }");
     // First in <head>, so anything the model wrote still overrides it.
     expect(out.indexOf("background: transparent")).toBeLessThan(out.indexOf("<p>Mine</p>"));
   });
@@ -129,6 +129,14 @@ describe("renderHtml", () => {
   it("defaults the height and honours an explicit one", () => {
     expect(renderHtml({ html: "<p>default height</p>" }).height).toBe(420);
     expect(renderHtml({ html: "<p>explicit height</p>", height: 900 }).height).toBe(900);
+  });
+
+  it("does not let the document be sized against the frame", () => {
+    // `height: auto` on html and body is load-bearing. A document told to be
+    // exactly as tall as its frame reports back the height it was already
+    // given, so the measurement can never grow and everything past the
+    // model's initial guess is clipped with no scrollbar to reach it.
+    expect(renderHtml({ html: "<p>content</p>" }).html).toContain("height: auto;");
   });
 
   it("stamps the light theme onto the document root, and leaves dark alone", () => {
