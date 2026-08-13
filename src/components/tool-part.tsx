@@ -16,7 +16,7 @@ import {
 } from "./icons";
 import type { ToolMeta } from "@/lib/tools";
 import type { ChartSpec } from "@/lib/tools/render-chart";
-import type { QuestionPayload } from "@/lib/tools/ask-question";
+import { questionsOf } from "@/lib/tools/ask-question";
 import type { ParsedTable } from "@/lib/tools/parse-data";
 import type { FetchResult } from "@/lib/tools/fetch-url";
 
@@ -139,10 +139,11 @@ function summary(name: string, output: unknown): string[] {
   const o = output as Record<string, unknown> | null;
   if (!o) return [];
   switch (name) {
-    case "ask_user_question": {
-      const q = o as unknown as QuestionPayload;
-      return [`Asked: "${q.question}"`, `Options: ${q.options.join(" · ")}`];
-    }
+    case "ask_user_question":
+      return questionsOf(o).flatMap((q) => [
+        `Asked: "${q.question}"${q.multiSelect ? " (pick any)" : ""}`,
+        `Options: ${q.options.join(" · ")}`,
+      ]);
     case "render_chart": {
       const s = o as unknown as ChartSpec;
       return [

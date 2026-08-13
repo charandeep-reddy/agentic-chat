@@ -1,20 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import { SettingsPanel, KEY_STORAGE, MODEL_STORAGE } from "./settings-panel";
+import { SettingsPanel } from "./settings-panel";
 import { useSidebarToggle } from "./app-shell";
-import { getStorage, setStorage, removeStorage, subscribeStorage } from "@/lib/local-storage";
+import { useProviderSettings } from "./use-provider-settings";
 import { useChatsActions } from "./chats-provider";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { MessageList } from "./message-list";
+import { QuestionPrompt } from "./question-prompt";
+import { pendingQuestionOf, questionAnswersOf } from "@/lib/question-state";
 import { ShareButton } from "./share-button";
-import { DEFAULT_MODEL } from "@/lib/models";
 import { usageSchema } from "@/lib/usage";
 import { ConversationCost } from "./conversation-cost";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -94,17 +95,17 @@ export function Chat({
   ephemeral,
 }: ChatProps) {
   const toggleSidebar = useSidebarToggle();
-  const apiKey = useSyncExternalStore(
-    (cb) => subscribeStorage(KEY_STORAGE, cb),
-    () => getStorage(KEY_STORAGE),
-    () => "",
-  );
-  const storedModel = useSyncExternalStore(
-    (cb) => subscribeStorage(MODEL_STORAGE, cb),
-    () => getStorage(MODEL_STORAGE),
-    () => "",
-  );
-  const model = storedModel || DEFAULT_MODEL;
+  const {
+    provider,
+    apiKey,
+    model,
+    providersWithKey,
+    setProvider,
+    setApiKey,
+    setModel,
+    clearKey,
+    clearAllKeys,
+  } = useProviderSettings();
 
   // Keeps the pre-paint attribute honest after the key is added or cleared, so
   // the CSS above and the React state below never disagree.
@@ -115,7 +116,9 @@ export function Chat({
   const router = useRouter();
   const { refresh } = useChatsActions();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
+  // Dismissals are deliberately not persisted: closing a question is a "not
+  // now", not an answer, and there is no message to write it on.
+  const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState(initialTitle);
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -125,14 +128,16 @@ export function Chat({
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
-        headers: apiKey ? { "x-model-key": apiKey } : {},
+        // The provider travels with the key it belongs to. The route refuses a
+        // request whose provider it does not recognise rather than picking one.
+        headers: apiKey ? { "x-model-key": apiKey, "x-model-provider": provider } : {},
         // `private` rides on every turn rather than being stored, because a
         // private chat has no row to store it on. The server treats it as
         // narrowing-only, so a request that loses it is no worse than a
         // normal one.
         body: { id: chatId, model, ...(ephemeral ? { private: true } : {}) },
       }),
-    [apiKey, model, chatId, ephemeral],
+    [apiKey, provider, model, chatId, ephemeral],
   );
 
   const { messages, sendMessage, setMessages, regenerate, status, error, stop } = useChat({
@@ -148,17 +153,13 @@ export function Chat({
   // in the same render, JSON.parse included.
   const failure = useMemo(() => (error ? describeError(error) : null), [error]);
 
-  const pendingQuestion = useMemo(() => {
-    for (const message of messages) {
-      for (const part of message.parts) {
-        if (part.type !== "tool-ask_user_question") continue;
-        if (!("state" in part) || part.state !== "output-available") continue;
-        if (answeredQuestions.has(part.toolCallId)) continue;
-        return part.toolCallId;
-      }
-    }
-    return null;
-  }, [messages, answeredQuestions]);
+  // Both derived from the transcript rather than held in state — see
+  // `lib/question-state.ts` for why a reload used to re-arm answered questions.
+  const questionAnswers = useMemo(() => questionAnswersOf(messages), [messages]);
+  const pendingQuestion = useMemo(
+    () => pendingQuestionOf(messages, questionAnswers, dismissedQuestions),
+    [messages, questionAnswers, dismissedQuestions],
+  );
 
   /**
    * A new chat only exists in the URL until the first message. Once the turn
@@ -174,26 +175,36 @@ export function Chat({
     setTimeout(() => void refresh(), 1500);
   }, [ephemeral, isNew, chatId, refresh]);
 
+  const dismissQuestion = useCallback(
+    (toolCallId: string) => setDismissedQuestions((prev) => new Set(prev).add(toolCallId)),
+    [],
+  );
+
   const send = useCallback(
     (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || busy || pendingQuestion || !apiKey) return;
+      if (!trimmed || busy || !apiKey) return;
+      // Typing instead of picking is a valid answer. The options were an
+      // offer, so the card stands down rather than blocking the composer.
+      if (pendingQuestion) dismissQuestion(pendingQuestion.toolCallId);
       claimUrl();
       void sendMessage({ role: "user", parts: [{ type: "text", text: trimmed }] });
     },
-    [busy, pendingQuestion, apiKey, sendMessage, claimUrl],
+    [busy, pendingQuestion, apiKey, sendMessage, claimUrl, dismissQuestion],
   );
 
   const answerQuestion = useCallback(
-    (option: string, toolCallId: string) => {
-      setAnsweredQuestions((prev) => new Set(prev).add(toolCallId));
+    (text: string, toolCallId: string) => {
+      claimUrl();
       void sendMessage({
         role: "user",
-        parts: [{ type: "text", text: option }],
+        parts: [{ type: "text", text }],
+        // Read back out of the transcript to tell answered questions from live
+        // ones, which is what makes the answer survive a reload.
         metadata: { answerTo: toolCallId },
       });
     },
-    [sendMessage],
+    [sendMessage, claimUrl],
   );
 
   /**
@@ -396,8 +407,8 @@ export function Chat({
               messages={messages}
               busy={busy}
               waiting={status === "submitted"}
-              answeredQuestions={answeredQuestions}
-              onAnswerQuestion={answerQuestion}
+              questionAnswers={questionAnswers}
+              liveQuestion={pendingQuestion?.toolCallId ?? null}
               onEdit={editMessage}
               onRegenerate={regenerateMessage}
             />
@@ -439,13 +450,22 @@ export function Chat({
         </button>
       )}
 
+      {pendingQuestion && !busy && (
+        <QuestionPrompt
+          key={pendingQuestion.toolCallId}
+          payload={pendingQuestion.payload}
+          onAnswer={(text) => answerQuestion(text, pendingQuestion.toolCallId)}
+          onDismiss={() => dismissQuestion(pendingQuestion.toolCallId)}
+        />
+      )}
+
       <Composer
         ref={composerRef}
         chatId={chatId}
         ephemeral={ephemeral}
         hasKey={apiKey !== ""}
         busy={busy}
-        blocked={pendingQuestion !== null}
+        questionPending={pendingQuestion !== null}
         model={model}
         onSend={send}
         onStop={stop}
@@ -453,10 +473,15 @@ export function Chat({
       />
 
       <SettingsPanel
+        provider={provider}
         apiKey={apiKey}
         model={model}
-        onKeyChange={(key) => (key ? setStorage(KEY_STORAGE, key) : removeStorage(KEY_STORAGE))}
-        onModelChange={(m) => setStorage(MODEL_STORAGE, m)}
+        providersWithKey={providersWithKey}
+        onProviderChange={setProvider}
+        onKeyChange={setApiKey}
+        onModelChange={setModel}
+        onClearKey={clearKey}
+        onClearAllKeys={clearAllKeys}
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />

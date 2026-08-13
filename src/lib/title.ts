@@ -2,7 +2,8 @@ import "server-only";
 
 import { generateText } from "ai";
 import { TITLE_PROMPT } from "@/lib/prompts";
-import { createProvider, UTILITY_MODEL } from "@/lib/provider";
+import { languageModel, utilityModelId } from "@/lib/provider";
+import type { ProviderId } from "@/lib/providers";
 import { updateChat } from "@/lib/db/queries";
 import type { Chat } from "@/lib/db/schema";
 
@@ -30,19 +31,22 @@ export function titleFromText(text: string): string {
 export function generateTitleInBackground(opts: {
   chat: Chat;
   userId: string;
+  /** Whose key this is, and therefore which SDK client to build. */
+  provider: ProviderId;
   apiKey: string;
+  /** The conversation's own model, used when the provider has no cheap one. */
+  modelId: string;
   text: string;
 }): void {
-  const { chat, userId, apiKey, text } = opts;
+  const { chat, userId, provider, apiKey, modelId, text } = opts;
   if (chat.title !== "New chat") return;
   if (!text.trim()) return;
 
   void (async () => {
     let title = titleFromText(text);
     try {
-      const provider = createProvider(apiKey);
       const { text: generated, finishReason } = await generateText({
-        model: provider(UTILITY_MODEL),
+        model: languageModel(provider, apiKey, utilityModelId(provider, modelId)),
         system: TITLE_PROMPT,
         prompt: text.slice(0, 2000),
         // Generous for a handful of words: reasoning models spend most of this

@@ -15,7 +15,7 @@ export function Composer({
   ephemeral = false,
   hasKey,
   busy,
-  blocked,
+  questionPending,
   model,
   onSend,
   onStop,
@@ -31,7 +31,7 @@ export function Composer({
   ephemeral?: boolean;
   hasKey: boolean;
   busy: boolean;
-  blocked: boolean;
+  questionPending: boolean;
   model: string;
   onSend: (text: string) => void;
   onStop: () => void;
@@ -58,7 +58,7 @@ export function Composer({
     };
   }, [chatId, ephemeral]);
 
-  const disabled = !hasKey || blocked;
+  const disabled = !hasKey;
 
   const saveDraft = () => {
     if (ephemeral) return;
@@ -87,8 +87,8 @@ export function Composer({
   // that is unreadable until after hydration put a third flash on every
   // refresh. The missing-key state is already carried by the disabled input,
   // the key pill in the header and the empty state's own copy.
-  const placeholder = blocked
-    ? "Pick an option above to continue"
+  const placeholder = questionPending
+    ? "Or reply directly…"
     : ephemeral
       ? "Ask anything — this chat isn't saved"
       : "Ask anything";
