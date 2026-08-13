@@ -47,6 +47,20 @@
   --code-text: #a5b4fc;
   --link: #34d399;
 
+  /*
+    Syntax tokens. Defined against the palette rather than pulled from one of
+    highlight.js's own stylesheets: those ship their own background and their
+    own idea of contrast, which would make every code block look like a
+    transplant from another app.
+  */
+  --syntax-comment: #71717a;
+  --syntax-keyword: #f472b6;
+  --syntax-string: #34d399;
+  --syntax-number: #fbbf24;
+  --syntax-function: #60a5fa;
+  --syntax-name: #a5b4fc;
+  --syntax-type: #7dd3fc;
+
   /* Tells the browser how to paint form controls, scrollbars and the canvas. */
   color-scheme: dark;
 }
@@ -90,6 +104,15 @@
   --code-border: #e4e4e7;
   --code-text: #4f46e5;
   --link: #059669;
+
+  /* Darker throughout: the same hues have to carry against a light block. */
+  --syntax-comment: #71717a;
+  --syntax-keyword: #be185d;
+  --syntax-string: #047857;
+  --syntax-number: #b45309;
+  --syntax-function: #1d4ed8;
+  --syntax-name: #4f46e5;
+  --syntax-type: #0369a1;
 
   color-scheme: light;
 }
@@ -273,6 +296,79 @@ body {
   padding: 0;
   color: var(--text-secondary);
   font-size: 0.8rem;
+}
+
+/*
+  Syntax tokens, from `rehype-highlight`.
+
+  Grouped by what a token *is* rather than one rule per class: highlight.js
+  emits around forty of them, most of which want the same colour, and forty
+  single-purpose rules would be forty places to keep in step. Anything not
+  listed inherits the block's own colour, which is the right default — an
+  unrecognised token should look like code, not like an error.
+*/
+.markdown .hljs-comment,
+.markdown .hljs-quote {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+.markdown .hljs-keyword,
+.markdown .hljs-selector-tag,
+.markdown .hljs-literal,
+.markdown .hljs-section,
+.markdown .hljs-doctag {
+  color: var(--syntax-keyword);
+}
+
+.markdown .hljs-string,
+.markdown .hljs-regexp,
+.markdown .hljs-addition,
+.markdown .hljs-meta-string {
+  color: var(--syntax-string);
+}
+
+.markdown .hljs-number,
+.markdown .hljs-symbol,
+.markdown .hljs-bullet,
+.markdown .hljs-meta,
+.markdown .hljs-link {
+  color: var(--syntax-number);
+}
+
+.markdown .hljs-title,
+.markdown .hljs-name,
+.markdown .hljs-built_in,
+.markdown .hljs-selector-id,
+.markdown .hljs-selector-class {
+  color: var(--syntax-function);
+}
+
+.markdown .hljs-attr,
+.markdown .hljs-attribute,
+.markdown .hljs-variable,
+.markdown .hljs-template-variable,
+.markdown .hljs-property {
+  color: var(--syntax-name);
+}
+
+.markdown .hljs-type,
+.markdown .hljs-class .hljs-title,
+.markdown .hljs-params {
+  color: var(--syntax-type);
+}
+
+/* A diff's removed side. Its counterpart rides along with the string colour. */
+.markdown .hljs-deletion {
+  color: var(--danger);
+}
+
+.markdown .hljs-emphasis {
+  font-style: italic;
+}
+
+.markdown .hljs-strong {
+  font-weight: 600;
 }
 
 .markdown blockquote {
