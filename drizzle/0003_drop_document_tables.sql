@@ -1,0 +1,22 @@
+-- `document` and `document_chunk` were an abandoned document-embedding
+-- feature. They exist in the deployed database but in nothing else: not in
+-- `schema.ts`, not in any earlier migration, and in no code path. They were
+-- created outside the migration system, which is why nothing drops them.
+--
+-- Both are empty, and the only foreign keys run outward — chunk to document,
+-- and both to `user` — so no other table depends on them.
+--
+-- Left in place they are not merely untidy: `schema.ts` defines 11 tables and
+-- the database has 13, so `drizzle-kit push` would read them as drift and
+-- generate a DROP for each. Removing them here retires that hazard through the
+-- migration path rather than leaving it to a command run in a hurry.
+--
+-- The `vector` extension is deliberately kept. Nothing else uses it, but
+-- nothing is harmed by it, and dropping an extension is the one part of this
+-- that would be awkward to undo.
+--
+-- `IF EXISTS` because a database built only from these migrations never had
+-- them: they are absent from 0000 through 0002, so a fresh install reaches
+-- this migration with nothing to drop.
+DROP TABLE IF EXISTS "document_chunk";--> statement-breakpoint
+DROP TABLE IF EXISTS "document";

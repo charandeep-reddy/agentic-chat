@@ -22,6 +22,13 @@
       "when": 1786368025001,
       "tag": "0002_drop_chat_memory_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786611840797,
+      "tag": "0003_drop_document_tables",
+      "breakpoints": true
     }
   ]
 }
