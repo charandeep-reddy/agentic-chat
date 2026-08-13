@@ -69,22 +69,45 @@ function tokenize(text: string): string[] {
 
 /**
  * Picks the memories to inline into the system prompt: everything when the
- * user has few, otherwise the most-used ones plus anything matching the
- * current message.
+ * user has few, otherwise the most-used ones plus anything matching `anchor`.
+ *
+ * `anchor` is the conversation's **first** user message, not its latest, and
+ * that is the whole point. This result is inlined into the system prompt, which
+ * sits at position 0 of every request — and prefix caching, which both DeepSeek
+ * and OpenAI apply automatically, keys on the longest *unchanged* prefix. A
+ * system prompt that is rebuilt for each turn therefore does not merely lose
+ * its own few hundred tokens: it invalidates the entire transcript behind it,
+ * on a history that is otherwise append-only and would cache perfectly.
+ *
+ * Anchoring to the opening message makes the selection stable for the life of
+ * the conversation, so the prefix stops moving. What that gives up is
+ * auto-injecting a memory that only becomes relevant later — which is what
+ * `search_memory` is for, and the model can reach for it at any point.
+ *
+ * The returned order is stable for the same reason: `useCount` is written as
+ * memories are used, so ordering by it would reshuffle the prompt mid-chat even
+ * when the chosen set had not changed. It still decides *which* memories are
+ * picked; it just no longer decides where they sit.
  */
-export async function selectPromptMemories(
-  userId: string,
-  latestUserText: string,
-): Promise<Memory[]> {
-  const all = await listMemories(userId, { enabledOnly: true });
-  if (all.length <= PROMPT_BUDGET) return all;
+export async function selectPromptMemories(userId: string, anchor: string): Promise<Memory[]> {
+  return choosePromptMemories(await listMemories(userId, { enabledOnly: true }), anchor);
+}
 
-  const relevant = rankMemories(all, latestUserText).slice(0, PROMPT_BUDGET / 2);
+/** The selection itself, without the database, so the stability is testable. */
+export function choosePromptMemories(all: Memory[], anchor: string): Memory[] {
+  if (all.length <= PROMPT_BUDGET) return byStableOrder(all);
+
+  const relevant = rankMemories(all, anchor).slice(0, PROMPT_BUDGET / 2);
   const relevantIds = new Set(relevant.map((m) => m.id));
   const frequent = [...all]
     .sort((a, b) => b.useCount - a.useCount)
     .filter((m) => !relevantIds.has(m.id))
     .slice(0, PROMPT_BUDGET - relevant.length);
 
-  return [...relevant, ...frequent];
+  return byStableOrder([...relevant, ...frequent]);
+}
+
+/** Any total order will do, so long as it cannot change between two turns. */
+function byStableOrder(memories: Memory[]): Memory[] {
+  return [...memories].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }

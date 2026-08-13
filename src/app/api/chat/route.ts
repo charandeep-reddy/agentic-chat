@@ -42,16 +42,29 @@ interface ChatRequestBody {
   truncateFromId?: string;
 }
 
-function lastUserText(messages: UIMessage[]): string {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role !== "user") continue;
-    return messages[i].parts
+function userTextAt(messages: UIMessage[], from: "first" | "last"): string {
+  const order = from === "last" ? [...messages].reverse() : messages;
+  for (const message of order) {
+    if (message.role !== "user") continue;
+    return message.parts
       .map((p) => (p.type === "text" ? p.text : ""))
       .join(" ")
       .trim();
   }
   return "";
 }
+
+const lastUserText = (messages: UIMessage[]) => userTextAt(messages, "last");
+
+/**
+ * The opening message of the conversation, used to choose which memories go
+ * into the system prompt.
+ *
+ * Deliberately not the latest one: the system prompt is the cached prefix of
+ * every request, and rebuilding it per turn invalidates the whole transcript
+ * behind it. See `selectPromptMemories`.
+ */
+const firstUserText = (messages: UIMessage[]) => userTextAt(messages, "first");
 
 export async function POST(req: Request) {
   const authed = await requireUserApi();
@@ -121,7 +134,7 @@ export async function POST(req: Request) {
     : await Promise.all([
         getSettings(user.id),
         getChat(chatId, user.id),
-        selectPromptMemories(user.id, lastUserText(messages)),
+        selectPromptMemories(user.id, firstUserText(messages)),
         selectPromptSkills(user.id),
       ]);
 

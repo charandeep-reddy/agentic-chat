@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { forgetMemory, saveMemory, searchMemory } from "@/lib/tools/memory";
 import type { MemoryStore } from "@/lib/tools/memory";
-import { rankMemories } from "@/lib/memory-store";
+import { choosePromptMemories, rankMemories } from "@/lib/memory-store";
 import { buildSystemPrompt } from "@/lib/prompts";
 import { ToolError } from "@/lib/tools/errors";
 import type { Memory } from "@/lib/db/schema";
@@ -153,5 +153,40 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).toContain("Answer in haiku.");
     expect(prompt).toContain("unless it conflicts with a rule above");
+  });
+});
+
+describe("choosePromptMemories", () => {
+  /** More than PROMPT_BUDGET, so the selection path actually runs. */
+  const many = Array.from({ length: 60 }, (_, i) =>
+    memory(`fact number ${i} about typescript and postgres`, i),
+  );
+
+  it("returns every memory when the user has few", () => {
+    const few = [memory("uses bun"), memory("prefers dark mode")];
+    expect(choosePromptMemories(few, "anything").length).toBe(2);
+  });
+
+  it("orders the result independently of use counts", () => {
+    // useCount is written every time a memory is used, so ordering by it would
+    // reshuffle the system prompt mid-conversation and break the cached prefix
+    // even when the chosen set had not changed.
+    const before = choosePromptMemories(many, "typescript");
+    const used = many.map((m) => ({ ...m, useCount: m.useCount * 7 + 3 }));
+    const after = choosePromptMemories(used, "typescript");
+
+    expect(after.map((m) => m.id)).toEqual(before.map((m) => m.id));
+  });
+
+  it("gives the same answer for the same anchor", () => {
+    const a = choosePromptMemories(many, "postgres indexes");
+    const b = choosePromptMemories(many, "postgres indexes");
+    expect(a.map((m) => m.id)).toEqual(b.map((m) => m.id));
+  });
+
+  it("still selects on relevance", () => {
+    const pool = [...many, memory("allergic to shellfish")];
+    const picked = choosePromptMemories(pool, "typescript");
+    expect(picked.some((m) => m.content.includes("typescript"))).toBe(true);
   });
 });
