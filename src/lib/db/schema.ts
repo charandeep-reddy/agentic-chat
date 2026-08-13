@@ -9,7 +9,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 /* ------------------------------------------------------------------ *
  * Better Auth core tables
@@ -116,6 +116,23 @@ export const chat = pgTable(
   (t) => [
     index("chat_user_updated_idx").on(t.userId, t.updatedAt),
     index("chat_title_idx").on(t.title),
+    // Trigram, because sidebar search is `ILIKE '%q%'` and a leading wildcard
+    // can use no btree — the plain title index above could only ever be a
+    // sequential scan with a filter. Needs the pg_trgm extension, enabled by
+    // the migration that creates this.
+    index("chat_title_trgm_idx").using("gin", sql`${t.title} gin_trgm_ops`),
+    // Exactly the sidebar's filter and sort order, so a page is an index seek
+    // to the cursor plus a scan of one page — not a scan of the user's whole
+    // history followed by a sort. `chat_user_updated_idx` cannot serve it: it
+    // has neither `archived` nor `pinned`, so every archived row still had to
+    // be read and discarded, and the ordering had to be re-derived.
+    index("chat_user_list_idx").on(
+      t.userId,
+      t.archived,
+      t.pinned.desc(),
+      t.updatedAt.desc(),
+      t.id.desc(),
+    ),
   ],
 );
 
@@ -144,7 +161,15 @@ export const message = pgTable(
     model: text("model"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("message_chat_ordinal_idx").on(t.chatId, t.ordinal)],
+  (t) => [
+    index("message_chat_ordinal_idx").on(t.chatId, t.ordinal),
+    // The expensive half of search. Matching a chat by its message text ran
+    // `parts::text ILIKE '%q%'` as a correlated subquery, so every search read
+    // every message body of every candidate chat. This makes that predicate an
+    // index scan. Indexing the jsonb cast is allowed because the cast is
+    // immutable — verified against Postgres, not assumed.
+    index("message_parts_trgm_idx").using("gin", sql`(${t.parts}::text) gin_trgm_ops`),
+  ],
 );
 
 /**

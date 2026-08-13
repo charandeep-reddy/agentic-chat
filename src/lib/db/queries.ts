@@ -15,6 +15,7 @@ import {
 } from "./schema";
 import type { Chat, Memory, MemoryPack, Skill, UserSettings } from "./schema";
 import { newId } from "@/lib/id";
+import type { ChatCursor } from "@/lib/chat-cursor";
 
 // Re-exported so the call sites that already import it from here keep working,
 // while the implementation stays free of this module's database imports — the
@@ -34,11 +35,36 @@ export interface ChatSummary {
   updatedAt: Date;
 }
 
+/** Rows per page. The sidebar asks for the next one as you scroll. */
+export const CHATS_PAGE_SIZE = 30;
+const MAX_PAGE_SIZE = 100;
+
 export async function listChats(
   userId: string,
-  opts: { search?: string; archived?: boolean; limit?: number } = {},
+  opts: {
+    search?: string;
+    archived?: boolean;
+    limit?: number;
+    /** Continue after this row. Omit for the first page. */
+    cursor?: ChatCursor | null;
+  } = {},
 ): Promise<ChatSummary[]> {
-  const { search, archived = false, limit = 200 } = opts;
+  const { search, archived = false, cursor } = opts;
+  // Clamped rather than trusted: `limit` reaches here from a query string, and
+  // an unbounded one would undo the point of paging.
+  const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, opts.limit ?? CHATS_PAGE_SIZE));
+
+  /**
+   * Everything strictly after the cursor row, in this exact ordering.
+   *
+   * One tuple comparison, not a chain of ORs. Postgres compares row
+   * constructors lexicographically, which is precisely "later in the sort
+   * order" when every key is DESC — and it is a form the planner can satisfy
+   * by seeking straight into the composite index rather than filtering.
+   */
+  const afterCursor = cursor
+    ? sql`(${chat.pinned}, ${chat.updatedAt}, ${chat.id}) < (${cursor.pinned}, ${new Date(cursor.updatedAt)}, ${cursor.id})`
+    : undefined;
 
   // A search matches the title or any message body, so "that CSV thing" finds
   // the chat even when the title says something else.
@@ -63,8 +89,10 @@ export async function listChats(
       updatedAt: chat.updatedAt,
     })
     .from(chat)
-    .where(and(eq(chat.userId, userId), eq(chat.archived, archived), matchesSearch))
-    .orderBy(desc(chat.pinned), desc(chat.updatedAt))
+    .where(and(eq(chat.userId, userId), eq(chat.archived, archived), matchesSearch, afterCursor))
+    // `id` last so the order is total. Two chats can share a millisecond, and
+    // a non-deterministic tie is what makes a row skip a page boundary.
+    .orderBy(desc(chat.pinned), desc(chat.updatedAt), desc(chat.id))
     .limit(limit);
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { startNewChat } from "./new-chat";
 import { IconIncognito } from "./icons";
 
 /**
@@ -23,6 +24,9 @@ export function PrivateButton({ active }: { active: boolean }) {
   return (
     <Link
       href={active ? "/" : "/private"}
+      // Both directions start a conversation, so both need the remount that
+      // the href alone cannot force — see `new-chat.ts`.
+      onClick={() => startNewChat()}
       aria-label={
         active
           ? "Private chat active. Switch back to a saved chat."

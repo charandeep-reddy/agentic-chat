@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ChatSummary } from "./chats-provider";
 import { requestLeave } from "./leave-guard";
+import { startNewChat } from "./new-chat";
 import {
   IconBrain,
   IconIncognito,
@@ -74,8 +75,12 @@ export function CommandPalette() {
     const timer = setTimeout(() => {
       void (async () => {
         try {
-          const params = query.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
-          const res = await fetch(`/api/chats${params}`, { signal: controller.signal });
+          // A fixed page, stated rather than inherited: the palette never
+          // pages, you narrow it by typing. Without this it would silently
+          // follow the sidebar's page size.
+          const params = new URLSearchParams({ limit: "20" });
+          if (query.trim()) params.set("q", query.trim());
+          const res = await fetch(`/api/chats?${params}`, { signal: controller.signal });
           if (!res.ok) return;
           const data = (await res.json()) as { chats: ChatSummary[] };
           setChats(data.chats);
@@ -115,7 +120,11 @@ export function CommandPalette() {
     // dialog stacks two overlays, and cancelling should return the user to the
     // chat they are protecting rather than to the switcher.
     void requestLeave().then((ok) => {
-      if (ok) router.push(href);
+      if (!ok) return;
+      // `/` and `/private` render a fresh conversation each visit, but that
+      // freshness is not in the URL — see `new-chat.ts`.
+      if (href === "/" || href === "/private") startNewChat();
+      router.push(href);
     });
   };
 

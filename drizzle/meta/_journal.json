@@ -29,6 +29,20 @@
       "when": 1786611840797,
       "tag": "0003_drop_document_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786615015357,
+      "tag": "0004_chat_list_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786615774199,
+      "tag": "0005_chat_search_trigram",
+      "breakpoints": true
     }
   ]
 }

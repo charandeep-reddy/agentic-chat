@@ -21,6 +21,7 @@ import { ConversationCost } from "./conversation-cost";
 import { ConfirmDialog } from "./confirm-dialog";
 import { PrivateButton } from "./private-button";
 import { requestLeave, setLeaveGuard } from "./leave-guard";
+import { startNewChat } from "./new-chat";
 import { IconChevron, IconKey, IconSidebar } from "./icons";
 
 export interface ChatProps {
@@ -118,12 +119,27 @@ export function Chat({
   }, [apiKey]);
 
   const router = useRouter();
-  const { refresh } = useChatsActions();
+  const { addChat, setChatTitle } = useChatsActions();
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Dismissals are deliberately not persisted: closing a question is a "not
   // now", not an answer, and there is no message to write it on.
   const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState(initialTitle);
+
+  /**
+   * The generated title, delivered to both places that show it.
+   *
+   * One fetch, two consumers. The header and the sidebar used to learn this
+   * separately — `TitleSync` polling the chat, and a full list reload racing it
+   * — which was two requests for one fact, and they could disagree in between.
+   */
+  const onTitle = useCallback(
+    (next: string) => {
+      setTitle(next);
+      setChatTitle(chatId, next);
+    },
+    [chatId, setChatTitle],
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const startedRef = useRef(false);
@@ -167,17 +183,30 @@ export function Chat({
 
   /**
    * A new chat only exists in the URL until the first message. Once the turn
-   * starts, the row is written server-side, so we swap the URL and refresh the
-   * sidebar — without a navigation, which would remount and drop the stream.
+   * starts, the row is written server-side, so we swap the URL and put the chat
+   * in the sidebar — without a navigation, which would remount and drop the
+   * stream.
+   *
+   * Added straight to the list rather than refetched. Every field is already
+   * known here: the client minted the id and the row it is about to create is
+   * this. The refetch it replaced cost a full `/api/chats` round trip *and*
+   * left the sidebar without the chat for the 1.5s it waited. The generated
+   * title arrives separately, through `TitleSync`.
    */
   const claimUrl = useCallback(() => {
     // A private chat has no row to claim and never reaches the sidebar.
     if (ephemeral || !isNew || startedRef.current) return;
     startedRef.current = true;
     window.history.replaceState(null, "", `/c/${chatId}`);
-    // The title is generated server-side after the first message lands.
-    setTimeout(() => void refresh(), 1500);
-  }, [ephemeral, isNew, chatId, refresh]);
+    addChat({
+      id: chatId,
+      title: initialTitle,
+      pinned: false,
+      archived: false,
+      shareId: null,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [ephemeral, isNew, chatId, initialTitle, addChat]);
 
   const dismissQuestion = useCallback(
     (toolCallId: string) => setDismissedQuestions((prev) => new Set(prev).add(toolCallId)),
@@ -342,10 +371,18 @@ export function Chat({
       const meta = e.metaKey || e.ctrlKey;
       if (meta && e.shiftKey && e.key.toLowerCase() === "o") {
         e.preventDefault();
-        void requestLeave().then((ok) => ok && router.push("/"));
+        void requestLeave().then((ok) => {
+          if (!ok) return;
+          startNewChat();
+          router.push("/");
+        });
       } else if (meta && e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
-        void requestLeave().then((ok) => ok && router.push("/private"));
+        void requestLeave().then((ok) => {
+          if (!ok) return;
+          startNewChat();
+          router.push("/private");
+        });
       } else if (meta && e.key === "/") {
         e.preventDefault();
         composerRef.current?.focus();
@@ -501,7 +538,12 @@ export function Chat({
           for — and polling would mean a request naming a chat that does not
           exist. */}
       {!ephemeral && (
-        <TitleSync chatId={chatId} current={title} onChange={setTitle} active={messages.length > 0} />
+        <TitleSync
+          chatId={chatId}
+          current={title}
+          onChange={onTitle}
+          active={messages.length > 0}
+        />
       )}
 
       {/* Spoken on arrival rather than left to be discovered. The composer's

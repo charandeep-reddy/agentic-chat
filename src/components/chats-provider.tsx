@@ -12,6 +12,19 @@ import {
   type ReactNode,
 } from "react";
 
+/**
+ * Mirrors `CHATS_PAGE_SIZE` on the server.
+ *
+ * Duplicated rather than imported: that module is `server-only`, and pulling it
+ * in here would drag the database client into the browser bundle. It is used
+ * for one thing — deciding whether a seeded page was full, and so whether
+ * there is more behind the "All chats" link.
+ */
+const PAGE_SIZE = 30;
+
+/** How long a focus-triggered refetch stays suppressed. Alt-tabbing is not a data event. */
+const FOCUS_REVALIDATE_MS = 30_000;
+
 export interface ChatSummary {
   id: string;
   title: string;
@@ -38,6 +51,17 @@ export interface ChatSummary {
  */
 interface ChatsActions {
   refresh: () => Promise<void>;
+  /**
+   * Puts a newly started chat in the list, without asking the server.
+   *
+   * The client minted the id and knows every field, so there is nothing to go
+   * and fetch. This replaced a full list reload fired 1.5s after the first
+   * message — which is how long the chat used to take to appear in a sidebar
+   * that already had everything it needed to draw it.
+   */
+  addChat: (chat: ChatSummary) => void;
+  /** Local-only title update, for the title the server generates in the background. */
+  setChatTitle: (id: string, title: string) => void;
   /** Applies a patch locally and to the server, rolling back on failure. */
   patchChat: (id: string, patch: Partial<ChatSummary>) => Promise<void>;
   removeChat: (id: string) => Promise<void>;
@@ -45,9 +69,17 @@ interface ChatsActions {
   setShowArchived: (value: boolean) => void;
 }
 
+/**
+ * The sidebar's list: the first page, and nothing else.
+ *
+ * Deliberately not paginated. The sidebar is a jump list for recent work, not
+ * an archive — an infinite scroll there grows the DOM behind a navigation
+ * surface nobody is reading to the end. Browsing everything is what `/chats`
+ * is for, and `hasMore` is only here so the link to it can be honest.
+ */
 interface ChatsList {
   chats: ChatSummary[];
-  loading: boolean;
+  hasMore: boolean;
 }
 
 interface ChatsFilter {
@@ -80,9 +112,23 @@ export function useChatsFilter(): ChatsFilter {
   return useRequired(FilterContext, "useChatsFilter");
 }
 
-export function ChatsProvider({ children }: { children: ReactNode }) {
-  const [chats, setChats] = useState<ChatSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+export function ChatsProvider({
+  initialChats,
+  children,
+}: {
+  /**
+   * The first page, rendered by the server.
+   *
+   * The layout already awaits a session, so this rides along with a query that
+   * was happening anyway. It means the sidebar is populated in the first
+   * paint: no mount fetch, no skeleton. Only the default view can be seeded —
+   * a search or the archived list still has to be asked for.
+   */
+  initialChats: ChatSummary[];
+  children: ReactNode;
+}) {
+  const [chats, setChats] = useState<ChatSummary[]>(initialChats);
+  const [hasMore, setHasMore] = useState(initialChats.length >= PAGE_SIZE);
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -116,25 +162,69 @@ export function ChatsProvider({ children }: { children: ReactNode }) {
     try {
       const res = await fetch(`/api/chats?${params}`, { signal });
       if (!res.ok) return;
-      const data = (await res.json()) as { chats: ChatSummary[] };
+      const data = (await res.json()) as { chats: ChatSummary[]; nextCursor: string | null };
+      // Only to tell the "All chats" link whether there is anything behind it.
+      setHasMore(data.nextCursor !== null);
       setChats(data.chats);
     } catch (error) {
       if ((error as Error).name === "AbortError") return;
       console.error("[chats] failed to load:", error);
-    } finally {
-      setLoading(false);
     }
   }, []);
+
+  /**
+   * True until the seeded first page has been superseded by a real query.
+   *
+   * The server already rendered the default view, so fetching it again on
+   * mount would be the same rows twice — and a skeleton over data that was
+   * already on screen. Any *other* query (a search, the archived list) is not
+   * seeded and must still be fetched, which is why this is spent rather than
+   * checked against the filter: it is consumed by the first effect run, and
+   * every run after that fetches normally.
+   */
+  const seeded = useRef(true);
 
   // Reload whenever the query changes, aborting the in-flight request so a
   // slow earlier response cannot overwrite a newer one.
   useEffect(() => {
+    if (seeded.current) {
+      seeded.current = false;
+      return;
+    }
     const controller = new AbortController();
     void (async () => {
       await load(controller.signal);
     })();
     return () => controller.abort();
   }, [load, debouncedSearch, showArchived]);
+
+  /**
+   * Catch up on changes made somewhere else when the tab comes back.
+   *
+   * The list no longer reconciles with the server as you use the app, which
+   * means another tab, another device, or a chat deleted on `/chats` in a
+   * second window would go unnoticed until reload. One refetch on focus covers
+   * that without putting the per-navigation fetches back — and it is throttled,
+   * because alt-tabbing is not a data event.
+   */
+  // Starts at 0 rather than `Date.now()`: reading the clock during render is
+  // impure, and the seeded list is fresh anyway, so the first focus after mount
+  // is free to revalidate.
+  const lastFocusLoad = useRef(0);
+  useEffect(() => {
+    const onFocus = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastFocusLoad.current < FOCUS_REVALIDATE_MS) return;
+      lastFocusLoad.current = Date.now();
+      void load();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [load]);
 
   /**
    * Optimistic patch with rollback.
@@ -168,6 +258,28 @@ export function ChatsProvider({ children }: { children: ReactNode }) {
     [load],
   );
 
+  /**
+   * Inserts a chat in the position the server would have given it.
+   *
+   * Not simply unshifted: the ordering is pinned first, then most recent, so a
+   * brand-new chat belongs above every unpinned row but below the pinned ones.
+   * Getting that wrong is invisible until the next reload moves the row.
+   */
+  const addChat = useCallback((chat: ChatSummary) => {
+    setChats((current) => {
+      if (current.some((c) => c.id === chat.id)) return current;
+      const firstUnpinned = current.findIndex((c) => !c.pinned);
+      const at = firstUnpinned === -1 ? current.length : firstUnpinned;
+      return [...current.slice(0, at), chat, ...current.slice(at)];
+    });
+  }, []);
+
+  const setChatTitle = useCallback((id: string, title: string) => {
+    setChats((current) =>
+      current.map((c) => (c.id === id && c.title !== title ? { ...c, title } : c)),
+    );
+  }, []);
+
   const removeChat = useCallback(async (id: string) => {
     let previous: ChatSummary[] = [];
     setChats((current) => {
@@ -184,11 +296,14 @@ export function ChatsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const actions = useMemo<ChatsActions>(
-    () => ({ refresh: load, patchChat, removeChat, setSearch, setShowArchived }),
-    [load, patchChat, removeChat],
+    () => ({ refresh: load, addChat, setChatTitle, patchChat, removeChat, setSearch, setShowArchived }),
+    [load, addChat, setChatTitle, patchChat, removeChat],
   );
 
-  const list = useMemo<ChatsList>(() => ({ chats, loading }), [chats, loading]);
+  const list = useMemo<ChatsList>(
+    () => ({ chats, hasMore }),
+    [chats, hasMore],
+  );
   const filter = useMemo<ChatsFilter>(() => ({ search, showArchived }), [search, showArchived]);
 
   return (

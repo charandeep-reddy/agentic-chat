@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { UIMessage } from "ai";
 import { newId } from "@/lib/id";
+import { useNewChatNonce } from "./new-chat";
 import { Chat } from "./chat";
 
 /**
@@ -21,14 +22,17 @@ import { Chat } from "./chat";
  * draft-storage key — so the server and the client generating different values
  * does not affect hydration.
  */
-export function ChatPage({
-  chatId,
-  initialMessages,
-  initialTitle,
-  initialShareId,
-  isNew,
-  ephemeral = false,
-}: {
+export function ChatPage(props: ChatPageProps) {
+  const nonce = useNewChatNonce();
+  /**
+   * A saved chat is identified by its id. A new one has no id yet, so it is
+   * identified by which "new chat" it is — remounting on request, which is
+   * what makes the lazy id below run again.
+   */
+  return <ChatPageInner key={props.chatId ?? `new:${nonce}`} {...props} />;
+}
+
+interface ChatPageProps {
   /** Omitted for a new chat, which has no row and therefore no id yet. */
   chatId?: string;
   initialMessages: UIMessage[];
@@ -37,7 +41,16 @@ export function ChatPage({
   isNew: boolean;
   /** A private chat: nothing is persisted and nothing personal is read. */
   ephemeral?: boolean;
-}) {
+}
+
+function ChatPageInner({
+  chatId,
+  initialMessages,
+  initialTitle,
+  initialShareId,
+  isNew,
+  ephemeral = false,
+}: ChatPageProps) {
   // Lazy initializer, so switching between two chats does not re-mint on every
   // render — and so a saved chat keeps the id it was loaded with.
   const [id] = useState(() => chatId ?? newId(ephemeral ? "tmp" : "chat"));

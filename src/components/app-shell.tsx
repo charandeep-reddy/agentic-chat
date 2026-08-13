@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ChatsProvider } from "./chats-provider";
+import { ChatsProvider, type ChatSummary } from "./chats-provider";
 import { CommandPalette } from "./command-palette";
 import { Sidebar, type SidebarUser } from "./sidebar";
 
@@ -73,7 +73,15 @@ export function useSidebarToggle(): () => void {
  * command palette and rebuilt them — which meant a refetch of `/api/chats`, a
  * skeleton flash, and the sidebar scroll position lost, on every click.
  */
-export function AppShell({ user, children }: { user: SidebarUser; children: ReactNode }) {
+export function AppShell({
+  user,
+  initialChats,
+  children,
+}: {
+  user: SidebarUser;
+  initialChats: ChatSummary[];
+  children: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const collapsed = useSyncExternalStore(subscribeCollapsed, getCollapsed, () => false);
 
@@ -120,7 +128,7 @@ export function AppShell({ user, children }: { user: SidebarUser; children: Reac
 
   return (
     <SidebarToggleContext.Provider value={toggleSidebar}>
-      <ChatsProvider>
+      <ChatsProvider initialChats={initialChats}>
         <div className="flex h-dvh overflow-hidden">
           <Sidebar user={user} open={open} collapsed={collapsed} onClose={closeDrawer} />
           {content}

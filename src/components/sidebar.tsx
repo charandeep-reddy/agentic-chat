@@ -11,8 +11,8 @@ import {
   type ChatSummary,
 } from "./chats-provider";
 import { ConfirmDialog } from "./confirm-dialog";
+import { startNewChat } from "./new-chat";
 import { useMenu } from "./use-menu";
-import { ChatListSkeleton } from "./skeleton";
 import {
   IconArchive,
   IconBrain,
@@ -355,7 +355,7 @@ export function Sidebar({
   collapsed: boolean;
   onClose: () => void;
 }) {
-  const { chats, loading } = useChatsList();
+  const { chats, hasMore } = useChatsList();
   const { search, showArchived } = useChatsFilter();
   const { setSearch, setShowArchived } = useChatsActions();
   const pathname = usePathname();
@@ -419,7 +419,12 @@ export function Sidebar({
           <div className="px-3 pb-2">
             <Link
               href="/"
-              onClick={onClose}
+              onClick={() => {
+                // The href alone is not enough once a chat has claimed its URL
+                // — see `new-chat.ts`.
+                startNewChat();
+                onClose();
+              }}
               className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-[13px] font-medium text-text transition-colors hover:border-border-strong hover:bg-surface-raised"
             >
               <IconPlus size={14} />
@@ -443,11 +448,7 @@ export function Sidebar({
           </div>
 
           <nav className="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-            {loading ? (
-              <div className="pt-2">
-                <ChatListSkeleton />
-              </div>
-            ) : groups.length === 0 ? (
+            {groups.length === 0 ? (
               <p className="px-2 py-4 text-[13px] leading-relaxed text-text-faint">
                 {search
                   ? `No chats match "${search}".`
@@ -468,6 +469,21 @@ export function Sidebar({
                   </div>
                 </div>
               ))
+            )}
+
+            {/* The way out of a deliberately short list. Shown only when
+                there is something behind it, so it never promises a page of
+                nothing. */}
+            {hasMore && (
+              <Link
+                href={showArchived ? "/chats?archived=1" : "/chats"}
+                className="mt-1 flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] text-text-muted transition-colors hover:bg-surface hover:text-text"
+              >
+                All chats
+                <span aria-hidden className="text-text-faint">
+                  &rsaquo;
+                </span>
+              </Link>
             )}
           </nav>
 
