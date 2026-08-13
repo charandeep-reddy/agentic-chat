@@ -1,20 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import { SettingsPanel, KEY_STORAGE, MODEL_STORAGE } from "./settings-panel";
+import { SettingsPanel } from "./settings-panel";
 import { useSidebarToggle } from "./app-shell";
-import { getStorage, setStorage, removeStorage, subscribeStorage } from "@/lib/local-storage";
+import { useProviderSettings } from "./use-provider-settings";
 import { useChatsActions } from "./chats-provider";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { MessageList } from "./message-list";
 import { ShareButton } from "./share-button";
-import { DEFAULT_MODEL } from "@/lib/models";
 import { usageSchema } from "@/lib/usage";
 import { ConversationCost } from "./conversation-cost";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -94,17 +93,17 @@ export function Chat({
   ephemeral,
 }: ChatProps) {
   const toggleSidebar = useSidebarToggle();
-  const apiKey = useSyncExternalStore(
-    (cb) => subscribeStorage(KEY_STORAGE, cb),
-    () => getStorage(KEY_STORAGE),
-    () => "",
-  );
-  const storedModel = useSyncExternalStore(
-    (cb) => subscribeStorage(MODEL_STORAGE, cb),
-    () => getStorage(MODEL_STORAGE),
-    () => "",
-  );
-  const model = storedModel || DEFAULT_MODEL;
+  const {
+    provider,
+    apiKey,
+    model,
+    providersWithKey,
+    setProvider,
+    setApiKey,
+    setModel,
+    clearKey,
+    clearAllKeys,
+  } = useProviderSettings();
 
   // Keeps the pre-paint attribute honest after the key is added or cleared, so
   // the CSS above and the React state below never disagree.
@@ -125,14 +124,16 @@ export function Chat({
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
-        headers: apiKey ? { "x-model-key": apiKey } : {},
+        // The provider travels with the key it belongs to. The route refuses a
+        // request whose provider it does not recognise rather than picking one.
+        headers: apiKey ? { "x-model-key": apiKey, "x-model-provider": provider } : {},
         // `private` rides on every turn rather than being stored, because a
         // private chat has no row to store it on. The server treats it as
         // narrowing-only, so a request that loses it is no worse than a
         // normal one.
         body: { id: chatId, model, ...(ephemeral ? { private: true } : {}) },
       }),
-    [apiKey, model, chatId, ephemeral],
+    [apiKey, provider, model, chatId, ephemeral],
   );
 
   const { messages, sendMessage, setMessages, regenerate, status, error, stop } = useChat({
@@ -453,10 +454,15 @@ export function Chat({
       />
 
       <SettingsPanel
+        provider={provider}
         apiKey={apiKey}
         model={model}
-        onKeyChange={(key) => (key ? setStorage(KEY_STORAGE, key) : removeStorage(KEY_STORAGE))}
-        onModelChange={(m) => setStorage(MODEL_STORAGE, m)}
+        providersWithKey={providersWithKey}
+        onProviderChange={setProvider}
+        onKeyChange={setApiKey}
+        onModelChange={setModel}
+        onClearKey={clearKey}
+        onClearAllKeys={clearAllKeys}
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />

@@ -13,7 +13,8 @@ import type { UIMessage } from "ai";
 import { buildTools } from "@/lib/tools";
 import { ToolError } from "@/lib/tools/errors";
 import { buildSystemPrompt } from "@/lib/prompts";
-import { createProvider, DEFAULT_MODEL, resolveModelId } from "@/lib/provider";
+import { DEFAULT_MODEL, languageModel, resolveModelId } from "@/lib/provider";
+import { isProviderId } from "@/lib/providers";
 import { requireUserApi } from "@/lib/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createDbMemoryStore, selectPromptMemories } from "@/lib/memory-store";
@@ -65,6 +66,18 @@ export async function POST(req: Request) {
     );
   }
 
+  // Which provider the key belongs to, and therefore who gets billed. Rejected
+  // rather than defaulted for that reason: sending an unrecognised value to
+  // whichever provider we happened to pick would leak the key to a company the
+  // user never chose.
+  const provider = req.headers.get("x-model-provider");
+  if (!isProviderId(provider)) {
+    return Response.json(
+      { error: "bad_provider", message: "Unknown model provider — reload the page." },
+      { status: 400 },
+    );
+  }
+
   let body: ChatRequestBody;
   try {
     body = (await req.json()) as ChatRequestBody;
@@ -112,7 +125,7 @@ export async function POST(req: Request) {
         selectPromptSkills(user.id),
       ]);
 
-  const modelId = resolveModelId(body.model, settings?.defaultModel);
+  const modelId = resolveModelId(body.model, settings?.defaultModel, provider);
   const chat = isPrivate
     ? null
     : (existingChat ?? (await createChat(user.id, { id: chatId, model: modelId })));
@@ -164,7 +177,14 @@ export async function POST(req: Request) {
     // Nothing awaits this until the stream ends, so keep a rejection from
     // surfacing as an unhandled one in the meantime.
     userSaved.catch(() => {});
-    generateTitleInBackground({ chat, userId: user.id, apiKey, text: lastUserText(messages) });
+    generateTitleInBackground({
+      chat,
+      userId: user.id,
+      provider,
+      apiKey,
+      modelId,
+      text: lastUserText(messages),
+    });
   }
 
   // Claimed here rather than at the top of the handler so a request that never
@@ -173,8 +193,6 @@ export async function POST(req: Request) {
   // possible.
   const limit = rateLimit("chat", user.id);
   if (!limit.ok) return rateLimitResponse(limit);
-
-  const provider = createProvider(apiKey);
 
   const tools = buildTools({
     memory: memoryStore,
@@ -185,7 +203,7 @@ export async function POST(req: Request) {
   });
 
   const result = streamText({
-    model: provider(modelId),
+    model: languageModel(provider, apiKey, modelId),
     system,
     // `tools` has to be passed here too, or `toModelOutput` is skipped for
     // history and every artifact the model ever rendered is replayed into the

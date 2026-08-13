@@ -1,20 +1,11 @@
-import { BASE_URL } from "@/lib/provider";
+import { listModels } from "@/lib/model-catalog";
+import { isProviderId } from "@/lib/providers";
 import { requireUserApi } from "@/lib/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-interface RawModel {
-  id: string;
-  name?: string;
-  context_length?: number | null;
-}
-
-export interface ModelInfo {
-  id: string;
-  name: string;
-  context: number | null;
-}
+export type { ModelInfo } from "@/lib/model-catalog";
 
 export async function GET(req: Request) {
   const authed = await requireUserApi();
@@ -28,27 +19,25 @@ export async function GET(req: Request) {
     return Response.json({ error: "missing_api_key" }, { status: 400 });
   }
 
-  let response: Response;
-  try {
-    response = await fetch(`${BASE_URL}/models`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch {
-    return Response.json(
-      { error: "network", message: "Could not reach the model provider." },
-      { status: 502 },
-    );
+  // Rejected rather than defaulted: guessing the provider would send this key
+  // to somebody the user did not choose, which for a header full of secret is
+  // the one mistake worth failing loudly on.
+  const provider = req.headers.get("x-model-provider");
+  if (!isProviderId(provider)) {
+    return Response.json({ error: "bad_provider" }, { status: 400 });
   }
 
-  if (!response.ok) {
-    return Response.json({ error: "provider", status: response.status }, { status: response.status });
+  const result = await listModels(provider, apiKey.trim());
+
+  if (!result.ok) {
+    if (result.error === "network") {
+      return Response.json(
+        { error: "network", message: "Could not reach the model provider." },
+        { status: 502 },
+      );
+    }
+    return Response.json({ error: "provider", status: result.status }, { status: result.status });
   }
 
-  const data = (await response.json()) as { data?: RawModel[] };
-  const models: ModelInfo[] = (data.data ?? [])
-    .map((m) => ({ id: m.id, name: m.name ?? m.id, context: m.context_length ?? null }))
-    .sort((a, b) => a.id.localeCompare(b.id));
-
-  return Response.json({ models });
+  return Response.json({ models: result.models });
 }
