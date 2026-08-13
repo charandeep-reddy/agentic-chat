@@ -35,16 +35,28 @@ describe("private chat prompt", () => {
     }
   });
 
-  it("keeps the render tools and rules a chat is useless without", () => {
-    expect(PRIVATE_PROMPT).toContain("render_chart");
-    expect(PRIVATE_PROMPT).toContain("render_html");
+  it("keeps the rules a chat is useless without", () => {
     expect(PRIVATE_PROMPT).toContain("## Rules");
   });
 
-  it("still describes memory when it is allowed", () => {
+  it("still instructs on memory when it is allowed", () => {
+    // Checked by section, not by tool name. The prompt deliberately names no
+    // tools — each one describes itself — so what distinguishes a private
+    // chat here is the absence of the memory instructions, and the absence of
+    // the tools themselves from the registry (asserted below).
     const normal = buildSystemPrompt({ memoryTools: true });
-    expect(normal).toContain("save_memory");
     expect(normal).toContain("## Memory");
+    expect(PRIVATE_PROMPT).not.toContain("## Memory");
+  });
+
+  it("names no tools at all, so a dropped tool can never dangle", () => {
+    // The reason the memory branch exists in the first place: a prompt that
+    // lists tools has to be kept in step with whichever ones this request was
+    // actually given. Naming none removes that whole class of mismatch.
+    const normal = buildSystemPrompt({ memoryTools: true });
+    for (const name of Object.keys(buildTools({ memory: null, skills: null }))) {
+      expect(normal).not.toContain(name);
+    }
   });
 
   it("does not itself strip personal context — the caller must omit it", () => {

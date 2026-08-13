@@ -123,7 +123,7 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).not.toContain("## About the user");
     expect(prompt).not.toContain("## What you remember");
-    expect(prompt).toContain("## Tools");
+    expect(prompt).toContain("## Rules");
   });
 
   it("groups memories by category", () => {

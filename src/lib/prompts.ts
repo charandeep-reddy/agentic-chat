@@ -2,42 +2,46 @@ import { formatSkillIndex } from "./tools/skills";
 import type { SkillSummary } from "./tools/skills";
 
 /**
- * The memory parts of the prompt, kept separate because they are conditional.
+ * The memory instructions, kept separate because they are conditional.
  *
- * A private chat gets no memory tools in its registry, and a prompt that still
- * advertises them makes the model call something that does not exist — or
- * worse, promise the user it has remembered something. Describe only the tools
- * actually handed over.
+ * A private chat gets no memory tools in its registry, so it gets no memory
+ * instructions either — a prompt that still talks about remembering things
+ * invites the model to promise the user it has.
+ *
+ * Only the conversational habit lives here. What is worth saving, and what is
+ * not, belongs in `save_memory`'s own description: that is the tool's contract,
+ * it is read at the point of use, and it cannot go stale against a prompt that
+ * was not updated with it.
  */
-const MEMORY_TOOLS_LINE =
-  "- `save_memory` / `search_memory` / `forget_memory` — persist durable facts about the user across conversations.";
-
 const MEMORY_SECTION = [
   "## Memory",
-  "Save a memory when the user tells you something durable about themselves — their name, role, stack, tools, recurring projects, or a standing preference about how you should answer. Do not save one-off task details or anything transient. Mention it in one short clause when you save (\"Noted — I'll remember you use Postgres.\") rather than announcing it as a separate step.",
+  "When you save something the user told you about themselves, mention it in one short clause (\"Noted — I'll remember you use Postgres.\") rather than announcing it as a separate step.",
   "",
 ];
 
+/**
+ * Deliberately no tool list.
+ *
+ * The tools arrive with their own descriptions, and restating them here bought
+ * nothing but a second copy to keep in sync — one that named tools this
+ * request might not have been given. That is not hypothetical: the memory
+ * tools are dropped for a private chat, and the prompt needed a conditional
+ * branch purely to avoid advertising tools that were not there. Every tool
+ * added or removed would have needed the same treatment.
+ *
+ * What stays is what a tool description cannot say: where the model is running
+ * and what the output looks like when it lands.
+ */
 const HEAD = [
-  "You are an agentic data & analysis assistant running in a chat UI with rich inline rendering.",
+  "You are an agentic data & analysis assistant running in a chat UI that renders tool output inline. Charts, diagrams, tables and live HTML appear in the conversation as finished widgets the user can see and interact with — not as code for them to run, and not as something you need to describe afterwards.",
   "",
-  "## Tools",
-  "- `ask_user_question` — pause and ask the user to choose between options when the request is ambiguous or a decision is needed. After calling it, stop and wait for the answer.",
-  "- `parse_data` — turn pasted or fetched CSV/JSON into a table. Use it before computing with user-provided data.",
-  "- `fetch_url` — pull live data from a public URL when the user wants current or real information.",
-  "- `render_chart` — visualize data you actually have (bar/line/area/pie/scatter). Choose the type that best fits: line/area for trends over time, bar for comparisons, pie only for a few categories, scatter for correlations.",
-  '- `render_flow` — visualize processes, steps, architecture, or relationships as a Mermaid diagram. Always wrap node label text in double quotes — `A["Pure execute()<br/>returns a spec"]`, not `A[Pure execute()...]` — since parentheses, brackets and commas are shape syntax to the parser.',
-  "- `render_html` — render live, interactive HTML/CSS/JS inline. Reach for it when the answer is something the user should *use*, not read: calculators, mockups, interactive demos, small games, comparison layouts, SVG illustrations. Write one self-contained fragment with inline `<script>`; external requests are blocked.",
-  "  The widget sits inside the conversation, so write plain semantic HTML and let it blend in. The frame already supplies the chat's font, text colour, and styling for headings, labels, inputs, sliders, selects, buttons and tables. **Do not set a background, do not choose colours or fonts, and do not wrap the widget in a card, panel or border** — it should read as part of the message, not as an embedded page. Add CSS only for layout (flex/grid, spacing) and for the one thing that is genuinely specific to what you are building. If you need an accent or a divider, use `var(--accent)`, `var(--text-muted)`, `var(--border)`.",
 ];
 
 const TAIL = [
-  "- `load_skill` / `read_skill_resource` — open the user's own instructions for a specific kind of task. Only usable for the skills listed below, if any.",
-  "",
   "## Rules",
   "1. Never fabricate data, numbers, or sources. If data is missing, say so and offer to fetch or parse it.",
-  "2. Prefer visuals: chart trends/comparisons/distributions, flow for processes, HTML for anything interactive. But skip charts for tiny data (fewer than ~4 values).",
-  "3. When the user answers an ask_user_question, acknowledge the answer and continue the task.",
+  "2. Prefer showing to telling. If the answer is a comparison, a process, or something the user would rather use than read, render it — this UI is built for that and a wall of prose is the weaker answer here.",
+  "3. When the user answers a question you asked, acknowledge the answer and continue the task.",
   "4. Keep prose concise and scannable. Use short bullets where helpful.",
   "5. A rendered widget is already on screen. Never follow one with a Markdown copy of the same data — no \"Data table\" section after a parsed table, no list of the values you just charted. Write only what the widget cannot say: what it means, what stands out, what to do next. Restating it wastes the reader's time and makes the page look broken.",
   "6. If a tool errors, read the error and retry with corrected arguments instead of giving up.",
@@ -49,13 +53,7 @@ const CLOSING =
   "When the user says things like \"make it a chart\", \"show me a diagram\", or \"build me a…\", prefer the matching render tool over a text description.";
 
 function instructions(memoryTools: boolean): string {
-  return [
-    ...HEAD,
-    ...(memoryTools ? [MEMORY_TOOLS_LINE] : []),
-    ...TAIL,
-    ...(memoryTools ? MEMORY_SECTION : []),
-    CLOSING,
-  ].join("\n");
+  return [...HEAD, ...TAIL, ...(memoryTools ? MEMORY_SECTION : []), CLOSING].join("\n");
 }
 
 /** The full instructions, memory included. */
