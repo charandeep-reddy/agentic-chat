@@ -373,7 +373,10 @@ export function SettingsPanel({
         )}
         <PriceFields model={model} />
 
-        <div className="mt-6">
+        {/* The whole section, heading included — a reference table for keys
+            the reader has no way to press is not a shorter list, it is a list
+            of things that do not apply to them. */}
+        <div className="mt-6 hidden pointer-fine:block">
           <h3 className="mb-2 text-[12px] font-medium text-text-secondary">Shortcuts</h3>
           <dl className="space-y-1.5">
             {SHORTCUTS.map((s) => (

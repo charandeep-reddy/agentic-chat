@@ -174,7 +174,8 @@ export function CommandPalette() {
             }}
             className="w-full bg-transparent py-3.5 text-sm text-text placeholder:text-text-faint focus:outline-none"
           />
-          <kbd className="shrink-0 rounded border border-border-subtle px-1.5 py-0.5 font-mono text-[10px] text-text-faint">
+          {/* Touch closes this by tapping outside; there is no esc to offer. */}
+          <kbd className="hidden shrink-0 rounded border border-border-subtle px-1.5 py-0.5 font-mono text-[10px] text-text-faint pointer-fine:block">
             esc
           </kbd>
         </div>
@@ -210,7 +211,7 @@ export function CommandPalette() {
                   <command.icon size={14} className="shrink-0 opacity-60" />
                   <span className="min-w-0 flex-1 truncate">{command.label}</span>
                   {command.hint && (
-                    <kbd className="shrink-0 rounded border border-border-subtle px-1.5 py-0.5 font-mono text-[10px] text-text-faint">
+                    <kbd className="hidden shrink-0 rounded border border-border-subtle px-1.5 py-0.5 font-mono text-[10px] text-text-faint pointer-fine:block">
                       {command.hint}
                     </kbd>
                   )}

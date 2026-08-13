@@ -148,7 +148,11 @@ export function Composer({
             >
               {model}
             </button>
-            <span className="hidden text-[11px] text-text-faint sm:inline">
+            {/* Keyed on the input hardware, not the viewport. `sm:` was the
+                wrong test in both directions: a narrow desktop window lost
+                shortcuts it can use, and a tablet was told to press Shift
+                when it has no Shift to press. */}
+            <span className="hidden text-[11px] text-text-faint pointer-fine:inline">
               <kbd className="rounded border border-border-subtle px-1 font-mono text-[10px]">↵</kbd>{" "}
               send
               <span className="mx-1.5 opacity-50">·</span>

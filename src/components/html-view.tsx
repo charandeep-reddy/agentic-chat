@@ -158,7 +158,9 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
                   onClick={() => setFullscreen(false)}
                   className="rounded-md px-2 py-1 text-xs text-text-muted hover:bg-surface-raised hover:text-text"
                 >
-                  Close <kbd className="ml-1 font-mono text-[10px]">esc</kbd>
+                  {/* The button stays; only the key it doubles for goes. */}
+                  Close{" "}
+                  <kbd className="ml-1 hidden font-mono text-[10px] pointer-fine:inline">esc</kbd>
                 </button>
               </div>
             </header>
