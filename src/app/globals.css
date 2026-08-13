@@ -442,6 +442,46 @@ body {
   color: var(--text-muted);
 }
 
+/*
+  A top-level quoted block is not a quotation — it is a draft: a post, an email,
+  something written to be taken somewhere else. So it reads as a card holding
+  content rather than as an aside, in full text colour, with its own controls.
+
+  A quote *inside* one keeps the bar. Nesting cards inside cards would say the
+  inner text is another deliverable, when it is what it looks like: a quotation
+  within the draft.
+
+  The neutralising happens here rather than through utility classes because
+  `.markdown blockquote` outranks a single class, so the utilities would lose.
+*/
+.markdown blockquote.quote-card {
+  /*
+    The whole box is set here, padding included, rather than half here and half
+    in utility classes. `.markdown blockquote` outranks a single class, so a
+    rule that only zeroed `padding-left` beat the `px-4` on that side and lost
+    to it on the other — text flush against the left border, inset on the right.
+  */
+  margin: 1rem 0;
+  padding: 1.15rem 1.35rem;
+  /*
+    All four sides, for the same reason as the padding: `border-left: none` left
+    the card open down one edge, because the utility class painting the other
+    three could not reach past this selector to repaint that one.
+  */
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+/* The first and last lines sit against the card's own padding, not on top of
+   their own margins as well. */
+.markdown blockquote.quote-card > div > *:first-child {
+  margin-top: 0;
+}
+
+.markdown blockquote.quote-card > div > *:last-child {
+  margin-bottom: 0;
+}
+
 .markdown table {
   margin: 0.75rem 0;
   width: 100%;

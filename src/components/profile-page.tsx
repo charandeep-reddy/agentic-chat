@@ -7,6 +7,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { PageShell, Section } from "./page-shell";
 import { ThemeToggle } from "./theme-toggle";
 import { IconDownload, IconGithub, IconGoogle, IconKey, IconTrash, IconUser } from "./icons";
+import { STYLE_PRESETS, isCustom, matchPreset, type StylePreset } from "@/lib/style-presets";
 
 interface Settings {
   aboutUser: string;
@@ -51,6 +52,21 @@ export function ProfilePage({
   const [saving, setSaving] = useState(false);
   const [danger, setDanger] = useState<"chats" | "account" | null>(null);
   const [running, setRunning] = useState(false);
+  /** A preset waiting on confirmation because applying it would overwrite. */
+  const [pendingPreset, setPendingPreset] = useState<StylePreset | null>(null);
+
+  const activePreset = matchPreset(settings.responseStyle);
+
+  const applyPreset = (preset: StylePreset) => {
+    // Only text the user wrote themselves is worth protecting. Swapping one
+    // preset for another, or filling an empty field, needs no ceremony.
+    if (isCustom(settings.responseStyle) && preset.text !== settings.responseStyle) {
+      setPendingPreset(preset);
+      return;
+    }
+    setPendingPreset(null);
+    setSettings({ ...settings, responseStyle: preset.text });
+  };
 
   const dirty =
     settings.aboutUser !== saved.aboutUser ||
@@ -213,6 +229,64 @@ export function ProfilePage({
             >
               How should the model respond?
             </label>
+
+            {/*
+              Starting points, not a separate setting. Clicking one writes it
+              into the box below, where it can be read and edited like anything
+              else the user typed — see `style-presets.ts` for why it works this
+              way rather than as a dropdown beside the field.
+            */}
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {STYLE_PRESETS.map((preset) => {
+                const active =
+                  preset.id === "default"
+                    ? settings.responseStyle.trim() === ""
+                    : activePreset?.id === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyPreset(preset)}
+                    title={preset.hint}
+                    aria-pressed={active}
+                    className={`rounded-full border px-2.5 py-1 text-micro transition-colors ${
+                      active
+                        ? "border-accent/40 bg-accent-soft text-accent"
+                        : "border-border-subtle text-text-muted hover:border-border-strong hover:text-text"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {pendingPreset && (
+              <p
+                role="alert"
+                className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-micro text-text-muted"
+              >
+                Replace your own instructions with &ldquo;{pendingPreset.label}&rdquo;?
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({ ...settings, responseStyle: pendingPreset.text });
+                    setPendingPreset(null);
+                  }}
+                  className="font-medium text-accent hover:underline"
+                >
+                  Replace
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingPreset(null)}
+                  className="hover:text-text"
+                >
+                  Keep mine
+                </button>
+              </p>
+            )}
+
             <textarea
               id="response-style"
               rows={4}
