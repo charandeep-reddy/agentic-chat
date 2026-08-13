@@ -61,6 +61,61 @@ export interface FetchResult {
   truncated: boolean;
 }
 
+/** Elements whose contents are code or styling, never prose. */
+const DROPPED = /<(script|style|noscript|template|svg|iframe)\b[^>]*>[\s\S]*?<\/\1>/gi;
+
+/** Tags that end a line of prose, so removing markup does not run text together. */
+const BREAKS = /<\/?(p|div|br|li|tr|h[1-6]|section|article|header|footer|blockquote)\b[^>]*>/gi;
+
+const ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  "#39": "'",
+  "#160": " ",
+};
+
+/**
+ * Reduces an HTML document to the text a reader would see.
+ *
+ * A page fetched for its content is mostly not content: nav, inline scripts,
+ * styles and attributes typically outweigh the prose several times over, and
+ * every byte of it was being handed to the model and then replayed into the
+ * prompt on every later turn of the conversation. Stripping markup here costs
+ * nothing at answer quality — the model was never going to use the class names.
+ *
+ * Deliberately a rewrite rather than a parse. A real parser is a dependency and
+ * a DOM for something whose output is fed to a language model, which tolerates
+ * the occasional stray bracket far better than the budget tolerates the markup.
+ */
+export function htmlToText(html: string): string {
+  return html
+    .replace(DROPPED, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(BREAKS, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&([a-z]+|#\d+);/gi, (match, name: string) => ENTITIES[name.toLowerCase()] ?? match)
+    // Collapse the whitespace indented markup leaves behind. One newline per
+    // block, not two: both the opening and closing tag emit a break, and blank
+    // lines between every paragraph are structure the model does not need and
+    // tokens it would be charged for. One line per block keeps the shape.
+    .replace(/[ \t\f\v]+/g, " ")
+    .replace(/ ?\n ?/g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
+/** True for a body worth reducing to text. JSON and CSV are already terse. */
+function isHtml(contentType: string, body: string): boolean {
+  if (/\b(json|csv|plain)\b/i.test(contentType)) return false;
+  if (/\bhtml\b/i.test(contentType)) return true;
+  // Content types lie often enough to be worth a second opinion.
+  return /<\/(html|body|div|p)>/i.test(body.slice(0, 4000));
+}
+
 export async function fetchUrl(args: FetchUrlArgs): Promise<FetchResult> {
   const url = new URL(args.url);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -111,7 +166,8 @@ export async function fetchUrl(args: FetchUrlArgs): Promise<FetchResult> {
   }
 
   const contentType = response.headers.get("content-type") ?? "application/octet-stream";
-  const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  const raw = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  const text = isHtml(contentType, raw) ? htmlToText(raw) : raw;
   const truncated = text.length > MAX_TEXT_RESPONSE;
 
   return {
