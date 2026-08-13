@@ -18,7 +18,6 @@ import { IconCheck, IconCopy, IconEdit, IconRefresh } from "./icons";
 import type { ChartSpec } from "@/lib/tools/render-chart";
 import type { FlowSpec } from "@/lib/tools/render-flow";
 import type { HtmlSpec } from "@/lib/tools/render-html";
-import type { QuestionPayload } from "@/lib/tools/ask-question";
 import type { ParsedTable } from "@/lib/tools/parse-data";
 import type { MemorySaved } from "@/lib/tools/memory";
 
@@ -43,10 +42,9 @@ function Widget({
         readOnly || answeredQuestions.has(part.toolCallId) ? "answered" : "pending";
       return (
         <QuestionCard
-          payload={output as unknown as QuestionPayload}
+          payload={output}
           state={state}
-          onAnswer={(option) => onAnswerQuestion(option, part.toolCallId)}
-          onTypedAnswer={(text) => onAnswerQuestion(text, part.toolCallId)}
+          onAnswer={(text) => onAnswerQuestion(text, part.toolCallId)}
         />
       );
     }

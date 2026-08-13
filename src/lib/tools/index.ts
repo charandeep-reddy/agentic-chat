@@ -55,8 +55,10 @@ export const baseTools = {
     description: [
       "Ask the user to choose between options to clarify an ambiguous request or let them make a decision.",
       "Calling this tool pauses the conversation: after calling it, stop working and wait.",
-      "The user's answer will arrive as a new user message, then you continue.",
-      "Use 2-4 concise options; only use it when a real choice or clarification is needed.",
+      "The user's answers arrive as a new user message, then you continue.",
+      "Use 2-4 concise options per question; only use it when a real choice or clarification is needed.",
+      "Pass up to 4 questions in one call when you need several decisions at once - one call the user answers together beats four rounds of waiting.",
+      "Set multiSelect on a question whose options are not mutually exclusive, so the user can pick several.",
     ].join(" "),
     inputSchema: askQuestionSchema,
     execute: withTiming((args) => askQuestion(args)),
