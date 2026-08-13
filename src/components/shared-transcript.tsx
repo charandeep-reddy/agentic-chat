@@ -3,7 +3,7 @@
 import type { UIMessage } from "ai";
 import { MessageList } from "./message-list";
 
-const NO_ANSWERS = new Set<string>();
+const NO_ANSWERS = new Map<string, string>();
 const noop = () => {};
 
 /**
@@ -17,8 +17,8 @@ export function SharedTranscript({ messages }: { messages: UIMessage[] }) {
       messages={messages}
       busy={false}
       readOnly
-      answeredQuestions={NO_ANSWERS}
-      onAnswerQuestion={noop}
+      questionAnswers={NO_ANSWERS}
+      liveQuestion={null}
       onEdit={noop}
       onRegenerate={noop}
     />

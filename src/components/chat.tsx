@@ -13,6 +13,8 @@ import { useChatsActions } from "./chats-provider";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { MessageList } from "./message-list";
+import { QuestionPrompt } from "./question-prompt";
+import { pendingQuestionOf, questionAnswersOf } from "@/lib/question-state";
 import { ShareButton } from "./share-button";
 import { usageSchema } from "@/lib/usage";
 import { ConversationCost } from "./conversation-cost";
@@ -114,7 +116,9 @@ export function Chat({
   const router = useRouter();
   const { refresh } = useChatsActions();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
+  // Dismissals are deliberately not persisted: closing a question is a "not
+  // now", not an answer, and there is no message to write it on.
+  const [dismissedQuestions, setDismissedQuestions] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState(initialTitle);
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -149,17 +153,13 @@ export function Chat({
   // in the same render, JSON.parse included.
   const failure = useMemo(() => (error ? describeError(error) : null), [error]);
 
-  const pendingQuestion = useMemo(() => {
-    for (const message of messages) {
-      for (const part of message.parts) {
-        if (part.type !== "tool-ask_user_question") continue;
-        if (!("state" in part) || part.state !== "output-available") continue;
-        if (answeredQuestions.has(part.toolCallId)) continue;
-        return part.toolCallId;
-      }
-    }
-    return null;
-  }, [messages, answeredQuestions]);
+  // Both derived from the transcript rather than held in state — see
+  // `lib/question-state.ts` for why a reload used to re-arm answered questions.
+  const questionAnswers = useMemo(() => questionAnswersOf(messages), [messages]);
+  const pendingQuestion = useMemo(
+    () => pendingQuestionOf(messages, questionAnswers, dismissedQuestions),
+    [messages, questionAnswers, dismissedQuestions],
+  );
 
   /**
    * A new chat only exists in the URL until the first message. Once the turn
@@ -175,26 +175,36 @@ export function Chat({
     setTimeout(() => void refresh(), 1500);
   }, [ephemeral, isNew, chatId, refresh]);
 
+  const dismissQuestion = useCallback(
+    (toolCallId: string) => setDismissedQuestions((prev) => new Set(prev).add(toolCallId)),
+    [],
+  );
+
   const send = useCallback(
     (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || busy || pendingQuestion || !apiKey) return;
+      if (!trimmed || busy || !apiKey) return;
+      // Typing instead of picking is a valid answer. The options were an
+      // offer, so the card stands down rather than blocking the composer.
+      if (pendingQuestion) dismissQuestion(pendingQuestion.toolCallId);
       claimUrl();
       void sendMessage({ role: "user", parts: [{ type: "text", text: trimmed }] });
     },
-    [busy, pendingQuestion, apiKey, sendMessage, claimUrl],
+    [busy, pendingQuestion, apiKey, sendMessage, claimUrl, dismissQuestion],
   );
 
   const answerQuestion = useCallback(
-    (option: string, toolCallId: string) => {
-      setAnsweredQuestions((prev) => new Set(prev).add(toolCallId));
+    (text: string, toolCallId: string) => {
+      claimUrl();
       void sendMessage({
         role: "user",
-        parts: [{ type: "text", text: option }],
+        parts: [{ type: "text", text }],
+        // Read back out of the transcript to tell answered questions from live
+        // ones, which is what makes the answer survive a reload.
         metadata: { answerTo: toolCallId },
       });
     },
-    [sendMessage],
+    [sendMessage, claimUrl],
   );
 
   /**
@@ -397,8 +407,8 @@ export function Chat({
               messages={messages}
               busy={busy}
               waiting={status === "submitted"}
-              answeredQuestions={answeredQuestions}
-              onAnswerQuestion={answerQuestion}
+              questionAnswers={questionAnswers}
+              liveQuestion={pendingQuestion?.toolCallId ?? null}
               onEdit={editMessage}
               onRegenerate={regenerateMessage}
             />
@@ -440,13 +450,22 @@ export function Chat({
         </button>
       )}
 
+      {pendingQuestion && !busy && (
+        <QuestionPrompt
+          key={pendingQuestion.toolCallId}
+          payload={pendingQuestion.payload}
+          onAnswer={(text) => answerQuestion(text, pendingQuestion.toolCallId)}
+          onDismiss={() => dismissQuestion(pendingQuestion.toolCallId)}
+        />
+      )}
+
       <Composer
         ref={composerRef}
         chatId={chatId}
         ephemeral={ephemeral}
         hasKey={apiKey !== ""}
         busy={busy}
-        blocked={pendingQuestion !== null}
+        questionPending={pendingQuestion !== null}
         model={model}
         onSend={send}
         onStop={stop}

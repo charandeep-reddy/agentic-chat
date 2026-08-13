@@ -7,7 +7,7 @@ import { ChartWidget } from "./chart-view";
 import { FlowWidget } from "./flow-view";
 import { HtmlWidget } from "./html-view";
 import { DataTable } from "./data-table";
-import { QuestionCard, type QuestionState } from "./question-card";
+import { QuestionCard } from "./question-card";
 import { ToolChipRow, type ToolPart, isToolPart } from "./tool-part";
 import { MemoryNotice } from "./memory-notice";
 import { Skeleton } from "./skeleton";
@@ -24,30 +24,24 @@ import type { MemorySaved } from "@/lib/tools/memory";
 function Widget({
   part,
   readOnly,
-  answeredQuestions,
-  onAnswerQuestion,
+  questionAnswers,
+  liveQuestion,
 }: {
   part: ToolPart;
   readOnly: boolean;
-  answeredQuestions: Set<string>;
-  onAnswerQuestion: (option: string, toolCallId: string) => void;
+  questionAnswers: Map<string, string>;
+  liveQuestion: string | null;
 }) {
   if (part.state !== "output-available" || part.output === undefined) return null;
   const name = part.type.slice("tool-".length);
   const output = part.output as Record<string, unknown> & { kind?: string };
 
   switch (name) {
-    case "ask_user_question": {
-      const state: QuestionState =
-        readOnly || answeredQuestions.has(part.toolCallId) ? "answered" : "pending";
-      return (
-        <QuestionCard
-          payload={output}
-          state={state}
-          onAnswer={(text) => onAnswerQuestion(text, part.toolCallId)}
-        />
-      );
-    }
+    case "ask_user_question":
+      // The one still waiting on the user is docked above the composer, not
+      // left in the scrollback where it can drift out of view.
+      if (!readOnly && liveQuestion === part.toolCallId) return null;
+      return <QuestionCard payload={output} answer={questionAnswers.get(part.toolCallId) ?? null} />;
     case "render_chart":
       return output.kind === "chart" ? <ChartWidget spec={output as unknown as ChartSpec} /> : null;
     case "render_flow":
@@ -247,16 +241,16 @@ const AssistantMessage = memo(function AssistantMessage({
   busy,
   isLast,
   readOnly,
-  answeredQuestions,
-  onAnswerQuestion,
+  questionAnswers,
+  liveQuestion,
   onRegenerate,
 }: {
   message: UIMessage;
   busy: boolean;
   isLast: boolean;
   readOnly: boolean;
-  answeredQuestions: Set<string>;
-  onAnswerQuestion: (option: string, toolCallId: string) => void;
+  questionAnswers: Map<string, string>;
+  liveQuestion: string | null;
   onRegenerate: (id: string) => void;
 }) {
   const toolParts = message.parts.filter(isToolPart);
@@ -276,8 +270,8 @@ const AssistantMessage = memo(function AssistantMessage({
               key={part.toolCallId}
               part={part}
               readOnly={readOnly}
-              answeredQuestions={answeredQuestions}
-              onAnswerQuestion={onAnswerQuestion}
+              questionAnswers={questionAnswers}
+              liveQuestion={liveQuestion}
             />
           );
         }
@@ -315,8 +309,8 @@ export function MessageList({
   busy,
   waiting = false,
   readOnly = false,
-  answeredQuestions,
-  onAnswerQuestion,
+  questionAnswers,
+  liveQuestion,
   onEdit,
   onRegenerate,
 }: {
@@ -326,8 +320,8 @@ export function MessageList({
   waiting?: boolean;
   /** Public share view: render everything, offer nothing that mutates. */
   readOnly?: boolean;
-  answeredQuestions: Set<string>;
-  onAnswerQuestion: (option: string, toolCallId: string) => void;
+  questionAnswers: Map<string, string>;
+  liveQuestion: string | null;
   onEdit: (id: string, text: string) => void;
   onRegenerate: (id: string) => void;
 }) {
@@ -349,8 +343,8 @@ export function MessageList({
             busy={busy && index === messages.length - 1}
             isLast={index === messages.length - 1}
             readOnly={readOnly}
-            answeredQuestions={answeredQuestions}
-            onAnswerQuestion={onAnswerQuestion}
+            questionAnswers={questionAnswers}
+            liveQuestion={liveQuestion}
             onRegenerate={onRegenerate}
           />
         ),
