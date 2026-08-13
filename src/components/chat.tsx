@@ -40,6 +40,10 @@ export interface ChatProps {
 
 const metadataSchema = z.object({
   answerTo: z.string().optional(),
+  // Whether the answer came from the option list. A typed reply settles the
+  // question just as well, but it is prose and gets an ordinary bubble rather
+  // than the compact pill an option label fits in.
+  answerPicked: z.boolean().optional(),
   usage: usageSchema.optional(),
   model: z.string().optional(),
 });
@@ -184,13 +188,19 @@ export function Chat({
     (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || busy || !apiKey) return;
-      // Typing instead of picking is a valid answer. The options were an
-      // offer, so the card stands down rather than blocking the composer.
-      if (pendingQuestion) dismissQuestion(pendingQuestion.toolCallId);
       claimUrl();
-      void sendMessage({ role: "user", parts: [{ type: "text", text: trimmed }] });
+      // Typing instead of picking is a valid answer, so it is recorded as one.
+      // Without the tag the reply settled the question on screen but not in
+      // the transcript, and a reload put the card back.
+      void sendMessage({
+        role: "user",
+        parts: [{ type: "text", text: trimmed }],
+        ...(pendingQuestion
+          ? { metadata: { answerTo: pendingQuestion.toolCallId, answerPicked: false } }
+          : {}),
+      });
     },
-    [busy, pendingQuestion, apiKey, sendMessage, claimUrl, dismissQuestion],
+    [busy, pendingQuestion, apiKey, sendMessage, claimUrl],
   );
 
   const answerQuestion = useCallback(
@@ -201,7 +211,7 @@ export function Chat({
         parts: [{ type: "text", text }],
         // Read back out of the transcript to tell answered questions from live
         // ones, which is what makes the answer survive a reload.
-        metadata: { answerTo: toolCallId },
+        metadata: { answerTo: toolCallId, answerPicked: true },
       });
     },
     [sendMessage, claimUrl],

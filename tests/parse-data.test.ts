@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseData, parseDataSchema } from "@/lib/tools/parse-data";
+import {
+  MAX_PREVIEW_ROWS,
+  describeTable,
+  parseData,
+  parseDataSchema,
+} from "@/lib/tools/parse-data";
 
 describe("parse_data", () => {
   it("parses CSV with a header row and infers types", () => {
@@ -62,5 +67,49 @@ describe("parse_data", () => {
     expect(result.success).toBe(true);
     const bad = parseDataSchema.safeParse({ data: "" });
     expect(bad.success).toBe(false);
+  });
+});
+
+/**
+ * What the model is told after a parse.
+ *
+ * The rows are deliberately withheld. Handing the model a fully parsed table
+ * and then asking it not to repeat one did not work: it rendered the widget
+ * and printed a "Data table" section of the same numbers underneath.
+ */
+describe("describeTable", () => {
+  const table = parseData({
+    data: "city,sales,active\nDelhi,120,true\nMumbai,95,false",
+    format: "auto",
+  });
+
+  it("reports the shape", () => {
+    const summary = describeTable(table);
+    expect(summary).toContain("Parsed 2 rows");
+    expect(summary).toContain("city (string)");
+    expect(summary).toContain("sales (number)");
+    expect(summary).toContain("active (boolean)");
+  });
+
+  it("does not carry the cell values", () => {
+    // The whole point: no table-shaped block in context to be echoed. The
+    // values remain readable in `data`, which is this tool's own argument.
+    const summary = describeTable(table);
+    for (const cell of ["Delhi", "Mumbai", "120", "95"]) {
+      expect(summary).not.toContain(cell);
+    }
+  });
+
+  it("tells the model the user can already see it", () => {
+    expect(describeTable(table)).toMatch(/already displayed/i);
+  });
+
+  it("says how many rows were kept when the preview is capped", () => {
+    const rows = Array.from({ length: MAX_PREVIEW_ROWS + 10 }, (_, i) => `r${i},${i}`).join("\n");
+    const big = parseData({ data: `name,value\n${rows}`, format: "auto" });
+    const summary = describeTable(big);
+    expect(big.truncated).toBe(true);
+    expect(summary).toContain(`Parsed ${MAX_PREVIEW_ROWS + 10} rows`);
+    expect(summary).toContain(`first ${MAX_PREVIEW_ROWS} shown`);
   });
 });

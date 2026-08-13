@@ -142,7 +142,7 @@ function summary(name: string, output: unknown): string[] {
     case "ask_user_question":
       return questionsOf(o).flatMap((q) => [
         `Asked: "${q.question}"${q.multiSelect ? " (pick any)" : ""}`,
-        `Options: ${q.options.join(" · ")}`,
+        `Options: ${q.options.map((o) => o.label).join(" · ")}`,
       ]);
     case "render_chart": {
       const s = o as unknown as ChartSpec;

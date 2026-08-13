@@ -135,6 +135,29 @@ function parseJSONTable(text: string): { columns: string[]; rows: Cell[][] } {
   return { columns, rows };
 }
 
+/**
+ * What goes back to the model after a parse: the shape, never the rows.
+ *
+ * Returning the parsed rows put a fully rendered table in the model's context
+ * and then asked it not to repeat one. It repeated one — the user got the
+ * widget and a markdown copy of the same numbers directly underneath.
+ *
+ * Nothing is lost by withholding them. The rows were derived from `data`,
+ * which is this tool's own argument and stays in the prompt as part of the
+ * call, so the model can still read every value it needs to compute with. What
+ * it no longer has is a table-shaped block sitting in context inviting it to
+ * be echoed.
+ */
+export function describeTable(table: ParsedTable): string {
+  const columns = table.columns.map((c) => `${c.name} (${c.type})`).join(", ");
+  const shown = table.truncated ? `, first ${table.rows.length} shown` : "";
+  return [
+    `Parsed ${table.totalRows} rows${shown}. Columns: ${columns}.`,
+    "The table is already displayed to the user — do not reproduce it in your reply.",
+    "Read the values from the data you passed in; describe only what the table does not already say.",
+  ].join(" ");
+}
+
 export function parseData(args: ParseDataArgs): ParsedTable {
   const format = args.format === "auto" ? (args.data.trimStart().startsWith("[") || args.data.trimStart().startsWith("{") ? "json" : "csv") : args.format;
 

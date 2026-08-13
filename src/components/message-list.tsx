@@ -113,8 +113,13 @@ const UserMessage = memo(function UserMessage({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(text);
 
-  const isAnswer = Boolean((message.metadata as { answerTo?: string } | undefined)?.answerTo);
-  if (isAnswer) {
+  const answerMeta = message.metadata as
+    | { answerTo?: string; answerPicked?: boolean }
+    | undefined;
+  // Transcripts written before a question could be answered in prose have no
+  // `answerPicked`, and every answer they hold was picked from the list.
+  const isPickedAnswer = Boolean(answerMeta?.answerTo) && answerMeta?.answerPicked !== false;
+  if (isPickedAnswer) {
     return (
       <div className="flex justify-end">
         <div className="rounded-lg border border-border-subtle bg-surface/60 px-3 py-1.5">
