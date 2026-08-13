@@ -31,7 +31,7 @@ export function WidgetShell({
     >
       <header className="flex h-10 items-center gap-2 border-b border-border-subtle px-3">
         <span className={accent ? "text-accent" : "text-text-faint"}>{icon}</span>
-        <h3 className="truncate text-[13px] font-medium text-text-secondary">{title}</h3>
+        <h3 className="truncate text-dense font-medium text-text-secondary">{title}</h3>
         <div className="ml-auto flex shrink-0 items-center gap-1">
           {status}
           {actions}
@@ -51,7 +51,7 @@ export function StatusChip({ tone, children }: { tone: "ok" | "warn" | "info" | 
     err: "border-danger/40 text-danger",
   } as const;
   return (
-    <span className={`mr-1 rounded-full border px-2 py-0.5 font-mono text-[10px] ${tones[tone]}`}>
+    <span className={`mr-1 rounded-full border px-2 py-0.5 font-mono text-micro ${tones[tone]}`}>
       {children}
     </span>
   );

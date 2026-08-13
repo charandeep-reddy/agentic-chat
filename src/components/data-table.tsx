@@ -63,16 +63,16 @@ export function DataTable({ table }: { table: ParsedTable }) {
       }
       footer={
         table.totalRows > preview.length ? (
-          <span className="text-[11px] text-text-faint">
+          <span className="text-micro text-text-faint">
             Showing {preview.length} of {table.totalRows} rows · click a column header to sort
           </span>
         ) : (
-          <span className="text-[11px] text-text-faint">Click a column header to sort</span>
+          <span className="text-micro text-text-faint">Click a column header to sort</span>
         )
       }
     >
       <div className="max-h-72 overflow-auto">
-        <table className="w-full text-left text-xs">
+        <table className="w-full text-left text-dense">
           <thead className="sticky top-0 bg-bg-elevated">
             <tr>
               {table.columns.map((col, i) => (
@@ -85,8 +85,8 @@ export function DataTable({ table }: { table: ParsedTable }) {
                     }`}
                   >
                     <span className="truncate">{col.name}</span>
-                    <span className="font-mono text-[10px] text-text-faint">{TYPE_LABELS[col.type]}</span>
-                    {sortCol === i && <span className="font-mono text-[10px] text-accent">{sortDir === 1 ? "↑" : "↓"}</span>}
+                    <span className="font-mono text-micro text-text-faint">{TYPE_LABELS[col.type]}</span>
+                    {sortCol === i && <span className="font-mono text-micro text-accent">{sortDir === 1 ? "↑" : "↓"}</span>}
                   </button>
                 </th>
               ))}

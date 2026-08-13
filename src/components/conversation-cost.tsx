@@ -69,7 +69,7 @@ export function ConversationCost({ messages }: { messages: UIMessage[] }) {
   return (
     <span
       title={title}
-      className="hidden shrink-0 items-center gap-1.5 rounded-full border border-border-subtle px-2 py-0.5 font-mono text-[11px] text-text-faint sm:flex"
+      className="hidden shrink-0 items-center gap-1.5 rounded-full border border-border-subtle px-2 py-0.5 font-mono text-micro text-text-faint sm:flex"
     >
       {formatTokens(tokens)} tok
       {priced.size > 0 && (

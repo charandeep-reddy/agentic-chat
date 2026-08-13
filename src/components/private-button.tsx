@@ -37,7 +37,7 @@ export function PrivateButton({ active }: { active: boolean }) {
           ? "Private — not saved, no memories read or written. Click to start a saved chat."
           : "Start a private chat (⌘⇧P) — not saved, no memories read or written"
       }
-      className={`flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+      className={`flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-dense transition-colors ${
         active
           ? "border border-accent/40 text-accent hover:bg-accent-soft"
           : "border-border text-text-muted hover:border-border-strong hover:text-text"

@@ -202,14 +202,14 @@ export function FlowWidget({ spec }: { spec: FlowSpec }) {
       >
         {error ? (
           <div className="space-y-2">
-            <p className="text-sm text-danger">Could not render this diagram.</p>
-            <p className="font-mono text-xs leading-relaxed text-text-faint">{error}</p>
-            <pre className="scroll-thin overflow-x-auto whitespace-pre rounded-md border border-border-subtle bg-surface p-3 font-mono text-xs text-text-muted">
+            <p className="text-ui text-danger">Could not render this diagram.</p>
+            <p className="font-mono text-dense leading-relaxed text-text-faint">{error}</p>
+            <pre className="scroll-thin overflow-x-auto whitespace-pre rounded-md border border-border-subtle bg-surface p-3 font-mono text-dense text-text-muted">
               {spec.diagram}
             </pre>
           </div>
         ) : !current ? (
-          <div className="flex h-32 items-center justify-center text-sm text-text-faint">
+          <div className="flex h-32 items-center justify-center text-ui text-text-faint">
             Rendering diagram…
           </div>
         ) : (
@@ -237,7 +237,7 @@ export function FlowWidget({ spec }: { spec: FlowSpec }) {
               whole instruction.
             */}
             {shrunk && (
-              <span className="absolute bottom-1 right-1 flex items-center gap-1.5 rounded-md border border-border-subtle bg-bg-elevated/90 px-2 py-1 text-[11px] text-text-muted backdrop-blur transition-colors group-hover/flow:text-text">
+              <span className="absolute bottom-1 right-1 flex items-center gap-1.5 rounded-md border border-border-subtle bg-bg-elevated/90 px-2 py-1 text-micro text-text-muted backdrop-blur transition-colors group-hover/flow:text-text">
                 <IconExpand size={12} />
                 <span className="pointer-coarse:hidden">Click to zoom</span>
                 <span className="hidden pointer-coarse:inline">Tap to zoom</span>
@@ -333,7 +333,7 @@ function DiagramViewer({
       <div className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-surface">
         <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
           <IconFlow size={14} className="shrink-0 text-accent" />
-          <h3 className="truncate text-[13px] font-medium text-text">{title}</h3>
+          <h3 className="truncate text-dense font-medium text-text">{title}</h3>
           <div className="ml-auto flex shrink-0 items-center gap-1">
             <div className="flex items-center rounded-lg border border-border-subtle">
               <ZoomButton
@@ -348,7 +348,7 @@ function DiagramViewer({
               <button
                 type="button"
                 onClick={fitted ? () => setZoomTo(() => 1) : fit}
-                className="w-16 py-1 font-mono text-[11px] text-text-muted tabular-nums hover:text-text"
+                className="w-16 py-1 font-mono text-micro text-text-muted tabular-nums hover:text-text"
               >
                 {fitted ? "100%" : "Fit"}
               </button>
@@ -363,10 +363,10 @@ function DiagramViewer({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md px-2 py-1 text-xs text-text-muted hover:bg-surface-raised hover:text-text"
+              className="rounded-md px-2 py-1 text-dense text-text-muted hover:bg-surface-raised hover:text-text"
             >
               {/* The button stays; only the key it doubles for goes. */}
-              Close <kbd className="ml-1 hidden font-mono text-[10px] pointer-fine:inline">esc</kbd>
+              Close <kbd className="ml-1 hidden font-mono text-micro pointer-fine:inline">esc</kbd>
             </button>
           </div>
         </header>
@@ -412,7 +412,7 @@ function ZoomButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="px-2.5 py-1 font-mono text-sm leading-none text-text-muted hover:text-text disabled:opacity-30 disabled:hover:text-text-muted"
+      className="px-2.5 py-1 font-mono text-ui leading-none text-text-muted hover:text-text disabled:opacity-30 disabled:hover:text-text-muted"
     >
       {children}
     </button>

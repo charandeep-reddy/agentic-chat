@@ -75,7 +75,7 @@ export function EmailAuthForm() {
             type="button"
             onClick={() => switchMode(value)}
             aria-pressed={mode === value}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors ${
+            className={`flex-1 rounded-lg px-3 py-1.5 text-dense font-medium transition-colors ${
               mode === value
                 ? "bg-surface-raised text-text"
                 : "text-text-muted hover:text-text"
@@ -130,14 +130,14 @@ export function EmailAuthForm() {
       <button
         type="submit"
         disabled={pending}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-medium text-accent-text transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-ui font-medium text-accent-text transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending && <IconLoader size={16} />}
         {mode === "signup" ? "Create account" : "Sign in"}
       </button>
 
       {error && (
-        <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger">
+        <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-dense text-danger">
           {error}
         </p>
       )}
@@ -171,7 +171,7 @@ function Field({
     <div>
       <label
         htmlFor={id}
-        className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-text-faint"
+        className="mb-1.5 block text-micro font-medium uppercase tracking-wide text-text-faint"
       >
         {label}
       </label>
@@ -183,7 +183,7 @@ function Field({
           onChange={(event) => onChange(event.target.value)}
           autoComplete={autoComplete}
           placeholder={placeholder}
-          className={`w-full rounded-xl border border-border bg-surface py-2.5 pl-3.5 text-sm text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none ${
+          className={`w-full rounded-xl border border-border bg-surface py-2.5 pl-3.5 text-ui text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none ${
             trailing ? "pr-11" : "pr-3.5"
           }`}
         />

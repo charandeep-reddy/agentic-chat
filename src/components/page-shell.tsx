@@ -35,14 +35,14 @@ export function PageShell({
         >
           <IconSidebar size={16} />
         </button>
-        <h1 className="text-[13px] font-medium text-text-secondary">{title}</h1>
+        <h1 className="text-dense font-medium text-text-secondary">{title}</h1>
       </header>
 
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-2xl px-4 py-8">
           <h2 className="text-xl font-semibold tracking-tight text-text">{title}</h2>
           {description && (
-            <p className="mt-1.5 text-[13px] leading-relaxed text-text-muted">{description}</p>
+            <p className="mt-1.5 text-dense leading-relaxed text-text-muted">{description}</p>
           )}
 
           {tabs && (
@@ -51,7 +51,7 @@ export function PageShell({
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className={`-mb-px border-b-2 px-3 py-2 text-[13px] transition-colors ${
+                  className={`-mb-px border-b-2 px-3 py-2 text-dense transition-colors ${
                     tab.active
                       ? "border-accent text-text"
                       : "border-transparent text-text-muted hover:text-text-secondary"
@@ -85,9 +85,9 @@ export function Section({
     <section className="rounded-xl border border-border-subtle bg-surface/40 p-5">
       <div className="mb-4 flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-[14px] font-medium text-text">{title}</h3>
+          <h3 className="text-ui font-medium text-text">{title}</h3>
           {description && (
-            <p className="mt-1 text-[12px] leading-relaxed text-text-faint">{description}</p>
+            <p className="mt-1 text-dense leading-relaxed text-text-faint">{description}</p>
           )}
         </div>
         {action}

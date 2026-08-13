@@ -34,7 +34,7 @@ export function SignInButtons({ providers }: { providers: Provider[] }) {
           type="button"
           disabled={pending !== null}
           onClick={() => void start(provider)}
-          className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-medium text-text transition-colors hover:border-border-strong hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-surface px-4 py-3 text-ui font-medium text-text transition-colors hover:border-border-strong hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending === provider ? (
             <IconLoader size={16} />
@@ -48,7 +48,7 @@ export function SignInButtons({ providers }: { providers: Provider[] }) {
       ))}
 
       {error && (
-        <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger">
+        <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-dense text-danger">
           {error}
         </p>
       )}

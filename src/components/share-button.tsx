@@ -68,7 +68,7 @@ export function ShareButton({
         aria-label="Share this chat"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+        className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-dense transition-colors ${
           shareId
             ? "border-info/40 text-info hover:bg-info-soft"
             : "border-border text-text-muted hover:border-border-strong hover:text-text"
@@ -85,8 +85,8 @@ export function ShareButton({
           aria-label="Share this chat"
           className="absolute right-0 top-full z-30 mt-1.5 w-80 rounded-xl border border-border bg-surface-raised p-3 shadow-xl"
         >
-          <h3 className="text-[13px] font-medium text-text">Share this chat</h3>
-          <p className="mt-1 text-[11px] leading-relaxed text-text-faint">
+          <h3 className="text-dense font-medium text-text">Share this chat</h3>
+          <p className="mt-1 text-micro leading-relaxed text-text-faint">
             Anyone with the link can read the conversation. New messages you send afterwards appear
             there too — revoke the link to stop that.
           </p>
@@ -105,7 +105,7 @@ export function ShareButton({
               URL.revokeObjectURL(url);
               setOpen(false);
             }}
-            className="mt-3 flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-[13px] text-text-secondary transition-colors hover:border-border-strong hover:text-text"
+            className="mt-3 flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-dense text-text-secondary transition-colors hover:border-border-strong hover:text-text"
           >
             <IconDownload size={14} />
             Download as Markdown
@@ -120,7 +120,7 @@ export function ShareButton({
                   readOnly
                   value={url}
                   onFocus={(e) => e.currentTarget.select()}
-                  className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-bg-elevated px-2.5 py-2 font-mono text-[11px] text-text-secondary focus:outline-none"
+                  className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-bg-elevated px-2.5 py-2 font-mono text-micro text-text-secondary focus:outline-none"
                 />
                 <button
                   type="button"
@@ -140,7 +140,7 @@ export function ShareButton({
                 type="button"
                 disabled={busy}
                 onClick={() => void revoke()}
-                className="mt-2.5 flex items-center gap-1.5 text-[11px] text-text-faint hover:text-danger disabled:opacity-50"
+                className="mt-2.5 flex items-center gap-1.5 text-micro text-text-faint hover:text-danger disabled:opacity-50"
               >
                 <IconTrash size={11} />
                 Revoke link
@@ -151,7 +151,7 @@ export function ShareButton({
               type="button"
               disabled={busy}
               onClick={() => void createLink()}
-              className="w-full rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-accent-text hover:brightness-110 disabled:opacity-50"
+              className="w-full rounded-lg bg-accent px-3 py-2 text-dense font-medium text-accent-text hover:brightness-110 disabled:opacity-50"
             >
               {busy ? "Creating…" : "Create public link"}
             </button>

@@ -67,12 +67,12 @@ export function ConfirmDialog({
         aria-label={title}
         className="relative w-full max-w-sm rounded-xl border border-border bg-surface-raised p-5 shadow-2xl"
       >
-        <h3 className="text-[15px] font-medium text-text">{title}</h3>
-        <p className="mt-2 text-[13px] leading-relaxed text-text-muted">{description}</p>
+        <h3 className="text-prose font-medium text-text">{title}</h3>
+        <p className="mt-2 text-dense leading-relaxed text-text-muted">{description}</p>
 
         {confirmPhrase && (
           <>
-            <p className="mt-4 text-[12px] text-text-faint">
+            <p className="mt-4 text-dense text-text-faint">
               Type <span className="font-mono text-text-secondary">{confirmPhrase}</span> to confirm.
             </p>
             <input
@@ -83,7 +83,7 @@ export function ConfirmDialog({
                 if (e.key === "Enter" && ready) onConfirm();
               }}
               autoComplete="off"
-              className="mt-1.5 w-full rounded-lg border border-border bg-bg-elevated px-3 py-2 font-mono text-[13px] text-text focus:border-danger focus:outline-none"
+              className="mt-1.5 w-full rounded-lg border border-border bg-bg-elevated px-3 py-2 font-mono text-dense text-text focus:border-danger focus:outline-none"
             />
           </>
         )}
@@ -94,7 +94,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={pending}
-            className="rounded-lg px-3 py-2 text-[13px] text-text-muted hover:text-text disabled:opacity-40"
+            className="rounded-lg px-3 py-2 text-dense text-text-muted hover:text-text disabled:opacity-40"
           >
             Cancel
           </button>
@@ -102,7 +102,7 @@ export function ConfirmDialog({
             type="button"
             disabled={!ready}
             onClick={onConfirm}
-            className={`rounded-lg px-3.5 py-2 text-[13px] font-medium hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`rounded-lg px-3.5 py-2 text-dense font-medium hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 ${
               tone === "danger" ? "bg-danger text-bg" : "bg-accent text-accent-text"
             }`}
           >

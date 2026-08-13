@@ -206,7 +206,7 @@ function SourceList({ parts }: { parts: ToolPart[] }) {
         const failed = part.state === "output-error";
 
         return (
-          <li key={part.toolCallId} className="flex items-baseline gap-2 text-xs">
+          <li key={part.toolCallId} className="flex items-baseline gap-2 text-dense">
             <a
               href={url || undefined}
               target="_blank"
@@ -358,7 +358,7 @@ function ChipButton({
       type="button"
       disabled={pending}
       onClick={onClick}
-      className={`flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+      className={`flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-micro transition-colors ${
         failed
           ? "border-danger/40 bg-danger-soft text-danger hover:bg-danger/15"
           : open
@@ -406,20 +406,20 @@ function ExpandedTool({
   return (
     <>
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs text-text-muted">
+        <span className="text-dense text-text-muted">
           {chipLabel(name, part, false)}
           {meta && <span className="ml-2 text-text-faint">{formatDuration(meta.durationMs)}</span>}
         </span>
         <button
           type="button"
           onClick={onToggleRaw}
-          className="font-mono text-[11px] text-text-faint underline-offset-2 hover:text-text-secondary hover:underline"
+          className="font-mono text-micro text-text-faint underline-offset-2 hover:text-text-secondary hover:underline"
         >
           {showRaw ? "summary" : "raw"}
         </button>
       </div>
       {showRaw ? (
-        <pre className="scroll-thin max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-bg-elevated p-3 font-mono text-[11px] text-text-muted">
+        <pre className="scroll-thin max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-bg-elevated p-3 font-mono text-micro text-text-muted">
           {JSON.stringify(clean, null, 2).slice(0, 4000)}
         </pre>
       ) : isFetch && part.state !== "output-error" ? (
@@ -427,7 +427,7 @@ function ExpandedTool({
       ) : (
         <ul className="space-y-1">
           {lines.map((line, i) => (
-            <li key={i} className="break-words text-xs text-text-muted">
+            <li key={i} className="break-words text-dense text-text-muted">
               {line}
             </li>
           ))}

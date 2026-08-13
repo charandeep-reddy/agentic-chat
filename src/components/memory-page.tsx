@@ -97,18 +97,18 @@ function MemoryRow({
                 setEditing(false);
               }
             }}
-            className="w-full resize-none rounded-md border border-accent/40 bg-surface px-2 py-1 text-[13px] text-text focus:outline-none"
+            className="w-full resize-none rounded-md border border-accent/40 bg-surface px-2 py-1 text-dense text-text focus:outline-none"
           />
         ) : (
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="block w-full text-left text-[13px] leading-relaxed text-text-secondary hover:text-text"
+            className="block w-full text-left text-dense leading-relaxed text-text-secondary hover:text-text"
           >
             {item.content}
           </button>
         )}
-        <p className="mt-1 flex items-center gap-1.5 text-[11px] text-text-faint">
+        <p className="mt-1 flex items-center gap-1.5 text-micro text-text-faint">
           <span className="rounded-full border border-border-subtle px-1.5 py-px font-mono">
             {item.category}
           </span>
@@ -149,13 +149,13 @@ function PackCard({
           <IconBrain size={14} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium text-text">{pack.name}</p>
+          <p className="truncate text-dense font-medium text-text">{pack.name}</p>
           {pack.description && (
-            <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-text-muted">
+            <p className="mt-0.5 line-clamp-2 text-dense leading-relaxed text-text-muted">
               {pack.description}
             </p>
           )}
-          <p className="mt-1 text-[11px] text-text-faint">
+          <p className="mt-1 text-micro text-text-faint">
             {pack.entryCount} {pack.entryCount === 1 ? "memory" : "memories"}
             {pack.installCount > 0 && ` · ${pack.installCount} installs`}
             {pack.mine && (pack.isPublic ? " · public" : " · private")}
@@ -168,7 +168,7 @@ function PackCard({
           <button
             type="button"
             onClick={() => onUninstall(pack.slug)}
-            className="rounded-lg border border-border px-2.5 py-1.5 text-[12px] text-text-muted hover:border-danger/40 hover:text-danger"
+            className="rounded-lg border border-border px-2.5 py-1.5 text-dense text-text-muted hover:border-danger/40 hover:text-danger"
           >
             Remove its memories
           </button>
@@ -176,7 +176,7 @@ function PackCard({
           <button
             type="button"
             onClick={() => onInstall(pack.slug)}
-            className="flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-text hover:brightness-110"
+            className="flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1.5 text-dense font-medium text-accent-text hover:brightness-110"
           >
             <IconDownload size={12} />
             Add to my memory
@@ -193,7 +193,7 @@ function PackCard({
                 setTimeout(() => setCopied(false), 1600);
               });
           }}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12px] text-text-muted hover:border-border-strong hover:text-text"
+          className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-dense text-text-muted hover:border-border-strong hover:text-text"
         >
           {copied ? <IconCheck size={12} className="text-accent" /> : <IconCopy size={12} />}
           {copied ? "Copied" : "Share link"}
@@ -383,11 +383,11 @@ export function MemoryPage({
       {notice && (
         <div className="flex items-start gap-2.5 rounded-lg border border-accent/25 bg-accent-soft px-3.5 py-2.5">
           <IconCheck size={14} className="mt-0.5 shrink-0 text-accent" />
-          <p className="flex-1 text-[13px] text-text-secondary">{notice}</p>
+          <p className="flex-1 text-dense text-text-secondary">{notice}</p>
           <button
             type="button"
             onClick={() => setNotice(null)}
-            className="text-[11px] text-text-faint hover:text-text"
+            className="text-micro text-text-faint hover:text-text"
           >
             Dismiss
           </button>
@@ -407,13 +407,13 @@ export function MemoryPage({
             onKeyDown={(e) => {
               if (e.key === "Enter") void add();
             }}
-            className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-[13px] text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
+            className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-dense text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
           />
           <select
             value={draftCategory}
             onChange={(e) => setDraftCategory(e.target.value)}
             aria-label="Category"
-            className="shrink-0 rounded-lg border border-border-subtle bg-bg-elevated px-2 py-2 text-[12px] text-text-secondary focus:outline-none"
+            className="shrink-0 rounded-lg border border-border-subtle bg-bg-elevated px-2 py-2 text-dense text-text-secondary focus:outline-none"
           >
             {MEMORY_CATEGORIES.map((c) => (
               <option key={c} value={c}>
@@ -442,7 +442,7 @@ export function MemoryPage({
               value={filter}
               placeholder="Filter memories"
               onChange={(e) => setFilter(e.target.value)}
-              className="w-full rounded-lg border border-border-subtle bg-bg-elevated py-2 pl-8 pr-3 text-[13px] text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
+              className="w-full rounded-lg border border-border-subtle bg-bg-elevated py-2 pl-8 pr-3 text-dense text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
             />
           </div>
         )}
@@ -461,7 +461,7 @@ export function MemoryPage({
         )}
 
         {visible.length === 0 && adding === 0 ? (
-          <p className="py-6 text-center text-[13px] text-text-faint">
+          <p className="py-6 text-center text-dense text-text-faint">
             {memories.length === 0
               ? "Nothing remembered yet. Tell the model something durable about you, or add one above."
               : `Nothing matches "${filter}".`}
@@ -493,7 +493,7 @@ export function MemoryPage({
               maxLength={80}
               placeholder="Pack name, e.g. 'Rust reviewer defaults'"
               onChange={(e) => setPackDraft({ ...packDraft, name: e.target.value })}
-              className="w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-[13px] text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
+              className="w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-dense text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
             />
             <textarea
               rows={2}
@@ -501,12 +501,12 @@ export function MemoryPage({
               value={packDraft.description}
               placeholder="What is this pack for? Who should install it?"
               onChange={(e) => setPackDraft({ ...packDraft, description: e.target.value })}
-              className="w-full resize-none rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-[13px] text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
+              className="w-full resize-none rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-dense text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
             />
 
             <div className="max-h-56 overflow-y-auto rounded-lg border border-border-subtle bg-bg-elevated p-2 scroll-thin">
               {memories.length === 0 ? (
-                <p className="p-2 text-[12px] text-text-faint">No memories to include yet.</p>
+                <p className="p-2 text-dense text-text-faint">No memories to include yet.</p>
               ) : (
                 memories.map((m) => (
                   <label
@@ -526,7 +526,7 @@ export function MemoryPage({
                       }}
                       className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--accent)]"
                     />
-                    <span className="text-[12px] leading-relaxed text-text-secondary">
+                    <span className="text-dense leading-relaxed text-text-secondary">
                       {m.content}
                     </span>
                   </label>
@@ -539,7 +539,7 @@ export function MemoryPage({
                 type="button"
                 disabled={!packDraft.name.trim() || selected.size === 0}
                 onClick={() => void createPack()}
-                className="rounded-lg bg-accent px-3.5 py-2 text-[13px] font-medium text-accent-text hover:brightness-110 disabled:opacity-40"
+                className="rounded-lg bg-accent px-3.5 py-2 text-dense font-medium text-accent-text hover:brightness-110 disabled:opacity-40"
               >
                 Publish {selected.size > 0 && `${selected.size} `}
                 {selected.size === 1 ? "memory" : "memories"}
@@ -550,7 +550,7 @@ export function MemoryPage({
                   setPackDraft(null);
                   setSelected(new Set());
                 }}
-                className="rounded-lg px-3 py-2 text-[13px] text-text-muted hover:text-text"
+                className="rounded-lg px-3 py-2 text-dense text-text-muted hover:text-text"
               >
                 Cancel
               </button>
@@ -561,7 +561,7 @@ export function MemoryPage({
             type="button"
             disabled={memories.length === 0}
             onClick={() => setPackDraft({ name: "", description: "" })}
-            className="flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-3.5 py-2 text-[13px] text-text-secondary transition-colors hover:border-border-strong hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-3.5 py-2 text-dense text-text-secondary transition-colors hover:border-border-strong hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
           >
             <IconShare size={14} />
             {memories.length === 0 ? "Save a memory first" : "Create a pack"}
@@ -598,7 +598,7 @@ export function MemoryPage({
               if (slug) void install(slug);
               setImportSlug("");
             }}
-            className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-[13px] text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
+            className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-dense text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
           />
           <button
             type="button"
@@ -608,14 +608,14 @@ export function MemoryPage({
               if (slug) void install(slug);
               setImportSlug("");
             }}
-            className="shrink-0 rounded-lg border border-border px-3 py-2 text-[13px] text-text-secondary hover:border-border-strong hover:text-text disabled:opacity-40"
+            className="shrink-0 rounded-lg border border-border px-3 py-2 text-dense text-text-secondary hover:border-border-strong hover:text-text disabled:opacity-40"
           >
             Install
           </button>
         </div>
 
         {discoverPacks.length === 0 ? (
-          <p className="py-4 text-center text-[13px] text-text-faint">
+          <p className="py-4 text-center text-dense text-text-faint">
             Nobody has published a public pack yet. Be first.
           </p>
         ) : (

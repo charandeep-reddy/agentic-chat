@@ -121,7 +121,7 @@ export function AllChatsPage({ archived }: { archived: boolean }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Search titles and message text…"
-          className="h-10 min-w-0 flex-1 bg-transparent text-[13px] text-text placeholder-text-faint focus:outline-none"
+          className="h-10 min-w-0 flex-1 bg-transparent text-dense text-text placeholder-text-faint focus:outline-none"
         />
       </div>
 
@@ -132,7 +132,7 @@ export function AllChatsPage({ archived }: { archived: boolean }) {
           ))}
         </div>
       ) : chats.length === 0 ? (
-        <p className="py-10 text-center text-[13px] text-text-faint">
+        <p className="py-10 text-center text-dense text-text-faint">
           {search
             ? `No chats match "${search}".`
             : archived
@@ -144,18 +144,18 @@ export function AllChatsPage({ archived }: { archived: boolean }) {
           {rows.map(({ chat, heading }) => (
             <div key={chat.id}>
               {heading && (
-                <h2 className="px-1 pb-1 pt-4 text-[11px] font-medium uppercase tracking-wider text-text-faint">
+                <h2 className="px-1 pb-1 pt-4 text-micro font-medium uppercase tracking-wider text-text-faint">
                   {heading}
                 </h2>
               )}
               <div className="group flex items-center gap-2 rounded-lg pr-1 transition-colors hover:bg-surface">
                 <Link
                   href={`/c/${chat.id}`}
-                  className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2.5 text-[13px] text-text-secondary"
+                  className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2.5 text-dense text-text-secondary"
                 >
                   {chat.pinned && <IconPin size={11} className="shrink-0 text-accent" />}
                   <span className="min-w-0 flex-1 truncate">{chat.title}</span>
-                  <span className="shrink-0 font-mono text-[11px] text-text-faint">
+                  <span className="shrink-0 font-mono text-micro text-text-faint">
                     {formatDate(chat.updatedAt)}
                   </span>
                 </Link>
@@ -197,18 +197,18 @@ export function AllChatsPage({ archived }: { archived: boolean }) {
           {hasMore && (
             <div ref={sentinelRef} className="py-6 text-center">
               {loadingMore && (
-                <span className="font-mono text-[11px] text-text-faint">loading more…</span>
+                <span className="font-mono text-micro text-text-faint">loading more…</span>
               )}
             </div>
           )}
 
           {failed && (
             <div className="py-6 text-center">
-              <p className="mb-2 text-[13px] text-danger">Could not load more chats.</p>
+              <p className="mb-2 text-dense text-danger">Could not load more chats.</p>
               <button
                 type="button"
                 onClick={() => void loadMore()}
-                className="rounded-md border border-border-strong px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-raised"
+                className="rounded-md border border-border-strong px-3 py-1.5 text-dense text-text-secondary hover:bg-surface-raised"
               >
                 Try again
               </button>
@@ -216,7 +216,7 @@ export function AllChatsPage({ archived }: { archived: boolean }) {
           )}
 
           {!hasMore && !failed && chats.length > 20 && (
-            <p className="py-6 text-center font-mono text-[11px] text-text-faint">
+            <p className="py-6 text-center font-mono text-micro text-text-faint">
               {chats.length} chats · that&rsquo;s all of them
             </p>
           )}

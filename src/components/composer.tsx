@@ -112,7 +112,7 @@ export function Composer({
         {ephemeral && (
           <p
             id="composer-private-note"
-            className="flex items-center gap-1.5 border-b border-dashed border-border-subtle px-4 py-2 text-[11px] text-text-muted"
+            className="flex items-center gap-1.5 border-b border-dashed border-border-subtle px-4 py-2 text-micro text-text-muted"
           >
             <IconIncognito size={12} className="shrink-0" />
             Private — not saved, no memories read or written
@@ -135,7 +135,7 @@ export function Composer({
               submit();
             }
           }}
-          className="scroll-thin w-full resize-none bg-transparent px-4 pb-2 pt-3.5 text-sm leading-relaxed text-text placeholder:text-text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          className="scroll-thin w-full resize-none bg-transparent px-4 pb-2 pt-3.5 text-ui leading-relaxed text-text placeholder:text-text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
 
         <div className="flex items-center justify-between gap-3 px-3 pb-3">
@@ -144,7 +144,7 @@ export function Composer({
               type="button"
               onClick={onOpenSettings}
               title="Change model"
-              className="truncate rounded-md border border-border-subtle bg-bg-elevated px-2 py-1 font-mono text-[11px] text-text-muted transition-colors hover:border-border hover:text-text-secondary"
+              className="truncate rounded-md border border-border-subtle bg-bg-elevated px-2 py-1 font-mono text-micro text-text-muted transition-colors hover:border-border hover:text-text-secondary"
             >
               {model}
             </button>
@@ -152,11 +152,11 @@ export function Composer({
                 wrong test in both directions: a narrow desktop window lost
                 shortcuts it can use, and a tablet was told to press Shift
                 when it has no Shift to press. */}
-            <span className="hidden text-[11px] text-text-faint pointer-fine:inline">
-              <kbd className="rounded border border-border-subtle px-1 font-mono text-[10px]">↵</kbd>{" "}
+            <span className="hidden text-micro text-text-faint pointer-fine:inline">
+              <kbd className="rounded border border-border-subtle px-1 font-mono text-micro">↵</kbd>{" "}
               send
               <span className="mx-1.5 opacity-50">·</span>
-              <kbd className="rounded border border-border-subtle px-1 font-mono text-[10px]">
+              <kbd className="rounded border border-border-subtle px-1 font-mono text-micro">
                 ⇧↵
               </kbd>{" "}
               newline
@@ -167,7 +167,7 @@ export function Composer({
             <button
               type="button"
               onClick={onStop}
-              className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-surface-raised px-3 text-xs font-medium text-text-secondary transition-colors hover:border-danger/40 hover:bg-danger-soft hover:text-danger"
+              className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-surface-raised px-3 text-dense font-medium text-text-secondary transition-colors hover:border-danger/40 hover:bg-danger-soft hover:text-danger"
             >
               <IconStop size={12} />
               Stop

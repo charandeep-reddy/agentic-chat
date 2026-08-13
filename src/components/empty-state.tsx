@@ -68,7 +68,7 @@ function PrivateEmptyState({ hasKey, onOpenSettings }: { hasKey: boolean; onOpen
         <IconIncognito size={22} />
       </span>
       <h2 className="text-2xl font-semibold tracking-tight text-text">Private chat</h2>
-      <p className="mt-2 max-w-md text-sm leading-relaxed text-text-muted">
+      <p className="mt-2 max-w-md text-ui leading-relaxed text-text-muted">
         This conversation leaves no trace, and starts knowing nothing about you.
       </p>
 
@@ -76,7 +76,7 @@ function PrivateEmptyState({ hasKey, onOpenSettings }: { hasKey: boolean; onOpen
         {PRIVATE_TERMS.map((term) => (
           <li
             key={term}
-            className="flex items-start gap-2.5 rounded-xl border border-dashed border-border-subtle px-3.5 py-2.5 text-[13px] leading-relaxed text-text-secondary"
+            className="flex items-start gap-2.5 rounded-xl border border-dashed border-border-subtle px-3.5 py-2.5 text-dense leading-relaxed text-text-secondary"
           >
             <span aria-hidden className="mt-2 h-1 w-1 shrink-0 rounded-full bg-text-faint" />
             {term}
@@ -88,7 +88,7 @@ function PrivateEmptyState({ hasKey, onOpenSettings }: { hasKey: boolean; onOpen
         <button
           type="button"
           onClick={onOpenSettings}
-          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-text hover:brightness-110"
+          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-ui font-medium text-accent-text hover:brightness-110"
         >
           <IconKey size={15} />
           Connect your key
@@ -126,7 +126,7 @@ export function EmptyState({
         <span data-when="key">What are we working on?</span>
         <span data-when="no-key">Bring your key. Ask anything.</span>
       </h2>
-      <p className="mt-2 max-w-lg text-sm leading-relaxed text-text-muted">
+      <p className="mt-2 max-w-lg text-ui leading-relaxed text-text-muted">
         Your model, your data — charts, diagrams, tables, live fetches and interactive HTML,
         rendered inline.
       </p>
@@ -143,16 +143,16 @@ export function EmptyState({
                 key={step.n}
                 className="rounded-xl border border-border-subtle bg-surface/50 p-4 text-left"
               >
-                <span className="font-mono text-[11px] text-accent">{step.n}</span>
-                <p className="mt-1 text-[13px] font-medium text-text-secondary">{step.t}</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-text-faint">{step.d}</p>
+                <span className="font-mono text-micro text-accent">{step.n}</span>
+                <p className="mt-1 text-dense font-medium text-text-secondary">{step.t}</p>
+                <p className="mt-0.5 text-micro leading-relaxed text-text-faint">{step.d}</p>
               </div>
             ))}
           </div>
           <button
             type="button"
             onClick={onOpenSettings}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-text hover:brightness-110"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-ui font-medium text-accent-text hover:brightness-110"
           >
             <IconKey size={15} />
             Connect your key
@@ -174,8 +174,8 @@ export function EmptyState({
                 <c.icon size={14} />
               </span>
               <span className="min-w-0">
-                <span className="block text-[13px] font-medium text-text-secondary">{c.title}</span>
-                <span className="block truncate text-[11px] text-text-faint">{c.hint}</span>
+                <span className="block text-dense font-medium text-text-secondary">{c.title}</span>
+                <span className="block truncate text-micro text-text-faint">{c.hint}</span>
               </span>
             </button>
           ))}
@@ -189,7 +189,7 @@ export function EmptyState({
             actually being made. */}
         <Link
           href="/private"
-          className="mt-8 inline-flex items-center gap-2 rounded-xl border border-dashed border-border-subtle px-3.5 py-2 text-[12px] text-text-muted transition-colors hover:border-border-strong hover:text-text-secondary"
+          className="mt-8 inline-flex items-center gap-2 rounded-xl border border-dashed border-border-subtle px-3.5 py-2 text-dense text-text-muted transition-colors hover:border-border-strong hover:text-text-secondary"
         >
           <IconIncognito size={13} className="shrink-0" />
           Or start a private chat — nothing saved, no memories

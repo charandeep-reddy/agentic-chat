@@ -115,18 +115,18 @@ function SkillEditor({
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <div>
-          <label className="mb-1.5 block text-[12px] font-medium text-text-secondary">Name</label>
+          <label className="mb-1.5 block text-dense font-medium text-text-secondary">Name</label>
           <input
             value={draft.name}
             onChange={(e) => set({ name: e.target.value })}
             onBlur={() => set({ name: slugifySkillName(draft.name) })}
             placeholder="weekly-report"
             maxLength={SKILL_LIMITS.name}
-            className="w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 font-mono text-[13px] text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+            className="w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 font-mono text-dense text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-[12px] font-medium text-text-secondary">
+          <label className="mb-1.5 block text-dense font-medium text-text-secondary">
             When to use it
           </label>
           <input
@@ -134,17 +134,17 @@ function SkillEditor({
             onChange={(e) => set({ description: e.target.value })}
             placeholder="Build the weekly ops report. Use when asked for the weekly or Monday numbers."
             maxLength={SKILL_LIMITS.description}
-            className="w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-[13px] text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+            className="w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-dense text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
           />
         </div>
       </div>
-      <p className="-mt-2 text-[11px] leading-relaxed text-text-faint">
+      <p className="-mt-2 text-micro leading-relaxed text-text-faint">
         The description is the only thing the model reads before deciding to open the skill. Say
         what it does <em>and</em> the words a request for it would use.
       </p>
 
       <div>
-        <label className="mb-1.5 block text-[12px] font-medium text-text-secondary">
+        <label className="mb-1.5 block text-dense font-medium text-text-secondary">
           Instructions
         </label>
         <textarea
@@ -157,9 +157,9 @@ function SkillEditor({
             if (draft.body.trim() === "" && onBodyPaste(text)) e.preventDefault();
           }}
           placeholder={EXAMPLE}
-          className="scroll-thin w-full resize-y rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2.5 font-mono text-[12px] leading-relaxed text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+          className="scroll-thin w-full resize-y rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2.5 font-mono text-dense leading-relaxed text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
         />
-        <p className="mt-1 text-right text-[11px] text-text-faint">
+        <p className="mt-1 text-right text-micro text-text-faint">
           {draft.body.length}/{SKILL_LIMITS.body} · paste a SKILL.md and the frontmatter fills the
           fields above
         </p>
@@ -167,26 +167,26 @@ function SkillEditor({
 
       <div>
         <div className="mb-1.5 flex items-center justify-between">
-          <label className="text-[12px] font-medium text-text-secondary">Resources</label>
+          <label className="text-dense font-medium text-text-secondary">Resources</label>
           <button
             type="button"
             onClick={() =>
               set({ resources: [...draft.resources, { path: "", content: "" }] })
             }
             disabled={draft.resources.length >= SKILL_LIMITS.resourceCount}
-            className="flex items-center gap-1 text-[11px] text-text-faint hover:text-text-secondary disabled:opacity-40"
+            className="flex items-center gap-1 text-micro text-text-faint hover:text-text-secondary disabled:opacity-40"
           >
             <IconPlus size={11} />
             Add file
           </button>
         </div>
-        <p className="mb-2 text-[11px] leading-relaxed text-text-faint">
+        <p className="mb-2 text-micro leading-relaxed text-text-faint">
           Reference material the instructions can name — a template, a checklist, a table. The model
           fetches one only when it needs it, so long files cost nothing until then.
         </p>
 
         {draft.resources.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border-subtle px-3 py-2.5 text-[12px] text-text-faint">
+          <p className="rounded-lg border border-dashed border-border-subtle px-3 py-2.5 text-dense text-text-faint">
             None. Most skills do not need any.
           </p>
         ) : (
@@ -205,7 +205,7 @@ function SkillEditor({
                     }
                     placeholder="reference/tone.md"
                     maxLength={SKILL_LIMITS.resourcePath}
-                    className="min-w-0 flex-1 rounded-md border border-border-subtle bg-surface px-2 py-1 font-mono text-[12px] text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+                    className="min-w-0 flex-1 rounded-md border border-border-subtle bg-surface px-2 py-1 font-mono text-dense text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
                   />
                   <button
                     type="button"
@@ -228,7 +228,7 @@ function SkillEditor({
                     })
                   }
                   placeholder="Contents…"
-                  className="scroll-thin w-full resize-y rounded-md border border-border-subtle bg-surface px-2 py-1.5 font-mono text-[12px] text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+                  className="scroll-thin w-full resize-y rounded-md border border-border-subtle bg-surface px-2 py-1.5 font-mono text-dense text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
                 />
               </li>
             ))}
@@ -236,14 +236,14 @@ function SkillEditor({
         )}
       </div>
 
-      {error && <p className="text-[12px] text-danger">{error}</p>}
+      {error && <p className="text-dense text-danger">{error}</p>}
 
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => void submit()}
           disabled={saving}
-          className="rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-accent-text hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-accent px-4 py-2 text-dense font-medium text-accent-text hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {saving ? "Saving…" : submitLabel}
         </button>
@@ -251,7 +251,7 @@ function SkillEditor({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-border px-3 py-2 text-[13px] text-text-muted hover:text-text"
+            className="rounded-lg border border-border px-3 py-2 text-dense text-text-muted hover:text-text"
           >
             Cancel
           </button>
@@ -289,11 +289,11 @@ function SkillRow({
       />
 
       <div className="min-w-0 flex-1">
-        <p className="font-mono text-[13px] text-text">{skill.name}</p>
-        <p className="mt-0.5 text-[12px] leading-relaxed text-text-secondary">
+        <p className="font-mono text-dense text-text">{skill.name}</p>
+        <p className="mt-0.5 text-dense leading-relaxed text-text-secondary">
           {skill.description}
         </p>
-        <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-text-faint">
+        <p className="mt-1 flex flex-wrap items-center gap-1.5 text-micro text-text-faint">
           <span>{skill.body.length} chars</span>
           {resourceCount > 0 && <span>· {resourceCount} resources</span>}
           <span>· used {skill.useCount}×</span>
@@ -396,7 +396,7 @@ export function SkillsPage({ skills }: { skills: SkillItem[] }) {
                 setAdding(true);
                 setEditingId(null);
               }}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-text hover:brightness-110"
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-dense font-medium text-accent-text hover:brightness-110"
             >
               <IconPlus size={12} />
               New skill
@@ -418,8 +418,8 @@ export function SkillsPage({ skills }: { skills: SkillItem[] }) {
         {skills.length === 0 && !adding ? (
           <div className="rounded-lg border border-dashed border-border-subtle px-4 py-8 text-center">
             <IconSpark size={20} className="mx-auto text-text-faint" />
-            <p className="mt-2 text-[13px] text-text-secondary">No skills yet.</p>
-            <p className="mx-auto mt-1 max-w-sm text-[12px] leading-relaxed text-text-faint">
+            <p className="mt-2 text-dense text-text-secondary">No skills yet.</p>
+            <p className="mx-auto mt-1 max-w-sm text-dense leading-relaxed text-text-faint">
               A skill is how you want one kind of task done — the format of your weekly report, the
               rules for a code review, the tone of a customer reply.
             </p>
@@ -460,7 +460,7 @@ export function SkillsPage({ skills }: { skills: SkillItem[] }) {
         title="How the model uses them"
         description="Worth knowing when a skill does not fire the way you expected."
       >
-        <ol className="space-y-2.5 text-[12px] leading-relaxed text-text-muted">
+        <ol className="space-y-2.5 text-dense leading-relaxed text-text-muted">
           <li className="flex gap-2.5">
             <IconCheck size={13} className="mt-0.5 shrink-0 text-accent" />
             <span>

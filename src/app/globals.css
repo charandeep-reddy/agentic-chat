@@ -145,6 +145,40 @@
   --color-danger-soft: var(--danger-soft);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
+
+  /* The type scale. Line heights ride along, so a step carries its own rhythm. */
+  --text-prose: var(--type-prose);
+  --text-prose--line-height: 1.7;
+  --text-ui: var(--type-ui);
+  --text-ui--line-height: 1.45;
+  --text-dense: var(--type-dense);
+  --text-dense--line-height: 1.4;
+  --text-micro: var(--type-micro);
+  --text-micro--line-height: 1.35;
+}
+
+/*
+  The type scale — four steps, and nothing between them.
+
+  There used to be ten sizes across the components: 10, 11, 12, 13, 14 and 15px
+  alongside Tailwind's own xs/sm/base. Most differ by a single pixel, which is a
+  difference nobody can perceive but every new component has to guess at — so
+  the interface read as approximate rather than deliberate. Four steps that are
+  actually distinguishable, each named for the job it does, means a new
+  component picks a role instead of a number.
+
+  `prose` is the assistant's answer and the only step meant for reading at
+  length. The rest are chrome, in descending order of the attention they are
+  owed. Page titles keep Tailwind's `text-lg`/`text-xl`: a heading is a
+  different role, not a fifth degree of small.
+
+  Kept out of the palette blocks above because type does not change with theme.
+*/
+:root {
+  --type-prose: 0.9375rem;
+  --type-ui: 0.875rem;
+  --type-dense: 0.8125rem;
+  --type-micro: 0.6875rem;
 }
 
 html,
@@ -212,10 +246,40 @@ body {
   background: transparent;
 }
 
+/*
+  The assistant's answer.
+
+  This is the one thing on the page anybody came to read, and it used to be set
+  at 14px in `--text-secondary` — the muted colour, the one reserved for
+  captions and labels elsewhere in the app. The content was quite literally
+  styled as secondary to the frame around it. Full contrast and a step up in
+  size cost nothing and change the whole impression.
+*/
 .markdown {
-  font-size: 0.875rem;
-  line-height: 1.65;
-  color: var(--text-secondary);
+  font-size: var(--type-prose);
+  line-height: 1.7;
+  color: var(--text);
+}
+
+/*
+  Measure: how many characters fit on a line before the eye loses its place
+  coming back to the left. Comfortable is 60-75; the transcript column is wide
+  enough for around 95, which is why long answers read as heavy.
+
+  Constrained on the prose blocks rather than on the column, because the column
+  also holds tables, code and diagrams — and those genuinely want every pixel.
+  Narrowing the container would have fixed the paragraphs by squeezing the
+  diagrams, which is the trade the widget work just spent effort avoiding.
+*/
+.markdown > p,
+.markdown > ul,
+.markdown > ol,
+.markdown > blockquote,
+.markdown > h1,
+.markdown > h2,
+.markdown > h3,
+.markdown > h4 {
+  max-width: 68ch;
 }
 
 .markdown > *:first-child {

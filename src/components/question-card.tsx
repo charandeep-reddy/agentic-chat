@@ -21,16 +21,16 @@ export function QuestionCard({ payload, answer }: { payload: unknown; answer: st
     <div className="rounded-xl border border-border bg-surface/40 px-3 py-2.5">
       <div className="flex items-center gap-2 text-text-faint">
         <IconQuestion size={14} />
-        <span className="text-[12px]">
+        <span className="text-dense">
           {questions.length > 1 ? `Asked ${questions.length} questions` : "Asked"}
         </span>
         {answer === null && (
-          <span className="ml-auto font-mono text-[10px] text-text-faint">no answer</span>
+          <span className="ml-auto font-mono text-micro text-text-faint">no answer</span>
         )}
       </div>
       <ul className="mt-1.5 space-y-1">
         {questions.map((q) => (
-          <li key={q.question} className="text-[13px] leading-snug text-text-secondary">
+          <li key={q.question} className="text-dense leading-snug text-text-secondary">
             {q.question}
           </li>
         ))}

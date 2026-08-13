@@ -63,7 +63,7 @@ function PriceFields({ model }: { model: string }) {
 
   return (
     <div className="mt-6">
-      <h3 className="mb-1.5 text-[12px] font-medium text-text-secondary">
+      <h3 className="mb-1.5 text-dense font-medium text-text-secondary">
         Price per 1M tokens
       </h3>
       <div className="flex gap-2">
@@ -74,9 +74,9 @@ function PriceFields({ model }: { model: string }) {
           ]
         ).map(({ field, label }) => (
           <label key={field} className="min-w-0 flex-1">
-            <span className="mb-1 block text-[11px] text-text-faint">{label}</span>
+            <span className="mb-1 block text-micro text-text-faint">{label}</span>
             <div className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-3 py-2 focus-within:border-accent">
-              <span className="text-[13px] text-text-faint">$</span>
+              <span className="text-dense text-text-faint">$</span>
               <input
                 type="number"
                 min={0}
@@ -85,13 +85,13 @@ function PriceFields({ model }: { model: string }) {
                 value={price?.[field] ?? ""}
                 onChange={(e) => update(field, e.target.value)}
                 placeholder="0.00"
-                className="min-w-0 flex-1 bg-transparent font-mono text-[13px] text-text placeholder:text-text-faint focus:outline-none"
+                className="min-w-0 flex-1 bg-transparent font-mono text-dense text-text placeholder:text-text-faint focus:outline-none"
               />
             </div>
           </label>
         ))}
       </div>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-text-faint">
+      <p className="mt-1.5 text-micro leading-relaxed text-text-faint">
         Optional, and only for <span className="font-mono">{model}</span>. Stored in this browser;
         token counts show either way.
       </p>
@@ -220,7 +220,7 @@ export function SettingsPanel({
         aria-label="Settings"
       >
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-text">Settings</h2>
+          <h2 className="text-ui font-semibold text-text">Settings</h2>
           <button
             type="button"
             onClick={onClose}
@@ -233,7 +233,7 @@ export function SettingsPanel({
 
         <label
           htmlFor="model-provider"
-          className="mb-1.5 block text-[12px] font-medium text-text-secondary"
+          className="mb-1.5 block text-dense font-medium text-text-secondary"
         >
           Provider
         </label>
@@ -241,7 +241,7 @@ export function SettingsPanel({
           id="model-provider"
           value={provider}
           onChange={(e) => onProviderChange(e.target.value as ProviderId)}
-          className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-[13px] text-text focus:border-accent focus:outline-none"
+          className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-dense text-text focus:border-accent focus:outline-none"
         >
           {/* Marking which providers already hold a key turns the picker into
               a switch: you can see you have an Anthropic key before choosing
@@ -253,7 +253,7 @@ export function SettingsPanel({
             </option>
           ))}
         </select>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-text-faint">
+        <p className="mt-1.5 text-micro leading-relaxed text-text-faint">
           {info.hint}{" "}
           <a
             href={info.keysUrl}
@@ -271,11 +271,11 @@ export function SettingsPanel({
             to be truncated as the row got busier — leaving a bare row of dots
             that reads like six typed characters. */}
         <div className="mb-1.5 mt-6 flex items-baseline justify-between gap-2">
-          <label htmlFor="model-key" className="text-[12px] font-medium text-text-secondary">
+          <label htmlFor="model-key" className="text-dense font-medium text-text-secondary">
             {info.label} API key
           </label>
           {apiKey && (
-            <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-accent">
+            <span className="flex shrink-0 items-center gap-1.5 text-micro text-accent">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
               Saved {maskKey(apiKey)}
             </span>
@@ -292,7 +292,7 @@ export function SettingsPanel({
             }}
             placeholder={apiKey ? "Paste a new key to replace it" : info.keyPlaceholder}
             autoComplete="off"
-            className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-surface px-3 py-2 font-mono text-[13px] text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+            className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-surface px-3 py-2 font-mono text-dense text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
           />
           {/* Accent only while it can actually do something. Rendering a
               faded-accent Save next to an empty field made the panel's
@@ -301,14 +301,14 @@ export function SettingsPanel({
             type="button"
             onClick={save}
             disabled={draftKey.trim() === ""}
-            className="shrink-0 rounded-lg border border-transparent bg-accent px-3 py-2 text-[13px] font-medium text-accent-text transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-transparent disabled:text-text-faint"
+            className="shrink-0 rounded-lg border border-transparent bg-accent px-3 py-2 text-dense font-medium text-accent-text transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-transparent disabled:text-text-faint"
           >
             Save
           </button>
         </div>
         {/* One line instead of four. The old paragraph said the same thing
             three ways and was long enough that nobody read any of them. */}
-        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-text-faint">
+        <div className="mt-1.5 flex items-center gap-1.5 text-micro text-text-faint">
           <IconKey size={11} className="shrink-0" />
           <span className="min-w-0 flex-1">Kept in this browser. Never sent to our server.</span>
           {apiKey && (
@@ -330,14 +330,14 @@ export function SettingsPanel({
         {apiKey && (
           <div className="mt-6">
             <div className="mb-1.5 flex items-center justify-between">
-              <label htmlFor="model-select" className="block text-[12px] font-medium text-text-secondary">
+              <label htmlFor="model-select" className="block text-dense font-medium text-text-secondary">
                 Model
               </label>
               {errorToken === token && (
                 <button
                   type="button"
                   onClick={() => setErrorToken(null)}
-                  className="text-[11px] text-danger underline-offset-2 hover:underline"
+                  className="text-micro text-danger underline-offset-2 hover:underline"
                 >
                   Model list failed — retry
                 </button>
@@ -350,7 +350,7 @@ export function SettingsPanel({
                 id="model-select"
                 value={model}
                 onChange={(e) => onModelChange(e.target.value)}
-                className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-[13px] text-text focus:border-accent focus:outline-none"
+                className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-dense text-text focus:border-accent focus:outline-none"
               >
                 {/* The selected model always has an option of its own, even
                     when the fetched list has not arrived or does not contain
@@ -377,12 +377,12 @@ export function SettingsPanel({
             the reader has no way to press is not a shorter list, it is a list
             of things that do not apply to them. */}
         <div className="mt-6 hidden pointer-fine:block">
-          <h3 className="mb-2 text-[12px] font-medium text-text-secondary">Shortcuts</h3>
+          <h3 className="mb-2 text-dense font-medium text-text-secondary">Shortcuts</h3>
           <dl className="space-y-1.5">
             {SHORTCUTS.map((s) => (
               <div key={s.label} className="flex items-center justify-between">
-                <dt className="text-[12px] text-text-muted">{s.label}</dt>
-                <dd className="rounded border border-border-subtle bg-surface px-1.5 py-px font-mono text-[11px] text-text-faint">
+                <dt className="text-dense text-text-muted">{s.label}</dt>
+                <dd className="rounded border border-border-subtle bg-surface px-1.5 py-px font-mono text-micro text-text-faint">
                   {s.keys}
                 </dd>
               </div>
@@ -401,7 +401,7 @@ export function SettingsPanel({
             <Link
               key={link.href}
               href={link.href}
-              className="block rounded-lg px-2.5 py-2 text-[13px] text-text-muted transition-colors hover:bg-surface hover:text-text"
+              className="block rounded-lg px-2.5 py-2 text-dense text-text-muted transition-colors hover:bg-surface hover:text-text"
             >
               {link.label} →
             </Link>
@@ -418,7 +418,7 @@ export function SettingsPanel({
                 {/* The provider names belong here, at the moment of decision,
                     rather than as a standing second line restating the button
                     above them. */}
-                <p className="text-[12px] leading-relaxed text-text-secondary">
+                <p className="text-dense leading-relaxed text-text-secondary">
                   Remove stored keys for{" "}
                   {providersWithKey.map((id) => PROVIDERS[id].label).join(" and ")}? You&apos;ll
                   need to paste them again.
@@ -433,14 +433,14 @@ export function SettingsPanel({
                       setModels(null);
                       setErrorToken(null);
                     }}
-                    className="rounded-md border border-danger/40 px-2.5 py-1 text-[12px] text-danger transition-colors hover:bg-danger/10"
+                    className="rounded-md border border-danger/40 px-2.5 py-1 text-dense text-danger transition-colors hover:bg-danger/10"
                   >
                     Clear all keys
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirmClearAll(false)}
-                    className="px-1 text-[12px] text-text-faint transition-colors hover:text-text"
+                    className="px-1 text-dense text-text-faint transition-colors hover:text-text"
                   >
                     Cancel
                   </button>
@@ -450,7 +450,7 @@ export function SettingsPanel({
               <button
                 type="button"
                 onClick={() => setConfirmClearAll(true)}
-                className="text-[12px] text-text-faint transition-colors hover:text-danger"
+                className="text-dense text-text-faint transition-colors hover:text-danger"
               >
                 Clear all stored keys ({providersWithKey.length})
               </button>

@@ -39,7 +39,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
             aria-label={label}
             title={label}
             onClick={() => setPreference(option)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-[12px] transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-dense transition-colors ${
               active
                 ? "bg-surface-raised font-medium text-text"
                 : "text-text-muted hover:text-text"

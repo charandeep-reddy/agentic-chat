@@ -167,10 +167,10 @@ export function QuestionPrompt({
         className="overflow-hidden rounded-2xl border border-border bg-surface/90 backdrop-blur-xl focus:outline-none"
       >
         <div className="flex items-start gap-3 px-4 pb-3 pt-3.5">
-          <p className="min-w-0 flex-1 text-[15px] leading-snug text-text">{question.question}</p>
+          <p className="min-w-0 flex-1 text-prose leading-snug text-text">{question.question}</p>
           <div className="flex shrink-0 items-center gap-2">
             {count > 1 && (
-              <span className="font-mono text-[11px] text-text-faint">
+              <span className="font-mono text-micro text-text-faint">
                 {step + 1} of {count}
               </span>
             )}
@@ -201,12 +201,12 @@ export function QuestionPrompt({
                   onMouseEnter={() => setCursor(i)}
                   onClick={() => choose(option.label)}
                   aria-pressed={question.multiSelect ? selected : undefined}
-                  className={`flex w-full items-start gap-3 px-3 py-2.5 text-left text-[15px] transition-colors ${
+                  className={`flex w-full items-start gap-3 px-3 py-2.5 text-left text-prose transition-colors ${
                     active ? "bg-surface-raised text-text" : "text-text-secondary"
                   }`}
                 >
                   <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md font-mono text-[12px] ${
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md font-mono text-dense ${
                       selected
                         ? "bg-accent text-surface"
                         : active
@@ -222,7 +222,7 @@ export function QuestionPrompt({
                   <span className="min-w-0 flex-1 py-0.5 leading-snug">
                     {option.label}
                     {option.description && (
-                      <span className="mt-0.5 block text-[13px] leading-snug text-text-faint">
+                      <span className="mt-0.5 block text-dense leading-snug text-text-faint">
                         {option.description}
                       </span>
                     )}
@@ -230,7 +230,7 @@ export function QuestionPrompt({
                   {active && !question.multiSelect && (
                     <span
                       aria-hidden
-                      className="hidden shrink-0 py-0.5 font-mono text-[13px] text-text-faint pointer-fine:block"
+                      className="hidden shrink-0 py-0.5 font-mono text-dense text-text-faint pointer-fine:block"
                     >
                       ⏎
                     </span>
@@ -261,13 +261,13 @@ export function QuestionPrompt({
                 }}
                 maxLength={160}
                 placeholder="Type your answer…"
-                className="min-w-0 flex-1 bg-transparent text-[15px] text-text placeholder-text-faint focus:outline-none"
+                className="min-w-0 flex-1 bg-transparent text-prose text-text placeholder-text-faint focus:outline-none"
               />
               <button
                 type="button"
                 onClick={commitCustom}
                 disabled={custom.trim() === ""}
-                className="shrink-0 rounded-md border border-border-strong px-2.5 py-1 text-xs text-text-secondary transition-colors hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 rounded-md border border-border-strong px-2.5 py-1 text-dense text-text-secondary transition-colors hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {question.multiSelect ? "Add" : "Send"}
               </button>
@@ -282,7 +282,7 @@ export function QuestionPrompt({
                 type="button"
                 onMouseEnter={() => setCursor(customRow)}
                 onClick={() => setEditing(true)}
-                className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left text-[15px] text-text-faint"
+                className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left text-prose text-text-faint"
               >
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-surface-raised">
                   <IconEdit size={13} />
@@ -292,7 +292,7 @@ export function QuestionPrompt({
               <button
                 type="button"
                 onClick={skip}
-                className="shrink-0 rounded-md bg-surface-raised px-2.5 py-1.5 text-[13px] text-text-secondary transition-colors hover:text-text"
+                className="shrink-0 rounded-md bg-surface-raised px-2.5 py-1.5 text-dense text-text-secondary transition-colors hover:text-text"
               >
                 Skip
               </button>
@@ -306,7 +306,7 @@ export function QuestionPrompt({
               <button
                 type="button"
                 onClick={back}
-                className="flex items-center gap-1 rounded-md px-2 py-1 text-[13px] text-text-secondary transition-colors hover:bg-surface-raised hover:text-text"
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-dense text-text-secondary transition-colors hover:bg-surface-raised hover:text-text"
               >
                 <span aria-hidden className="rotate-90">
                   <IconChevron size={14} />
@@ -321,7 +321,7 @@ export function QuestionPrompt({
                 type="button"
                 onClick={() => leave(picks)}
                 disabled={!canContinue}
-                className="rounded-md border border-transparent bg-accent px-3 py-1.5 text-[13px] font-medium text-surface transition-colors disabled:border-border-subtle disabled:bg-transparent disabled:text-text-faint"
+                className="rounded-md border border-transparent bg-accent px-3 py-1.5 text-dense font-medium text-surface transition-colors disabled:border-border-subtle disabled:bg-transparent disabled:text-text-faint"
               >
                 {isLast ? "Send" : "Next"}
               </button>
@@ -333,7 +333,7 @@ export function QuestionPrompt({
       {/* Only where those keys exist. On a phone this was instructions for
           hardware the reader does not have, and a UI that tells you to press
           arrow keys on a touchscreen spends credibility it needs elsewhere. */}
-      <p className="hidden px-1 pt-2 text-center font-mono text-[11px] text-text-faint pointer-fine:block">
+      <p className="hidden px-1 pt-2 text-center font-mono text-micro text-text-faint pointer-fine:block">
         ↑↓ to navigate · {question.multiSelect ? "Enter to toggle" : "Enter to select"} · or type
         below
       </p>

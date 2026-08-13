@@ -32,7 +32,7 @@ export default async function PackPage({ params }: Props) {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border-subtle px-4">
-        <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-text">
+        <Link href="/" className="flex items-center gap-2 text-ui font-semibold text-text">
           <IconSpark size={15} className="text-accent" />
           Agentic Chat
         </Link>
@@ -45,7 +45,7 @@ export default async function PackPage({ params }: Props) {
           </span>
           <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight text-text">{pack.name}</h1>
-            <p className="mt-0.5 text-[12px] text-text-faint">
+            <p className="mt-0.5 text-dense text-text-faint">
               {entries.length} {entries.length === 1 ? "memory" : "memories"}
               {pack.installCount > 0 && ` · installed ${pack.installCount} times`}
             </p>
@@ -53,15 +53,15 @@ export default async function PackPage({ params }: Props) {
         </div>
 
         {pack.description && (
-          <p className="mt-4 text-[13px] leading-relaxed text-text-muted">{pack.description}</p>
+          <p className="mt-4 text-dense leading-relaxed text-text-muted">{pack.description}</p>
         )}
 
         <div className="mt-6">
           <InstallPackButton slug={pack.slug} />
         </div>
 
-        <h2 className="mt-9 text-[13px] font-medium text-text-secondary">What you&apos;ll get</h2>
-        <p className="mt-1 text-[11px] leading-relaxed text-text-faint">
+        <h2 className="mt-9 text-dense font-medium text-text-secondary">What you&apos;ll get</h2>
+        <p className="mt-1 text-micro leading-relaxed text-text-faint">
           These are copied into your own memory. You can edit or delete any of them afterwards, and
           removing the pack removes exactly what it added.
         </p>
@@ -71,10 +71,10 @@ export default async function PackPage({ params }: Props) {
               key={i}
               className="flex items-start gap-2.5 rounded-lg border border-border-subtle bg-surface/40 px-3 py-2.5"
             >
-              <span className="mt-px shrink-0 rounded-full border border-border-subtle px-1.5 py-px font-mono text-[10px] text-text-faint">
+              <span className="mt-px shrink-0 rounded-full border border-border-subtle px-1.5 py-px font-mono text-micro text-text-faint">
                 {entry.category}
               </span>
-              <span className="text-[13px] leading-relaxed text-text-secondary">
+              <span className="text-dense leading-relaxed text-text-secondary">
                 {entry.content}
               </span>
             </li>

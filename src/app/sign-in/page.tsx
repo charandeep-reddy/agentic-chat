@@ -19,7 +19,7 @@ export default async function SignInPage() {
             <IconSpark size={22} />
           </span>
           <h1 className="text-2xl font-semibold tracking-tight text-text">Agentic Chat</h1>
-          <p className="mt-2 text-sm text-text-muted">
+          <p className="mt-2 text-ui text-text-muted">
             Sign in to keep your conversations, memories, and settings across devices.
           </p>
         </div>
@@ -29,7 +29,7 @@ export default async function SignInPage() {
             <SignInButtons providers={enabledProviders} />
             <div className="my-6 flex items-center gap-3">
               <span className="h-px flex-1 bg-border-subtle" />
-              <span className="text-[11px] uppercase tracking-wide text-text-faint">or</span>
+              <span className="text-micro uppercase tracking-wide text-text-faint">or</span>
               <span className="h-px flex-1 bg-border-subtle" />
             </div>
           </>
@@ -38,7 +38,7 @@ export default async function SignInPage() {
         <EmailAuthForm />
 
         {enabledProviders.length === 0 && (
-          <p className="mt-4 text-[11px] leading-relaxed text-text-faint">
+          <p className="mt-4 text-micro leading-relaxed text-text-faint">
             Social sign-in is off because no OAuth credentials are set. Add{" "}
             <code className="font-mono">GOOGLE_CLIENT_ID</code>/
             <code className="font-mono">GOOGLE_CLIENT_SECRET</code> or the GitHub equivalents to{" "}
@@ -47,7 +47,7 @@ export default async function SignInPage() {
           </p>
         )}
 
-        <p className="mt-8 text-center text-[11px] leading-relaxed text-text-faint">
+        <p className="mt-8 text-center text-micro leading-relaxed text-text-faint">
           Your model API key stays in your browser and is sent per-request. It is never written to
           the server.
         </p>

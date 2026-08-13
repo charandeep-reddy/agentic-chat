@@ -145,7 +145,7 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
             />
           </div>
         ) : (
-          <pre className="scroll-thin max-h-[520px] overflow-auto rounded-lg border border-border-subtle bg-bg-elevated p-3 font-mono text-[11px] leading-relaxed text-text-secondary">
+          <pre className="scroll-thin max-h-[520px] overflow-auto rounded-lg border border-border-subtle bg-bg-elevated p-3 font-mono text-micro leading-relaxed text-text-secondary">
             <code>{spec.html}</code>
           </pre>
         )}
@@ -175,7 +175,7 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
         {spec.warnings.length > 0 && (
           <ul className="mt-1.5 space-y-0.5">
             {spec.warnings.map((w) => (
-              <li key={w} className="text-[11px] text-warn">
+              <li key={w} className="text-micro text-warn">
                 {w}
               </li>
             ))}
@@ -194,7 +194,7 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
           <div className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-surface">
             <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
               <IconCode size={14} className="text-accent" />
-              <h3 className="text-[13px] font-medium text-text">{spec.title ?? "HTML"}</h3>
+              <h3 className="text-dense font-medium text-text">{spec.title ?? "HTML"}</h3>
               <div className="ml-auto flex items-center gap-2">
                 <WidgetAction onClick={openInTab} label="Open in a new tab">
                   <IconExternal size={14} />
@@ -202,11 +202,11 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
                 <button
                   type="button"
                   onClick={() => setFullscreen(false)}
-                  className="rounded-md px-2 py-1 text-xs text-text-muted hover:bg-surface-raised hover:text-text"
+                  className="rounded-md px-2 py-1 text-dense text-text-muted hover:bg-surface-raised hover:text-text"
                 >
                   {/* The button stays; only the key it doubles for goes. */}
                   Close{" "}
-                  <kbd className="ml-1 hidden font-mono text-[10px] pointer-fine:inline">esc</kbd>
+                  <kbd className="ml-1 hidden font-mono text-micro pointer-fine:inline">esc</kbd>
                 </button>
               </div>
             </header>

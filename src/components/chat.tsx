@@ -407,7 +407,7 @@ export function Chat({
           <IconSidebar size={16} />
         </button>
 
-        <h1 className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-secondary">
+        <h1 className="min-w-0 flex-1 truncate text-dense font-medium text-text-secondary">
           {title}
         </h1>
 
@@ -431,7 +431,7 @@ export function Chat({
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          className="key-pill flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors"
+          className="key-pill flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-dense transition-colors"
         >
           <IconKey size={12} />
           <span data-when="key">Connected</span>
@@ -464,14 +464,14 @@ export function Chat({
           {failure && (
             <div
               role="alert"
-              className="mt-6 flex items-center gap-3 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger"
+              className="mt-6 flex items-center gap-3 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-ui text-danger"
             >
               <span className="min-w-0 flex-1">{failure.message}</span>
               {failure.showSettings && (
                 <button
                   type="button"
                   onClick={() => setSettingsOpen(true)}
-                  className="shrink-0 rounded-md border border-danger/40 px-2.5 py-1 text-xs hover:bg-danger/10"
+                  className="shrink-0 rounded-md border border-danger/40 px-2.5 py-1 text-dense hover:bg-danger/10"
                 >
                   Settings
                 </button>

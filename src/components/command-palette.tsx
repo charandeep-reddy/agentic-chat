@@ -181,16 +181,16 @@ export function CommandPalette() {
                 if (target) go(target.href);
               }
             }}
-            className="w-full bg-transparent py-3.5 text-sm text-text placeholder:text-text-faint focus:outline-none"
+            className="w-full bg-transparent py-3.5 text-ui text-text placeholder:text-text-faint focus:outline-none"
           />
           {/* Touch closes this by tapping outside; there is no esc to offer. */}
-          <kbd className="hidden shrink-0 rounded border border-border-subtle px-1.5 py-0.5 font-mono text-[10px] text-text-faint pointer-fine:block">
+          <kbd className="hidden shrink-0 rounded border border-border-subtle px-1.5 py-0.5 font-mono text-micro text-text-faint pointer-fine:block">
             esc
           </kbd>
         </div>
 
         {commands.length === 0 ? (
-          <p role="status" className="px-4 py-8 text-center text-[13px] text-text-faint">
+          <p role="status" className="px-4 py-8 text-center text-dense text-text-faint">
             Nothing matches &ldquo;{query}&rdquo;.
           </p>
         ) : (
@@ -213,14 +213,14 @@ export function CommandPalette() {
                   tabIndex={-1}
                   onMouseEnter={() => setCursor(i)}
                   onClick={() => go(command.href)}
-                  className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors ${
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-dense transition-colors ${
                     i === cursor ? "bg-surface text-text" : "text-text-muted"
                   }`}
                 >
                   <command.icon size={14} className="shrink-0 opacity-60" />
                   <span className="min-w-0 flex-1 truncate">{command.label}</span>
                   {command.hint && (
-                    <kbd className="hidden shrink-0 rounded border border-border-subtle px-1.5 py-0.5 font-mono text-[10px] text-text-faint pointer-fine:block">
+                    <kbd className="hidden shrink-0 rounded border border-border-subtle px-1.5 py-0.5 font-mono text-micro text-text-faint pointer-fine:block">
                       {command.hint}
                     </kbd>
                   )}

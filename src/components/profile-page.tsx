@@ -116,9 +116,9 @@ export function ProfilePage({
             </span>
           )}
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-medium text-text">{user.name}</p>
-            <p className="truncate text-[13px] text-text-muted">{user.email}</p>
-            <p className="mt-0.5 text-[11px] text-text-faint">
+            <p className="truncate text-prose font-medium text-text">{user.name}</p>
+            <p className="truncate text-dense text-text-muted">{user.email}</p>
+            <p className="mt-0.5 text-micro text-text-faint">
               Joined {new Date(user.createdAt).toLocaleDateString(undefined, {
                 month: "long",
                 year: "numeric",
@@ -137,7 +137,7 @@ export function ProfilePage({
               key={stat.label}
               className="rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2.5"
             >
-              <dt className="text-[11px] uppercase tracking-wider text-text-faint">{stat.label}</dt>
+              <dt className="text-micro uppercase tracking-wider text-text-faint">{stat.label}</dt>
               <dd className="mt-0.5 font-mono text-lg text-text">{stat.value}</dd>
             </div>
           ))}
@@ -155,10 +155,10 @@ export function ProfilePage({
               className="flex items-center gap-3 rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2.5"
             >
               <ProviderIcon id={provider.id} />
-              <span className="flex-1 text-[13px] text-text-secondary">
+              <span className="flex-1 text-dense text-text-secondary">
                 {PROVIDER_LABELS[provider.id] ?? provider.id}
               </span>
-              <span className="text-[11px] text-text-faint">
+              <span className="text-micro text-text-faint">
                 since {new Date(provider.connectedAt).toLocaleDateString()}
               </span>
             </li>
@@ -179,7 +179,7 @@ export function ProfilePage({
         title="Custom instructions"
         description="Injected into every conversation. Keep it short — a few sentences beats a manifesto."
         action={
-          <span className="shrink-0 text-[11px] text-text-faint">
+          <span className="shrink-0 text-micro text-text-faint">
             {saving ? "Saving…" : dirty ? "Unsaved" : "Saved"}
           </span>
         }
@@ -188,7 +188,7 @@ export function ProfilePage({
           <div>
             <label
               htmlFor="about-user"
-              className="mb-1.5 block text-[12px] font-medium text-text-secondary"
+              className="mb-1.5 block text-dense font-medium text-text-secondary"
             >
               What should the model know about you?
             </label>
@@ -199,9 +199,9 @@ export function ProfilePage({
               value={settings.aboutUser}
               placeholder={ABOUT_PLACEHOLDER}
               onChange={(e) => setSettings({ ...settings, aboutUser: e.target.value })}
-              className="scroll-thin w-full resize-y rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2.5 text-[13px] leading-relaxed text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
+              className="scroll-thin w-full resize-y rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2.5 text-dense leading-relaxed text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
             />
-            <p className="mt-1 text-right text-[11px] text-text-faint">
+            <p className="mt-1 text-right text-micro text-text-faint">
               {settings.aboutUser.length}/{MAX_LENGTH}
             </p>
           </div>
@@ -209,7 +209,7 @@ export function ProfilePage({
           <div>
             <label
               htmlFor="response-style"
-              className="mb-1.5 block text-[12px] font-medium text-text-secondary"
+              className="mb-1.5 block text-dense font-medium text-text-secondary"
             >
               How should the model respond?
             </label>
@@ -220,9 +220,9 @@ export function ProfilePage({
               value={settings.responseStyle}
               placeholder={STYLE_PLACEHOLDER}
               onChange={(e) => setSettings({ ...settings, responseStyle: e.target.value })}
-              className="scroll-thin w-full resize-y rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2.5 text-[13px] leading-relaxed text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
+              className="scroll-thin w-full resize-y rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2.5 text-dense leading-relaxed text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
             />
-            <p className="mt-1 text-right text-[11px] text-text-faint">
+            <p className="mt-1 text-right text-micro text-text-faint">
               {settings.responseStyle.length}/{MAX_LENGTH}
             </p>
           </div>
@@ -231,7 +231,7 @@ export function ProfilePage({
             type="button"
             disabled={!dirty || saving}
             onClick={() => void save()}
-            className="rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-accent-text hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg bg-accent px-4 py-2 text-dense font-medium text-accent-text hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Save instructions
           </button>
@@ -249,11 +249,11 @@ export function ProfilePage({
             onChange={(e) => void save({ memoryEnabled: e.target.checked })}
             className="h-4 w-4 accent-[var(--accent)]"
           />
-          <span className="text-[13px] text-text-secondary">
+          <span className="text-dense text-text-secondary">
             Let the model remember things across conversations
           </span>
         </label>
-        <p className="mt-2 text-[11px] leading-relaxed text-text-faint">
+        <p className="mt-2 text-micro leading-relaxed text-text-faint">
           Turning this off hides the memory tools from the model and stops injecting saved memories.
           Nothing is deleted — manage or clear them on the{" "}
           <a href="/memory" className="text-accent underline-offset-2 hover:underline">
@@ -269,7 +269,7 @@ export function ProfilePage({
       >
         <a
           href="/api/account/export"
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-3.5 py-2 text-[13px] text-text-secondary transition-colors hover:border-border-strong hover:text-text"
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-3.5 py-2 text-dense text-text-secondary transition-colors hover:border-border-strong hover:text-text"
         >
           <IconDownload size={14} />
           Export everything as JSON
@@ -277,8 +277,8 @@ export function ProfilePage({
       </Section>
 
       <section className="rounded-xl border border-danger/25 bg-danger-soft/50 p-5">
-        <h3 className="text-[14px] font-medium text-danger">Danger zone</h3>
-        <p className="mt-1 text-[12px] leading-relaxed text-text-faint">
+        <h3 className="text-ui font-medium text-danger">Danger zone</h3>
+        <p className="mt-1 text-dense leading-relaxed text-text-faint">
           Both actions are immediate and cannot be undone. Export first if you might want the data.
         </p>
 
@@ -302,13 +302,13 @@ export function ProfilePage({
               className="flex items-center gap-3 rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2.5"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] text-text-secondary">{action.label}</p>
-                <p className="text-[11px] text-text-faint">{action.hint}</p>
+                <p className="text-dense text-text-secondary">{action.label}</p>
+                <p className="text-micro text-text-faint">{action.hint}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setDanger(action.scope)}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-danger/40 px-3 py-1.5 text-[12px] text-danger hover:bg-danger/10"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-danger/40 px-3 py-1.5 text-dense text-danger hover:bg-danger/10"
               >
                 <IconTrash size={12} />
                 Delete

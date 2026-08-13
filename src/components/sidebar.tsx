@@ -119,7 +119,7 @@ const ChatRow = memo(function ChatRow({
             setRenaming(false);
           }
         }}
-        className="w-full rounded-lg border border-accent/50 bg-surface px-2.5 py-2 text-[13px] text-text focus:outline-none"
+        className="w-full rounded-lg border border-accent/50 bg-surface px-2.5 py-2 text-dense text-text focus:outline-none"
       />
     );
   }
@@ -128,7 +128,7 @@ const ChatRow = memo(function ChatRow({
     <div className="group relative">
       <Link
         href={`/c/${chat.id}`}
-        className={`flex items-center gap-2 rounded-lg px-2.5 py-2 pr-8 text-[13px] transition-colors ${
+        className={`flex items-center gap-2 rounded-lg px-2.5 py-2 pr-8 text-dense transition-colors ${
           active
             ? "bg-surface-raised text-text"
             : "text-text-muted hover:bg-surface hover:text-text-secondary"
@@ -187,7 +187,7 @@ const ChatRow = memo(function ChatRow({
                 setMenuOpen(false);
                 item.run();
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] text-text-secondary hover:bg-surface hover:text-text"
+              className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-dense text-text-secondary hover:bg-surface hover:text-text"
             >
               {item.icon}
               {item.label}
@@ -201,7 +201,7 @@ const ChatRow = memo(function ChatRow({
               setMenuOpen(false);
               setConfirming(true);
             }}
-            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] text-danger hover:bg-danger-soft"
+            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-dense text-danger hover:bg-danger-soft"
           >
             <IconTrash size={13} />
             Delete
@@ -253,7 +253,7 @@ function UserMenu({ user }: { user: SidebarUser }) {
             href="/profile"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-text-secondary hover:bg-surface hover:text-text"
+            className="flex items-center gap-2.5 px-3 py-2 text-dense text-text-secondary hover:bg-surface hover:text-text"
           >
             <IconUser size={14} />
             Profile & settings
@@ -262,7 +262,7 @@ function UserMenu({ user }: { user: SidebarUser }) {
             href="/memory"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-text-secondary hover:bg-surface hover:text-text"
+            className="flex items-center gap-2.5 px-3 py-2 text-dense text-text-secondary hover:bg-surface hover:text-text"
           >
             <IconBrain size={14} />
             Memory
@@ -271,7 +271,7 @@ function UserMenu({ user }: { user: SidebarUser }) {
             href="/skills"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 px-3 py-2 text-[13px] text-text-secondary hover:bg-surface hover:text-text"
+            className="flex items-center gap-2.5 px-3 py-2 text-dense text-text-secondary hover:bg-surface hover:text-text"
           >
             <IconSpark size={14} />
             Skills
@@ -283,7 +283,7 @@ function UserMenu({ user }: { user: SidebarUser }) {
               setOpen(false);
               setConfirmingSignOut(true);
             }}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-text-secondary hover:bg-surface hover:text-text"
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-dense text-text-secondary hover:bg-surface hover:text-text"
           >
             <IconLogout size={14} />
             Sign out
@@ -333,10 +333,10 @@ function UserMenu({ user }: { user: SidebarUser }) {
           </span>
         )}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-medium text-text-secondary">
+          <span className="block truncate text-dense font-medium text-text-secondary">
             {user.name}
           </span>
-          <span className="block truncate text-[11px] text-text-faint">{user.email}</span>
+          <span className="block truncate text-micro text-text-faint">{user.email}</span>
         </span>
       </button>
     </div>
@@ -410,7 +410,7 @@ export function Sidebar({
       >
         <div className="flex h-full w-[270px] flex-col">
           <div className="flex items-center justify-between px-3 py-3">
-            <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-text">
+            <Link href="/" className="flex items-center gap-2 text-ui font-semibold text-text">
               <IconSpark size={15} className="text-accent" />
               Agentic Chat
             </Link>
@@ -425,7 +425,7 @@ export function Sidebar({
                 startNewChat();
                 onClose();
               }}
-              className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-[13px] font-medium text-text transition-colors hover:border-border-strong hover:bg-surface-raised"
+              className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-dense font-medium text-text transition-colors hover:border-border-strong hover:bg-surface-raised"
             >
               <IconPlus size={14} />
               New chat
@@ -442,14 +442,14 @@ export function Sidebar({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search chats"
-                className="w-full rounded-lg border border-border-subtle bg-surface py-2 pl-8 pr-3 text-[13px] text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
+                className="w-full rounded-lg border border-border-subtle bg-surface py-2 pl-8 pr-3 text-dense text-text placeholder:text-text-faint focus:border-border-strong focus:outline-none"
               />
             </div>
           </div>
 
           <nav className="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-2">
             {groups.length === 0 ? (
-              <p className="px-2 py-4 text-[13px] leading-relaxed text-text-faint">
+              <p className="px-2 py-4 text-dense leading-relaxed text-text-faint">
                 {search
                   ? `No chats match "${search}".`
                   : showArchived
@@ -459,7 +459,7 @@ export function Sidebar({
             ) : (
               groups.map((group) => (
                 <div key={group.label} className="mb-3">
-                  <h2 className="px-2.5 pb-1 text-[11px] font-medium uppercase tracking-wider text-text-faint">
+                  <h2 className="px-2.5 pb-1 text-micro font-medium uppercase tracking-wider text-text-faint">
                     {group.label}
                   </h2>
                   <div className="space-y-0.5">
@@ -477,7 +477,7 @@ export function Sidebar({
             {hasMore && (
               <Link
                 href={showArchived ? "/chats?archived=1" : "/chats"}
-                className="mt-1 flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] text-text-muted transition-colors hover:bg-surface hover:text-text"
+                className="mt-1 flex items-center justify-between rounded-lg px-2.5 py-2 text-dense text-text-muted transition-colors hover:bg-surface hover:text-text"
               >
                 All chats
                 <span aria-hidden className="text-text-faint">
@@ -491,7 +491,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => setShowArchived(!showArchived)}
-              className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12px] text-text-faint transition-colors hover:bg-surface hover:text-text-secondary"
+              className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-dense text-text-faint transition-colors hover:bg-surface hover:text-text-secondary"
             >
               <IconArchive size={13} />
               {showArchived ? "Back to active chats" : "Archived"}

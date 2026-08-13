@@ -36,14 +36,14 @@ export default async function SharedChatPage({ params }: Props) {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-3 border-b border-border-subtle bg-bg/90 px-4 backdrop-blur">
-        <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-text">
+        <Link href="/" className="flex items-center gap-2 text-ui font-semibold text-text">
           <IconSpark size={15} className="text-accent" />
           Agentic Chat
         </Link>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-text-muted">{chat.title}</span>
+        <span className="min-w-0 flex-1 truncate text-dense text-text-muted">{chat.title}</span>
         <Link
           href="/"
-          className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-text hover:brightness-110"
+          className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-dense font-medium text-accent-text hover:brightness-110"
         >
           Try it
         </Link>
@@ -51,7 +51,7 @@ export default async function SharedChatPage({ params }: Props) {
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">
         <div className="mb-6 rounded-xl border border-border-subtle bg-surface/40 px-4 py-3">
-          <p className="text-[13px] text-text-secondary">
+          <p className="text-dense text-text-secondary">
             <span className="font-medium text-text">{chat.ownerName}</span> shared this conversation
             {chat.sharedAt && (
               <span className="text-text-faint">
@@ -61,7 +61,7 @@ export default async function SharedChatPage({ params }: Props) {
             )}
             .
           </p>
-          <p className="mt-1 text-[11px] text-text-faint">
+          <p className="mt-1 text-micro text-text-faint">
             Read-only. Nothing you do here is sent back to the author.
           </p>
         </div>

@@ -123,7 +123,7 @@ const UserMessage = memo(function UserMessage({
     return (
       <div className="flex justify-end">
         <div className="rounded-lg border border-border-subtle bg-surface/60 px-3 py-1.5">
-          <span className="text-[11px] text-text-faint">
+          <span className="text-micro text-text-faint">
             answered: <span className="font-medium text-text-secondary">{text}</span>
           </span>
         </div>
@@ -151,7 +151,7 @@ const UserMessage = memo(function UserMessage({
                 setEditing(false);
               }
             }}
-            className="w-full resize-none bg-transparent px-2 py-1 text-sm text-text focus:outline-none"
+            className="w-full resize-none bg-transparent px-2 py-1 text-prose text-text focus:outline-none"
           />
           <div className="flex items-center justify-end gap-2 px-1 pt-1">
             <button
@@ -160,7 +160,7 @@ const UserMessage = memo(function UserMessage({
                 setDraft(text);
                 setEditing(false);
               }}
-              className="rounded-md px-2.5 py-1 text-xs text-text-muted hover:text-text"
+              className="rounded-md px-2.5 py-1 text-dense text-text-muted hover:text-text"
             >
               Cancel
             </button>
@@ -171,7 +171,7 @@ const UserMessage = memo(function UserMessage({
                 onEdit(message.id, draft.trim());
                 setEditing(false);
               }}
-              className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-accent-text hover:brightness-110 disabled:opacity-40"
+              className="rounded-md bg-accent px-3 py-1 text-dense font-medium text-accent-text hover:brightness-110 disabled:opacity-40"
             >
               Send
             </button>
@@ -183,7 +183,7 @@ const UserMessage = memo(function UserMessage({
 
   return (
     <div className="group flex flex-col items-end gap-1">
-      <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-sm text-accent-text">
+      <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-prose text-accent-text">
         {text}
       </div>
       <div className="flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
@@ -234,7 +234,7 @@ function UsageNote({ message }: { message: UIMessage }) {
     .join("\n");
 
   return (
-    <span title={detail} className="ml-1 font-mono text-[11px] text-text-faint">
+    <span title={detail} className="ml-1 font-mono text-micro text-text-faint">
       {formatTokens(usage.total ?? 0)} tok
       {cost !== undefined && <span className="ml-1.5">{formatCost(cost)}</span>}
     </span>
@@ -369,7 +369,7 @@ export function MessageList({
         </div>
       ) : (
         busy && (
-          <div role="status" className="flex items-center gap-2 text-xs text-text-faint">
+          <div role="status" className="flex items-center gap-2 text-dense text-text-faint">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
             Working…
           </div>
