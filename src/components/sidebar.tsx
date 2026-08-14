@@ -12,10 +12,13 @@ import {
 } from "./chats-provider";
 import { ConfirmDialog } from "./confirm-dialog";
 import { startNewChat } from "./new-chat";
+import { useProjects, useProjectsActions } from "./projects-provider";
 import { useMenu } from "./use-menu";
+import { MAX_PROJECT_NAME } from "@/lib/projects";
 import {
-  IconArchive,
   IconBrain,
+  IconCheck,
+  IconFolder,
   IconLogout,
   IconMore,
   IconPin,
@@ -65,6 +68,70 @@ function groupChats(chats: ChatSummary[]): Array<{ label: string; items: ChatSum
 }
 
 /**
+ * The second panel of a chat row's menu: where to move it.
+ *
+ * A flat list with a check against the current one, rather than a picker with
+ * its own trigger. The menu is already open and already about this chat, so the
+ * only question left is which project — and "No project" belongs in the same
+ * list as the rest, since unfiling is the same kind of choice as filing.
+ */
+function MoveToProject({
+  current,
+  onBack,
+  onPick,
+}: {
+  current: string | null;
+  onBack: () => void;
+  onPick: (projectId: string | null) => void;
+}) {
+  const projects = useProjects();
+
+  return (
+    <>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onBack}
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-micro font-medium uppercase tracking-wider text-text-faint hover:bg-surface hover:text-text-secondary"
+      >
+        <span aria-hidden>&lsaquo;</span>
+        Move to project
+      </button>
+      <div className="my-1 border-t border-border-subtle" role="separator" />
+
+      <div className="scroll-thin max-h-56 overflow-y-auto">
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => onPick(null)}
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-dense text-text-secondary hover:bg-surface hover:text-text"
+        >
+          <span className="w-3.5 shrink-0">
+            {!current && <IconCheck size={13} className="text-accent" />}
+          </span>
+          No project
+        </button>
+
+        {projects.map((project) => (
+          <button
+            key={project.id}
+            type="button"
+            role="menuitem"
+            onClick={() => onPick(project.id)}
+            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-dense text-text-secondary hover:bg-surface hover:text-text"
+          >
+            <span className="w-3.5 shrink-0">
+              {project.id === current && <IconCheck size={13} className="text-accent" />}
+            </span>
+            <span className="truncate">{project.name}</span>
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/**
  * One row in the chat list.
  *
  * Memoized because there can be a couple of hundred of these: without it, any
@@ -84,12 +151,19 @@ const ChatRow = memo(function ChatRow({
   active: boolean;
 }) {
   const { patchChat, removeChat } = useChatsActions();
+  const projects = useProjects();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [movingToProject, setMovingToProject] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(chat.title);
-  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  // The second panel is reset on the way out, so reopening the menu always
+  // starts at the top rather than wherever it was abandoned.
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+    setMovingToProject(false);
+  }, []);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useMenu<HTMLDivElement>({
     open: menuOpen,
@@ -160,52 +234,87 @@ const ChatRow = memo(function ChatRow({
           ref={menuRef}
           role="menu"
           aria-label={`Actions for ${chat.title}`}
-          className="absolute right-1 top-full z-30 mt-1 w-44 overflow-hidden rounded-lg border border-border bg-surface-raised py-1 shadow-xl"
+          className="absolute right-1 top-full z-30 mt-1 w-48 overflow-hidden rounded-lg border border-border bg-surface-raised py-1 shadow-xl"
         >
-          {[
-            {
-              label: chat.pinned ? "Unpin" : "Pin to top",
-              icon: <IconPin size={13} />,
-              run: () => void patchChat(chat.id, { pinned: !chat.pinned }),
-            },
-            {
-              label: "Rename",
-              icon: <IconSliders size={13} />,
-              run: () => setRenaming(true),
-            },
-            {
-              label: chat.archived ? "Unarchive" : "Archive",
-              icon: <IconArchive size={13} />,
-              run: () => void patchChat(chat.id, { archived: !chat.archived }),
-            },
-          ].map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              role="menuitem"
-              onClick={() => {
+          {/*
+            One menu, two panels, rather than a hover-open submenu. A submenu
+            that opens sideways has nowhere to go against the right edge of a
+            270px sidebar, and it is the hardest menu pattern to operate with a
+            finger or a keyboard.
+          */}
+          {movingToProject ? (
+            <MoveToProject
+              current={chat.projectId}
+              onBack={() => setMovingToProject(false)}
+              onPick={(projectId) => {
                 setMenuOpen(false);
-                item.run();
+                setMovingToProject(false);
+                void patchChat(chat.id, { projectId });
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-dense text-text-secondary hover:bg-surface hover:text-text"
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
-          <div className="my-1 border-t border-border-subtle" role="separator" />
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setMenuOpen(false);
-              setConfirming(true);
-            }}
-            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-dense text-danger hover:bg-danger-soft"
-          >
-            <IconTrash size={13} />
-            Delete
-          </button>
+            />
+          ) : (
+            <>
+              {[
+                {
+                  label: chat.pinned ? "Unpin" : "Pin to top",
+                  icon: <IconPin size={13} />,
+                  run: () => void patchChat(chat.id, { pinned: !chat.pinned }),
+                },
+                {
+                  label: "Rename",
+                  icon: <IconSliders size={13} />,
+                  run: () => setRenaming(true),
+                },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    item.run();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-dense text-text-secondary hover:bg-surface hover:text-text"
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+
+              {/* Only when there is somewhere to move it to. An item that opens
+                  an empty list is a promise the menu cannot keep. */}
+              {(projects.length > 0 || chat.projectId) && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  // Keeps the menu open — this one leads somewhere rather than
+                  // doing something.
+                  onClick={() => setMovingToProject(true)}
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-dense text-text-secondary hover:bg-surface hover:text-text"
+                >
+                  <IconFolder size={13} />
+                  <span className="flex-1">Move to project</span>
+                  <span aria-hidden className="text-text-faint">
+                    &rsaquo;
+                  </span>
+                </button>
+              )}
+
+              <div className="my-1 border-t border-border-subtle" role="separator" />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setConfirming(true);
+                }}
+                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-dense text-danger hover:bg-danger-soft"
+              >
+                <IconTrash size={13} />
+                Delete
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -225,6 +334,107 @@ const ChatRow = memo(function ChatRow({
     </div>
   );
 });
+
+/**
+ * The projects list, above the chats.
+ *
+ * Above rather than below because it is the shorter and more stable of the two:
+ * a handful of named folders a person made on purpose, over a list that grows
+ * on its own and is ordered by recency. Putting the stable thing first means the
+ * projects stay in the same place as the chat list churns beneath them.
+ */
+function ProjectsSection({ activeProjectId, onNavigate }: {
+  activeProjectId: string | null;
+  onNavigate: () => void;
+}) {
+  const projects = useProjects();
+  const { create } = useProjectsActions();
+  const [creating, setCreating] = useState(false);
+  const [draft, setDraft] = useState("");
+  const router = useRouter();
+
+  const commit = async () => {
+    const name = draft.trim();
+    setCreating(false);
+    setDraft("");
+    if (!name) return;
+    const project = await create({ name });
+    // Straight into the new project: the reason to make one is to put something
+    // in it, and leaving the user on the page they were on makes them find it.
+    if (project) router.push(`/projects/${project.id}`);
+  };
+
+  return (
+    <div className="mb-3">
+      <div className="flex items-center justify-between px-2.5 pb-1">
+        <h2 className="text-micro font-medium uppercase tracking-wider text-text-faint">Projects</h2>
+        <button
+          type="button"
+          aria-label="New project"
+          onClick={() => setCreating(true)}
+          className="rounded-md p-0.5 text-text-faint transition-colors hover:bg-surface hover:text-text"
+        >
+          <IconPlus size={13} />
+        </button>
+      </div>
+
+      {creating && (
+        <input
+          autoFocus
+          value={draft}
+          maxLength={MAX_PROJECT_NAME}
+          placeholder="Project name"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => void commit()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void commit();
+            if (e.key === "Escape") {
+              setDraft("");
+              setCreating(false);
+            }
+          }}
+          className="mb-1 w-full rounded-lg border border-accent/50 bg-surface px-2.5 py-2 text-dense text-text placeholder:text-text-faint focus:outline-none"
+        />
+      )}
+
+      {projects.length === 0 && !creating ? (
+        <p className="px-2.5 py-1 text-micro leading-relaxed text-text-faint">
+          Group chats that share instructions and context.
+        </p>
+      ) : (
+        <div className="space-y-0.5">
+          {projects.map((project) => (
+            <Link
+              key={project.id}
+              href={`/projects/${project.id}`}
+              onClick={() => {
+                // A project page is a new chat, so it needs the same nudge as
+                // "New chat" does: once its first message has claimed the URL,
+                // navigating back to the project is a navigation to the page
+                // already on screen, and nothing would remount.
+                startNewChat();
+                onNavigate();
+              }}
+              className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-dense transition-colors ${
+                project.id === activeProjectId
+                  ? "bg-surface-raised text-text"
+                  : "text-text-muted hover:bg-surface hover:text-text-secondary"
+              }`}
+            >
+              <IconFolder size={13} className="shrink-0 text-text-faint" />
+              <span className="truncate">{project.name}</span>
+              {project.chatCount > 0 && (
+                <span className="ml-auto shrink-0 text-micro text-text-faint">
+                  {project.chatCount}
+                </span>
+              )}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function UserMenu({ user }: { user: SidebarUser }) {
   const [open, setOpen] = useState(false);
@@ -356,10 +566,15 @@ export function Sidebar({
   onClose: () => void;
 }) {
   const { chats, hasMore } = useChatsList();
-  const { search, showArchived } = useChatsFilter();
-  const { setSearch, setShowArchived } = useChatsActions();
+  const { search } = useChatsFilter();
+  const { setSearch } = useChatsActions();
   const pathname = usePathname();
   const activeId = pathname.startsWith("/c/") ? pathname.slice(3) : null;
+  // Only the first segment after `/projects/` — the settings route lives one
+  // level deeper and must still light the same row.
+  const activeProjectId = pathname.startsWith("/projects/")
+    ? (pathname.slice(10).split("/")[0] ?? null)
+    : null;
   // Grouping walks the whole list and builds a Date per chat; without this it
   // re-ran on every keystroke in the filter box.
   const groups = useMemo(() => groupChats(chats), [chats]);
@@ -448,13 +663,13 @@ export function Sidebar({
           </div>
 
           <nav className="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+            {/* Hidden while filtering: the search is a query over chats, and a
+                projects list that ignores it reads as a result that matched. */}
+            {!search && <ProjectsSection activeProjectId={activeProjectId} onNavigate={onClose} />}
+
             {groups.length === 0 ? (
               <p className="px-2 py-4 text-dense leading-relaxed text-text-faint">
-                {search
-                  ? `No chats match "${search}".`
-                  : showArchived
-                    ? "Nothing archived."
-                    : "No chats yet — start one above."}
+                {search ? `No chats match "${search}".` : "No chats yet — start one above."}
               </p>
             ) : (
               groups.map((group) => (
@@ -476,7 +691,7 @@ export function Sidebar({
                 nothing. */}
             {hasMore && (
               <Link
-                href={showArchived ? "/chats?archived=1" : "/chats"}
+                href="/chats"
                 className="mt-1 flex items-center justify-between rounded-lg px-2.5 py-2 text-dense text-text-muted transition-colors hover:bg-surface hover:text-text"
               >
                 All chats
@@ -488,14 +703,6 @@ export function Sidebar({
           </nav>
 
           <div className="border-t border-border-subtle p-2">
-            <button
-              type="button"
-              onClick={() => setShowArchived(!showArchived)}
-              className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-dense text-text-faint transition-colors hover:bg-surface hover:text-text-secondary"
-            >
-              <IconArchive size={13} />
-              {showArchived ? "Back to active chats" : "Archived"}
-            </button>
             <UserMenu user={user} />
           </div>
         </div>

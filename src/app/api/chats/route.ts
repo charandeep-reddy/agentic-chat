@@ -10,9 +10,22 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const limit = Number(url.searchParams.get("limit")) || CHATS_PAGE_SIZE;
+
+  /**
+   * `?project=<id>` narrows to one project and `?project=none` to the ungrouped
+   * chats; leaving it off returns everything, whatever its project.
+   *
+   * Three states rather than two, because "no project" is a real filter and not
+   * the same as "no filter" — and `undefined` is what `listChats` reads as the
+   * latter.
+   */
+  const projectParam = url.searchParams.get("project");
+  const projectId =
+    projectParam === null ? undefined : projectParam === "none" ? null : projectParam;
+
   const chats = await listChats(authed.user.id, {
     search: url.searchParams.get("q") ?? undefined,
-    archived: url.searchParams.get("archived") === "1",
+    projectId,
     limit,
     // A malformed cursor reads as "first page" rather than an error: it is a
     // scroll position, and failing the whole request over one is a worse
@@ -38,7 +51,7 @@ export async function POST(req: Request) {
   const authed = await requireUserApi();
   if ("error" in authed) return authed.error;
 
-  let body: { id?: string; title?: string; model?: string } = {};
+  let body: { id?: string; title?: string; model?: string; projectId?: string | null } = {};
   try {
     body = (await req.json()) as typeof body;
   } catch {

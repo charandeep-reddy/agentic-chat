@@ -19,7 +19,14 @@ import { requireUserApi } from "@/lib/session";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createDbMemoryStore, selectPromptMemories } from "@/lib/memory-store";
 import { createDbSkillStore, selectPromptSkills } from "@/lib/skill-store";
-import { createChat, getChat, getSettings, saveMessages, truncateFrom } from "@/lib/db/queries";
+import {
+  createChat,
+  getChat,
+  getProject,
+  getSettings,
+  saveMessages,
+  truncateFrom,
+} from "@/lib/db/queries";
 import { generateTitleInBackground } from "@/lib/title";
 import { toMessageUsage } from "@/lib/usage";
 
@@ -38,6 +45,12 @@ interface ChatRequestBody {
    * with it is sound.
    */
   private?: boolean;
+  /**
+   * Which project a brand-new chat should be filed under. Ignored once the chat
+   * has a row — the stored value wins, so a stale client cannot move a
+   * conversation by resending an old id.
+   */
+  projectId?: unknown;
   /** Present on edit/regenerate: drop this message and everything after it. */
   truncateFromId?: string;
 }
@@ -124,24 +137,50 @@ export async function POST(req: Request) {
    */
   const isPrivate = body.private === true;
 
-  // These four don't depend on each other, and the database is remote enough
+  // These three don't depend on each other, and the database is remote enough
   // that doing them in sequence was the bulk of the delay before the first
-  // token. Memories are fetched even when the setting turns out to be off —
-  // it's on by default, so speculating costs far less than waiting. A private
-  // chat reads none of them, which is also why it reaches the model soonest.
-  const [settings, existingChat, candidateMemories, skills] = isPrivate
-    ? [null, null, [], []]
+  // token. A private chat reads none of them, which is also why it reaches the
+  // model soonest.
+  const [settings, existingChat, skills] = isPrivate
+    ? [null, null, []]
+    : await Promise.all([getSettings(user.id), getChat(chatId, user.id), selectPromptSkills(user.id)]);
+
+  /**
+   * Which project this conversation belongs to.
+   *
+   * A stored chat's own column wins; the body is consulted only for a chat that
+   * has no row yet, since there is nowhere else for the first turn to learn it
+   * from. That asymmetry is what stops a stale or hostile client from moving an
+   * existing conversation between projects by resending its id.
+   *
+   * The value is not validated here, and does not need to be. `getProject`
+   * filters by owner, so a foreign id yields no instructions; `createChat`
+   * re-checks before it writes, so it files the chat as ungrouped; and the
+   * memory query below is already restricted to this user's own rows, none of
+   * which can carry another user's project id.
+   */
+  const projectId = existingChat
+    ? existingChat.projectId
+    : typeof body.projectId === "string" && body.projectId
+      ? body.projectId
+      : null;
+
+  // A second round trip rather than a fourth branch of the one above: both of
+  // these need the project id, and it is not known until the chat row is. They
+  // still run together, so the cost is one hop and not two. Memories are
+  // fetched even when the setting turns out to be off — it's on by default, so
+  // speculating costs far less than waiting.
+  const [projectRow, candidateMemories] = isPrivate
+    ? [null, []]
     : await Promise.all([
-        getSettings(user.id),
-        getChat(chatId, user.id),
-        selectPromptMemories(user.id, firstUserText(messages)),
-        selectPromptSkills(user.id),
+        projectId ? getProject(projectId, user.id) : Promise.resolve(null),
+        selectPromptMemories(user.id, firstUserText(messages), projectId),
       ]);
 
   const modelId = resolveModelId(body.model, settings?.defaultModel, provider);
   const chat = isPrivate
     ? null
-    : (existingChat ?? (await createChat(user.id, { id: chatId, model: modelId })));
+    : (existingChat ?? (await createChat(user.id, { id: chatId, model: modelId, projectId })));
 
   // Edit / regenerate: the client sends the truncation point, and the message
   // list it wants to continue from. Rewriting history before we persist keeps
@@ -155,7 +194,12 @@ export async function POST(req: Request) {
   }
 
   const memoryEnabled = !isPrivate && (settings?.memoryEnabled ?? true);
-  const memoryStore = memoryEnabled ? createDbMemoryStore(user.id) : null;
+  // Scoped to the project the store was built for, which is what keeps
+  // `save_memory` writing into the project and `search_memory` from reaching
+  // outside it. `projectRow` rather than `projectId`: the former has been
+  // through the owner check, so an id the user does not own writes account-wide
+  // instead of into a stranger's project.
+  const memoryStore = memoryEnabled ? createDbMemoryStore(user.id, projectRow?.id ?? null) : null;
   const memories = memoryEnabled ? candidateMemories : [];
 
   const system = isPrivate
@@ -166,6 +210,7 @@ export async function POST(req: Request) {
         userName: user.name,
         aboutUser: settings?.aboutUser,
         responseStyle: settings?.responseStyle,
+        project: projectRow && { name: projectRow.name, instructions: projectRow.instructions },
         memories: memories.map((m) => ({ id: m.id, content: m.content, category: m.category })),
         skills,
         memoryTools: memoryEnabled,

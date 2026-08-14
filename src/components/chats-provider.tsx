@@ -29,8 +29,8 @@ export interface ChatSummary {
   id: string;
   title: string;
   pinned: boolean;
-  archived: boolean;
   shareId: string | null;
+  projectId: string | null;
   updatedAt: string;
 }
 
@@ -66,7 +66,6 @@ interface ChatsActions {
   patchChat: (id: string, patch: Partial<ChatSummary>) => Promise<void>;
   removeChat: (id: string) => Promise<void>;
   setSearch: (value: string) => void;
-  setShowArchived: (value: boolean) => void;
 }
 
 /**
@@ -84,7 +83,6 @@ interface ChatsList {
 
 interface ChatsFilter {
   search: string;
-  showArchived: boolean;
 }
 
 const ActionsContext = createContext<ChatsActions | null>(null);
@@ -107,7 +105,7 @@ export function useChatsList(): ChatsList {
   return useRequired(ListContext, "useChatsList");
 }
 
-/** The sidebar's search text and archive toggle. */
+/** The sidebar's search text. */
 export function useChatsFilter(): ChatsFilter {
   return useRequired(FilterContext, "useChatsFilter");
 }
@@ -122,7 +120,7 @@ export function ChatsProvider({
    * The layout already awaits a session, so this rides along with a query that
    * was happening anyway. It means the sidebar is populated in the first
    * paint: no mount fetch, no skeleton. Only the default view can be seeded —
-   * a search or the archived list still has to be asked for.
+   * a search still has to be asked for.
    */
   initialChats: ChatSummary[];
   children: ReactNode;
@@ -130,7 +128,6 @@ export function ChatsProvider({
   const [chats, setChats] = useState<ChatSummary[]>(initialChats);
   const [hasMore, setHasMore] = useState(initialChats.length >= PAGE_SIZE);
   const [search, setSearch] = useState("");
-  const [showArchived, setShowArchived] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   // Debounce so typing in the sidebar filter doesn't fire a query per keystroke.
@@ -149,16 +146,15 @@ export function ChatsProvider({
    * commit the query is current before any request reads it — effects run in
    * declaration order.
    */
-  const query = useRef({ search: debouncedSearch, showArchived });
+  const query = useRef({ search: debouncedSearch });
   useEffect(() => {
-    query.current = { search: debouncedSearch, showArchived };
-  }, [debouncedSearch, showArchived]);
+    query.current = { search: debouncedSearch };
+  }, [debouncedSearch]);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const params = new URLSearchParams();
-    const { search: q, showArchived: archived } = query.current;
+    const { search: q } = query.current;
     if (q.trim()) params.set("q", q.trim());
-    if (archived) params.set("archived", "1");
     try {
       const res = await fetch(`/api/chats?${params}`, { signal });
       if (!res.ok) return;
@@ -177,7 +173,7 @@ export function ChatsProvider({
    *
    * The server already rendered the default view, so fetching it again on
    * mount would be the same rows twice — and a skeleton over data that was
-   * already on screen. Any *other* query (a search, the archived list) is not
+   * already on screen. A search is not
    * seeded and must still be fetched, which is why this is spent rather than
    * checked against the filter: it is consumed by the first effect run, and
    * every run after that fetches normally.
@@ -196,7 +192,7 @@ export function ChatsProvider({
       await load(controller.signal);
     })();
     return () => controller.abort();
-  }, [load, debouncedSearch, showArchived]);
+  }, [load, debouncedSearch]);
 
   /**
    * Catch up on changes made somewhere else when the tab comes back.
@@ -248,8 +244,8 @@ export function ChatsProvider({
           body: JSON.stringify(patch),
         });
         if (!res.ok) throw new Error(String(res.status));
-        // Archiving moves the chat out of the current list; pinning reorders it.
-        if ("archived" in patch || "pinned" in patch) await load();
+        // Pinning reorders the list, so it has to come back from the server.
+        if ("pinned" in patch) await load();
       } catch (error) {
         console.error("[chats] patch failed:", error);
         setChats(previous);
@@ -296,15 +292,12 @@ export function ChatsProvider({
   }, []);
 
   const actions = useMemo<ChatsActions>(
-    () => ({ refresh: load, addChat, setChatTitle, patchChat, removeChat, setSearch, setShowArchived }),
+    () => ({ refresh: load, addChat, setChatTitle, patchChat, removeChat, setSearch }),
     [load, addChat, setChatTitle, patchChat, removeChat],
   );
 
-  const list = useMemo<ChatsList>(
-    () => ({ chats, hasMore }),
-    [chats, hasMore],
-  );
-  const filter = useMemo<ChatsFilter>(() => ({ search, showArchived }), [search, showArchived]);
+  const list = useMemo<ChatsList>(() => ({ chats, hasMore }), [chats, hasMore]);
+  const filter = useMemo<ChatsFilter>(() => ({ search }), [search]);
 
   return (
     <ActionsContext.Provider value={actions}>

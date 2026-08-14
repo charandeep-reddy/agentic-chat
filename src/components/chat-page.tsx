@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { UIMessage } from "ai";
 import { newId } from "@/lib/id";
 import { useNewChatNonce } from "./new-chat";
@@ -28,8 +28,14 @@ export function ChatPage(props: ChatPageProps) {
    * A saved chat is identified by its id. A new one has no id yet, so it is
    * identified by which "new chat" it is — remounting on request, which is
    * what makes the lazy id below run again.
+   *
+   * The project is part of that identity. Every project page is a new chat with
+   * no id, so without it, moving from one project to another kept the same
+   * mount: the same minted chat id, and a `projectId` already captured in
+   * state — the second project's page would have quietly filed its first
+   * message under the first project.
    */
-  return <ChatPageInner key={props.chatId ?? `new:${nonce}`} {...props} />;
+  return <ChatPageInner key={props.chatId ?? `new:${nonce}:${props.projectId ?? ""}`} {...props} />;
 }
 
 interface ChatPageProps {
@@ -41,6 +47,10 @@ interface ChatPageProps {
   isNew: boolean;
   /** A private chat: nothing is persisted and nothing personal is read. */
   ephemeral?: boolean;
+  /** A saved chat's project. A new one takes whichever project started it. */
+  projectId?: string | null;
+  /** Replaces the opening screen while the transcript is empty. */
+  emptyState?: ReactNode;
 }
 
 function ChatPageInner({
@@ -50,10 +60,18 @@ function ChatPageInner({
   initialShareId,
   isNew,
   ephemeral = false,
+  projectId,
+  emptyState,
 }: ChatPageProps) {
   // Lazy initializer, so switching between two chats does not re-mint on every
   // render — and so a saved chat keeps the id it was loaded with.
   const [id] = useState(() => chatId ?? newId(ephemeral ? "tmp" : "chat"));
+
+  /**
+   * The project comes from the route: `/projects/[id]` renders a new chat
+   * already scoped to it, and `/c/[id]` hands down whatever the row stores.
+   */
+  const project = ephemeral ? null : (projectId ?? null);
 
   return (
     <Chat
@@ -66,6 +84,8 @@ function ChatPageInner({
       initialShareId={initialShareId}
       isNew={isNew}
       ephemeral={ephemeral}
+      projectId={project}
+      emptyState={emptyState}
     />
   );
 }

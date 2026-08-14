@@ -95,6 +95,35 @@ export const verification = pgTable(
  * Application tables
  * ------------------------------------------------------------------ */
 
+/**
+ * A named group of conversations that share context — instructions and, later,
+ * reference material.
+ *
+ * The grouping is deliberately one level deep and non-hierarchical. A tree of
+ * projects would need a path, a move operation and a cycle check, and the thing
+ * people actually reach for is "my work chats" versus "everything else".
+ */
+export const project = pgTable(
+  "project",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Shown under the name in the picker; never sent to the model. */
+    description: text("description"),
+    /**
+     * Custom instructions for every chat in this project, layered over the
+     * account-wide ones in `buildSystemPrompt`.
+     */
+    instructions: text("instructions"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("project_user_idx").on(t.userId, t.updatedAt.desc())],
+);
+
 /** A conversation. Messages hang off it; `shareId` makes it publicly readable. */
 export const chat = pgTable(
   "chat",
@@ -104,9 +133,16 @@ export const chat = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     title: text("title").notNull().default("New chat"),
+    /**
+     * Null for an ungrouped chat, which is most of them.
+     *
+     * `set null` rather than `cascade`: deleting a project is tidying up a
+     * grouping, and it must not destroy the conversations inside it. They fall
+     * back into the ungrouped list, where they can be reassigned.
+     */
+    projectId: text("project_id").references(() => project.id, { onDelete: "set null" }),
     model: text("model"),
     pinned: boolean("pinned").notNull().default(false),
-    archived: boolean("archived").notNull().default(false),
     /** Non-null once the chat has been shared; the public link key. */
     shareId: text("share_id").unique(),
     sharedAt: timestamp("shared_at"),
@@ -121,14 +157,18 @@ export const chat = pgTable(
     // sequential scan with a filter. Needs the pg_trgm extension, enabled by
     // the migration that creates this.
     index("chat_title_trgm_idx").using("gin", sql`${t.title} gin_trgm_ops`),
-    // Exactly the sidebar's filter and sort order, so a page is an index seek
-    // to the cursor plus a scan of one page — not a scan of the user's whole
-    // history followed by a sort. `chat_user_updated_idx` cannot serve it: it
-    // has neither `archived` nor `pinned`, so every archived row still had to
-    // be read and discarded, and the ordering had to be re-derived.
-    index("chat_user_list_idx").on(
+    // Exactly the sidebar's sort order, so a page is an index seek to the
+    // cursor plus a scan of one page — not a scan of the user's whole history
+    // followed by a sort. `chat_user_updated_idx` cannot serve it: it lacks
+    // `pinned`, so the ordering had to be re-derived on every page.
+    index("chat_user_list_idx").on(t.userId, t.pinned.desc(), t.updatedAt.desc(), t.id.desc()),
+    // A project's chat list is the same keyset query with one more equality at
+    // the front. Without this it would seek `chat_user_list_idx` and then throw
+    // away every chat belonging to a different project — fine at ten projects,
+    // not at a hundred conversations spread across them.
+    index("chat_project_list_idx").on(
       t.userId,
-      t.archived,
+      t.projectId,
       t.pinned.desc(),
       t.updatedAt.desc(),
       t.id.desc(),
@@ -185,6 +225,21 @@ export const memory = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
+    /**
+     * Which project this memory belongs to, or null for an account-wide one.
+     *
+     * The scoping is one-directional: a chat inside a project reads both its own
+     * project's memories and the account-wide ones, while a chat outside every
+     * project reads only the account-wide ones. So work context never surfaces
+     * in a personal chat, and a project chat does not lose the model's grasp of
+     * who the user is.
+     *
+     * `cascade`, unlike `chat.projectId`: a memory saved inside a project is
+     * only meaningful in that context, and leaving it behind unscoped would
+     * promote it to account-wide — the one direction the scoping exists to
+     * prevent.
+     */
+    projectId: text("project_id").references(() => project.id, { onDelete: "cascade" }),
     /** Free-form bucket: "preference" | "fact" | "project" | "instruction". */
     category: text("category").notNull().default("fact"),
     source: text("source").notNull().default("agent"),
@@ -197,7 +252,13 @@ export const memory = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [index("memory_user_idx").on(t.userId, t.enabled)],
+  (t) => [
+    index("memory_user_idx").on(t.userId, t.enabled),
+    // Every prompt build reads "this project's memories plus the unscoped
+    // ones", which is a range over this index rather than a scan of everything
+    // the user has ever remembered.
+    index("memory_project_idx").on(t.userId, t.projectId, t.enabled),
+  ],
 );
 
 /**
@@ -299,14 +360,22 @@ export const userRelations = relations(user, ({ many, one }) => ({
   chats: many(chat),
   memories: many(memory),
   skills: many(skill),
+  projects: many(project),
   settings: one(userSettings, {
     fields: [user.id],
     references: [userSettings.userId],
   }),
 }));
 
+export const projectRelations = relations(project, ({ one, many }) => ({
+  user: one(user, { fields: [project.userId], references: [user.id] }),
+  chats: many(chat),
+  memories: many(memory),
+}));
+
 export const chatRelations = relations(chat, ({ one, many }) => ({
   user: one(user, { fields: [chat.userId], references: [user.id] }),
+  project: one(project, { fields: [chat.projectId], references: [project.id] }),
   messages: many(message),
 }));
 
@@ -316,6 +385,7 @@ export const messageRelations = relations(message, ({ one }) => ({
 
 export const memoryRelations = relations(memory, ({ one }) => ({
   user: one(user, { fields: [memory.userId], references: [user.id] }),
+  project: one(project, { fields: [memory.projectId], references: [project.id] }),
 }));
 
 export const skillRelations = relations(skill, ({ one }) => ({
@@ -323,6 +393,7 @@ export const skillRelations = relations(skill, ({ one }) => ({
 }));
 
 export type User = typeof user.$inferSelect;
+export type Project = typeof project.$inferSelect;
 export type Skill = typeof skill.$inferSelect;
 export type Chat = typeof chat.$inferSelect;
 export type Message = typeof message.$inferSelect;

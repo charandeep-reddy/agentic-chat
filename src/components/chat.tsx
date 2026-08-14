@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -20,6 +20,7 @@ import { usageSchema } from "@/lib/usage";
 import { ConversationCost } from "./conversation-cost";
 import { ConfirmDialog } from "./confirm-dialog";
 import { PrivateButton } from "./private-button";
+import { ProjectCrumb } from "./project-crumb";
 import { requestLeave, setLeaveGuard } from "./leave-guard";
 import { startNewChat } from "./new-chat";
 import { IconChevron, IconKey, IconSidebar } from "./icons";
@@ -37,6 +38,24 @@ export interface ChatProps {
    * skills. Closing the tab loses it, which is what it is for.
    */
   ephemeral: boolean;
+  /**
+   * The project this chat belongs to, or null.
+   *
+   * Sent with every turn but only *read* on the first one, before the chat has
+   * a row — after that the stored column wins. See the route for why the two
+   * directions differ.
+   */
+  projectId: string | null;
+  /**
+   * What to show in place of the default opening screen while the transcript is
+   * empty.
+   *
+   * This is the seam that makes a project page a place to work rather than a
+   * form: the project renders its own introduction — instructions, recent
+   * chats — above a live composer, instead of sending the user somewhere else
+   * to start typing.
+   */
+  emptyState?: ReactNode;
 }
 
 const metadataSchema = z.object({
@@ -98,6 +117,8 @@ export function Chat({
   initialShareId,
   isNew,
   ephemeral,
+  projectId,
+  emptyState,
 }: ChatProps) {
   const toggleSidebar = useSidebarToggle();
   const {
@@ -155,9 +176,16 @@ export function Chat({
         // private chat has no row to store it on. The server treats it as
         // narrowing-only, so a request that loses it is no worse than a
         // normal one.
-        body: { id: chatId, model, ...(ephemeral ? { private: true } : {}) },
+        body: {
+          id: chatId,
+          model,
+          ...(ephemeral ? { private: true } : {}),
+          // Omitted rather than sent as null when there is no project, so a
+          // private chat's body stays exactly as bare as it was.
+          ...(projectId ? { projectId } : {}),
+        },
       }),
-    [apiKey, provider, model, chatId, ephemeral],
+    [apiKey, provider, model, chatId, ephemeral, projectId],
   );
 
   const { messages, sendMessage, setMessages, regenerate, status, error, stop } = useChat({
@@ -202,11 +230,11 @@ export function Chat({
       id: chatId,
       title: initialTitle,
       pinned: false,
-      archived: false,
       shareId: null,
+      projectId,
       updatedAt: new Date().toISOString(),
     });
-  }, [ephemeral, isNew, chatId, initialTitle, addChat]);
+  }, [ephemeral, isNew, chatId, initialTitle, projectId, addChat]);
 
   const dismissQuestion = useCallback(
     (toolCallId: string) => setDismissedQuestions((prev) => new Set(prev).add(toolCallId)),
@@ -407,6 +435,13 @@ export function Chat({
           <IconSidebar size={16} />
         </button>
 
+        {/* Context, not a control — moving a chat lives in the sidebar row's
+            menu with pin and rename. Withheld until the chat has a row, so the
+            project's own landing page does not name itself twice. */}
+        {!ephemeral && messages.length > 0 && (
+          <ProjectCrumb chatId={chatId} projectId={projectId} />
+        )}
+
         <h1 className="min-w-0 flex-1 truncate text-dense font-medium text-text-secondary">
           {title}
         </h1>
@@ -442,13 +477,15 @@ export function Chat({
       <div ref={scrollRef} className="scroll-thin min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl px-4 py-6">
           {messages.length === 0 ? (
-            <EmptyState
-              hasKey={apiKey !== ""}
-              busy={busy}
-              ephemeral={ephemeral}
-              onSend={send}
-              onOpenSettings={() => setSettingsOpen(true)}
-            />
+            (emptyState ?? (
+              <EmptyState
+                hasKey={apiKey !== ""}
+                busy={busy}
+                ephemeral={ephemeral}
+                onSend={send}
+                onOpenSettings={() => setSettingsOpen(true)}
+              />
+            ))
           ) : (
             <MessageList
               messages={messages}

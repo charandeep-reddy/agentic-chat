@@ -317,15 +317,6 @@ export function IconPin(props: IconProps) {
   );
 }
 
-export function IconArchive(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <rect x="3" y="4" width="18" height="4" rx="1" />
-      <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4" />
-    </svg>
-  );
-}
-
 export function IconEdit(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -438,6 +429,15 @@ export function IconSliders(props: IconProps) {
       <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
       <circle cx="16" cy="7" r="2" />
       <circle cx="10" cy="17" r="2" />
+    </svg>
+  );
+}
+
+/** A project. A folder, drawn with the tab that makes it read as one. */
+export function IconFolder(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17z" />
     </svg>
   );
 }

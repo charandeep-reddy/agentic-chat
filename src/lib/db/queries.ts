@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, gt, ilike, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, ilike, isNull, or, sql } from "drizzle-orm";
 import type { UIMessage } from "ai";
 import { db } from "./index";
 import {
@@ -9,11 +9,12 @@ import {
   memoryPack,
   memoryPackInstall,
   message,
+  project,
   skill,
   user,
   userSettings,
 } from "./schema";
-import type { Chat, Memory, MemoryPack, Skill, UserSettings } from "./schema";
+import type { Chat, Memory, MemoryPack, Project, Skill, UserSettings } from "./schema";
 import { newId } from "@/lib/id";
 import type { ChatCursor } from "@/lib/chat-cursor";
 
@@ -23,6 +24,90 @@ import type { ChatCursor } from "@/lib/chat-cursor";
 export { newId };
 
 /* ------------------------------------------------------------------ *
+ * Projects
+ * ------------------------------------------------------------------ */
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  updatedAt: Date;
+  /** Chats currently in the project. */
+  chatCount: number;
+}
+
+export async function listProjects(userId: string): Promise<ProjectSummary[]> {
+  return db
+    .select({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      updatedAt: project.updatedAt,
+      // A correlated count rather than a join with a group by: the sidebar
+      // needs one number per project, and grouping would have to carry every
+      // project column through the aggregate to get it back.
+      chatCount: sql<number>`(
+        select count(*)::int from ${chat} where ${chat.projectId} = ${project.id}
+      )`,
+    })
+    .from(project)
+    .where(eq(project.userId, userId))
+    .orderBy(desc(project.updatedAt), desc(project.id));
+}
+
+export async function getProject(projectId: string, userId: string): Promise<Project | null> {
+  const [row] = await db
+    .select()
+    .from(project)
+    .where(and(eq(project.id, projectId), eq(project.userId, userId)))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function createProject(
+  userId: string,
+  opts: { id?: string; name: string; description?: string | null; instructions?: string | null },
+): Promise<Project> {
+  const [row] = await db
+    .insert(project)
+    .values({
+      id: opts.id ?? newId("proj"),
+      userId,
+      name: opts.name,
+      description: opts.description ?? null,
+      instructions: opts.instructions ?? null,
+    })
+    .returning();
+  return row;
+}
+
+export async function updateProject(
+  projectId: string,
+  userId: string,
+  patch: Partial<Pick<Project, "name" | "description" | "instructions">>,
+): Promise<Project | null> {
+  const [row] = await db
+    .update(project)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(and(eq(project.id, projectId), eq(project.userId, userId)))
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * Deletes the project. Its chats survive with `projectId` set to null; its
+ * memories go with it. Both are enforced by the foreign keys — see the comments
+ * on those columns for why the two directions differ.
+ */
+export async function deleteProject(projectId: string, userId: string): Promise<boolean> {
+  const rows = await db
+    .delete(project)
+    .where(and(eq(project.id, projectId), eq(project.userId, userId)))
+    .returning({ id: project.id });
+  return rows.length > 0;
+}
+
+/* ------------------------------------------------------------------ *
  * Chats
  * ------------------------------------------------------------------ */
 
@@ -30,8 +115,8 @@ export interface ChatSummary {
   id: string;
   title: string;
   pinned: boolean;
-  archived: boolean;
   shareId: string | null;
+  projectId: string | null;
   updatedAt: Date;
 }
 
@@ -43,13 +128,27 @@ export async function listChats(
   userId: string,
   opts: {
     search?: string;
-    archived?: boolean;
     limit?: number;
+    /**
+     * Which project's chats to return. Three states, and the difference between
+     * the last two matters:
+     *
+     * - omitted — every chat, whatever its project. The sidebar's default.
+     * - a project id — only that project's chats.
+     * - `null` — only ungrouped chats.
+     */
+    projectId?: string | null;
     /** Continue after this row. Omit for the first page. */
     cursor?: ChatCursor | null;
   } = {},
 ): Promise<ChatSummary[]> {
-  const { search, archived = false, cursor } = opts;
+  const { search, cursor } = opts;
+  const inProject =
+    opts.projectId === undefined
+      ? undefined
+      : opts.projectId === null
+        ? isNull(chat.projectId)
+        : eq(chat.projectId, opts.projectId);
   // Clamped rather than trusted: `limit` reaches here from a query string, and
   // an unbounded one would undo the point of paging.
   const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, opts.limit ?? CHATS_PAGE_SIZE));
@@ -84,12 +183,12 @@ export async function listChats(
       id: chat.id,
       title: chat.title,
       pinned: chat.pinned,
-      archived: chat.archived,
       shareId: chat.shareId,
+      projectId: chat.projectId,
       updatedAt: chat.updatedAt,
     })
     .from(chat)
-    .where(and(eq(chat.userId, userId), eq(chat.archived, archived), matchesSearch, afterCursor))
+    .where(and(eq(chat.userId, userId), inProject, matchesSearch, afterCursor))
     // `id` last so the order is total. Two chats can share a millisecond, and
     // a non-deterministic tie is what makes a row skip a page boundary.
     .orderBy(desc(chat.pinned), desc(chat.updatedAt), desc(chat.id))
@@ -121,9 +220,28 @@ export async function getSharedChat(shareId: string) {
   return row ?? null;
 }
 
+/**
+ * Narrows a project id to one this user actually owns.
+ *
+ * The foreign key only proves the project exists — it says nothing about whose
+ * it is. Without this, a client could file its own chat under a stranger's
+ * project id and pull that project's instructions and memories into its prompt.
+ * Returns null for an id that does not resolve, which files the chat as
+ * ungrouped rather than failing the whole request.
+ */
+async function ownedProjectId(projectId: string | null, userId: string): Promise<string | null> {
+  if (!projectId) return null;
+  const [row] = await db
+    .select({ id: project.id })
+    .from(project)
+    .where(and(eq(project.id, projectId), eq(project.userId, userId)))
+    .limit(1);
+  return row?.id ?? null;
+}
+
 export async function createChat(
   userId: string,
-  opts: { id?: string; title?: string; model?: string } = {},
+  opts: { id?: string; title?: string; model?: string; projectId?: string | null } = {},
 ): Promise<Chat> {
   const [row] = await db
     .insert(chat)
@@ -132,6 +250,7 @@ export async function createChat(
       userId,
       title: opts.title ?? "New chat",
       model: opts.model ?? null,
+      projectId: await ownedProjectId(opts.projectId ?? null, userId),
     })
     .returning();
   return row;
@@ -140,11 +259,19 @@ export async function createChat(
 export async function updateChat(
   chatId: string,
   userId: string,
-  patch: Partial<Pick<Chat, "title" | "pinned" | "archived" | "model">>,
+  patch: Partial<Pick<Chat, "title" | "pinned" | "model" | "projectId">>,
 ): Promise<Chat | null> {
+  // Same reasoning as `createChat`: a move has to be verified, not trusted.
+  // Checked only when the key is present, so an unrelated patch — a rename, a
+  // pin — cannot accidentally unfile the chat.
+  const next =
+    "projectId" in patch
+      ? { ...patch, projectId: await ownedProjectId(patch.projectId ?? null, userId) }
+      : patch;
+
   const [row] = await db
     .update(chat)
-    .set({ ...patch, updatedAt: new Date() })
+    .set({ ...next, updatedAt: new Date() })
     .where(and(eq(chat.id, chatId), eq(chat.userId, userId)))
     .returning();
   return row ?? null;
@@ -347,17 +474,37 @@ export async function countUserStats(userId: string): Promise<UserStats> {
  * Memories
  * ------------------------------------------------------------------ */
 
+/**
+ * Which memories are in view.
+ *
+ * `visibleIn` is the prompt's question — *what may a chat in this context
+ * read?* — and it is asymmetric on purpose: a chat inside a project sees that
+ * project's memories and the account-wide ones, while a chat outside every
+ * project sees only the account-wide ones. `belongingTo` is the management
+ * question, for a screen that lists one project's memories and nothing else.
+ */
+export type MemoryScope = { visibleIn: string | null } | { belongingTo: string };
+
+function memoryScopeFilter(scope: MemoryScope | undefined) {
+  if (!scope) return undefined;
+  if ("belongingTo" in scope) return eq(memory.projectId, scope.belongingTo);
+  if (scope.visibleIn === null) return isNull(memory.projectId);
+  return or(isNull(memory.projectId), eq(memory.projectId, scope.visibleIn));
+}
+
 export async function listMemories(
   userId: string,
-  opts: { enabledOnly?: boolean } = {},
+  opts: { enabledOnly?: boolean; scope?: MemoryScope } = {},
 ): Promise<Memory[]> {
   return db
     .select()
     .from(memory)
     .where(
-      opts.enabledOnly
-        ? and(eq(memory.userId, userId), eq(memory.enabled, true))
-        : eq(memory.userId, userId),
+      and(
+        eq(memory.userId, userId),
+        opts.enabledOnly ? eq(memory.enabled, true) : undefined,
+        memoryScopeFilter(opts.scope),
+      ),
     )
     .orderBy(desc(memory.createdAt));
 }
@@ -369,17 +516,31 @@ export async function createMemory(
     category?: string;
     source?: string;
     importedFromPackId?: string;
+    /** Null for an account-wide memory. Set when saved inside a project chat. */
+    projectId?: string | null;
   },
 ): Promise<Memory | null> {
   const content = input.content.trim();
   if (!content) return null;
 
+  const projectId = await ownedProjectId(input.projectId ?? null, userId);
+
   // Exact-duplicate guard: the agent tends to re-save the same fact whenever
   // the user restates it, which would otherwise bloat every prompt.
+  //
+  // Scoped to the project, so the same sentence can mean different things in
+  // two of them — and so a fact saved inside a project is not silently answered
+  // with the account-wide row, which would leave it readable everywhere.
   const [existing] = await db
     .select()
     .from(memory)
-    .where(and(eq(memory.userId, userId), eq(memory.content, content)))
+    .where(
+      and(
+        eq(memory.userId, userId),
+        eq(memory.content, content),
+        projectId === null ? isNull(memory.projectId) : eq(memory.projectId, projectId),
+      ),
+    )
     .limit(1);
   if (existing) return existing;
 
@@ -392,6 +553,7 @@ export async function createMemory(
       category: input.category ?? "fact",
       source: input.source ?? "agent",
       importedFromPackId: input.importedFromPackId ?? null,
+      projectId,
     })
     .returning();
   return row;
@@ -400,11 +562,19 @@ export async function createMemory(
 export async function updateMemory(
   id: string,
   userId: string,
-  patch: Partial<Pick<Memory, "content" | "category" | "enabled">>,
+  patch: Partial<Pick<Memory, "content" | "category" | "enabled" | "projectId">>,
 ): Promise<Memory | null> {
+  // Verified, not trusted — the same reasoning as `updateChat`, and with more
+  // at stake: an unchecked id here would file the memory under a project the
+  // user does not own.
+  const next =
+    "projectId" in patch
+      ? { ...patch, projectId: await ownedProjectId(patch.projectId ?? null, userId) }
+      : patch;
+
   const [row] = await db
     .update(memory)
-    .set({ ...patch, updatedAt: new Date() })
+    .set({ ...next, updatedAt: new Date() })
     .where(and(eq(memory.id, id), eq(memory.userId, userId)))
     .returning();
   return row ?? null;

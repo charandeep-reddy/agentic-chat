@@ -12,13 +12,7 @@ export const metadata = { title: "All chats · Agentic Chat" };
  * producing the same list. The layout has already required a session, so this
  * only has to confirm one exists before handing over.
  */
-export default async function AllChats({
-  searchParams,
-}: {
-  searchParams: Promise<{ archived?: string }>;
-}) {
+export default async function AllChats() {
   await requireUser();
-  const { archived } = await searchParams;
-
-  return <AllChatsPage archived={archived === "1"} />;
+  return <AllChatsPage />;
 }

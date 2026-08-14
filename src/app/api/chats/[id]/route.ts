@@ -22,22 +22,34 @@ export async function PATCH(req: Request, { params }: Params) {
   if ("error" in authed) return authed.error;
 
   const { id } = await params;
-  let body: { title?: string; pinned?: boolean; archived?: boolean; model?: string };
+  interface Body {
+    title?: string;
+    pinned?: boolean;
+    model?: string;
+    /** A project id to file this chat under, or null to unfile it. */
+    projectId?: string | null;
+  }
+  let body: Body;
   try {
-    body = (await req.json()) as typeof body;
+    body = (await req.json()) as Body;
   } catch {
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
 
-  const patch: { title?: string; pinned?: boolean; archived?: boolean; model?: string } = {};
+  const patch: Partial<Body> = {};
   if (typeof body.title === "string") {
     const title = body.title.trim().slice(0, 200);
     if (!title) return Response.json({ error: "empty_title" }, { status: 400 });
     patch.title = title;
   }
   if (typeof body.pinned === "boolean") patch.pinned = body.pinned;
-  if (typeof body.archived === "boolean") patch.archived = body.archived;
   if (typeof body.model === "string") patch.model = body.model;
+  // Only when the key is present: `updateChat` treats its absence as "leave the
+  // project alone", and sending null unconditionally would unfile every chat
+  // whose title was edited. Ownership of the id is checked there.
+  if ("projectId" in body) {
+    patch.projectId = typeof body.projectId === "string" && body.projectId ? body.projectId : null;
+  }
 
   const chat = await updateChat(id, authed.user.id, patch);
   if (!chat) return Response.json({ error: "not_found" }, { status: 404 });
