@@ -12,7 +12,9 @@ import {
 } from "react";
 import { ChatsProvider, type ChatSummary } from "./chats-provider";
 import { CommandPalette } from "./command-palette";
+import { ProjectsProvider } from "./projects-provider";
 import { Sidebar, type SidebarUser } from "./sidebar";
+import type { ProjectSummary } from "@/lib/projects";
 
 const SIDEBAR_STORAGE = "agentic-chat.sidebar";
 
@@ -76,10 +78,12 @@ export function useSidebarToggle(): () => void {
 export function AppShell({
   user,
   initialChats,
+  initialProjects,
   children,
 }: {
   user: SidebarUser;
   initialChats: ChatSummary[];
+  initialProjects: ProjectSummary[];
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -129,11 +133,13 @@ export function AppShell({
   return (
     <SidebarToggleContext.Provider value={toggleSidebar}>
       <ChatsProvider initialChats={initialChats}>
-        <div className="flex h-dvh overflow-hidden">
-          <Sidebar user={user} open={open} collapsed={collapsed} onClose={closeDrawer} />
-          {content}
-        </div>
-        <CommandPalette />
+        <ProjectsProvider initialProjects={initialProjects}>
+          <div className="flex h-dvh overflow-hidden">
+            <Sidebar user={user} open={open} collapsed={collapsed} onClose={closeDrawer} />
+            {content}
+          </div>
+          <CommandPalette />
+        </ProjectsProvider>
       </ChatsProvider>
     </SidebarToggleContext.Provider>
   );

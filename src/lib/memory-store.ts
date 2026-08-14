@@ -7,12 +7,25 @@ import type { Memory } from "@/lib/db/schema";
 /** Memories over this count get filtered by relevance instead of all injected. */
 const PROMPT_BUDGET = 40;
 
-export function createDbMemoryStore(userId: string): MemoryStore {
+/**
+ * The memory port for one request.
+ *
+ * `projectId` decides both halves of the scoping: what `search_memory` can
+ * reach, and where `save_memory` writes. A chat inside a project reads its own
+ * project's memories plus the account-wide ones and writes into the project; a
+ * chat outside every project reads and writes account-wide only. Passing the
+ * scope in here rather than checking it at each call site is what keeps a tool
+ * from being able to read across the boundary — the tools take the store as
+ * given and have no way to widen it.
+ */
+export function createDbMemoryStore(userId: string, projectId: string | null = null): MemoryStore {
+  const scope = { visibleIn: projectId } as const;
+
   return {
     async save({ content, category }) {
-      const before = await listMemories(userId);
+      const before = await listMemories(userId, { scope });
       const existing = before.find((m) => m.content === content.trim());
-      const row = await createMemory(userId, { content, category, source: "agent" });
+      const row = await createMemory(userId, { content, category, source: "agent", projectId });
       if (!row) throw new Error("Could not save the memory.");
       return {
         id: row.id,
@@ -23,7 +36,7 @@ export function createDbMemoryStore(userId: string): MemoryStore {
     },
 
     async search(query) {
-      const all = await listMemories(userId, { enabledOnly: true });
+      const all = await listMemories(userId, { enabledOnly: true, scope });
       const ranked = rankMemories(all, query).slice(0, 10);
       await markMemoriesUsed(ranked.map((m) => m.id));
       return ranked.map((m) => ({ id: m.id, content: m.content, category: m.category }));
@@ -89,8 +102,13 @@ function tokenize(text: string): string[] {
  * when the chosen set had not changed. It still decides *which* memories are
  * picked; it just no longer decides where they sit.
  */
-export async function selectPromptMemories(userId: string, anchor: string): Promise<Memory[]> {
-  return choosePromptMemories(await listMemories(userId, { enabledOnly: true }), anchor);
+export async function selectPromptMemories(
+  userId: string,
+  anchor: string,
+  projectId: string | null = null,
+): Promise<Memory[]> {
+  const all = await listMemories(userId, { enabledOnly: true, scope: { visibleIn: projectId } });
+  return choosePromptMemories(all, anchor);
 }
 
 /** The selection itself, without the database, so the stability is testable. */

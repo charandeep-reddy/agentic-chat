@@ -63,6 +63,8 @@ export interface PromptContext {
   userName?: string | null;
   aboutUser?: string | null;
   responseStyle?: string | null;
+  /** The project this chat belongs to, if any. Its instructions go last. */
+  project?: { name: string; instructions?: string | null } | null;
   memories?: Array<{ id: string; content: string; category: string }>;
   skills?: SkillSummary[];
   /**
@@ -110,6 +112,25 @@ export function buildSystemPrompt(ctx: PromptContext): string {
     sections.push(
       `\n## How the user wants you to respond\n${ctx.responseStyle.trim()}\n\nFollow this unless it conflicts with a rule above or with the specific request at hand.`,
     );
+  }
+
+  // Straight after the account-wide style, so the two instruction blocks sit
+  // together and the narrower one is visibly the narrower one. Precedence is
+  // also stated outright rather than left to ordering: "later means stronger"
+  // is a convention the model may or may not apply, and the whole point of a
+  // project is that its instructions win inside it.
+  if (ctx.project) {
+    const lines = [`\n## This project: ${ctx.project.name}`];
+    if (ctx.project.instructions?.trim()) {
+      lines.push(
+        "The user wrote these instructions for every conversation in this project. Where they conflict with the account-wide preferences above, follow these.",
+        "",
+        ctx.project.instructions.trim(),
+      );
+    } else {
+      lines.push("This conversation belongs to that project.");
+    }
+    sections.push(lines.join("\n"));
   }
 
   if (ctx.memories?.length) {

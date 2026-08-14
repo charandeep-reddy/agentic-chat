@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "./page-shell";
 import { useChatPages } from "./use-chat-pages";
 import { useChatsActions } from "./chats-provider";
 import { ConfirmDialog } from "./confirm-dialog";
-import { IconArchive, IconPin, IconSearch, IconTrash } from "./icons";
+import { IconPin, IconSearch, IconTrash } from "./icons";
 
 /** Same buckets as the sidebar, so the two lists read as one thing. */
 function bucketOf(updatedAt: string, now: number): string {
@@ -28,16 +28,7 @@ function formatDate(iso: string): string {
   });
 }
 
-/**
- * `archived` is read straight from the prop, never copied into state.
- *
- * The tabs are links, so switching them is a navigation: the server component
- * re-renders with the new search param and hands down a new value. Holding it
- * in `useState` read that prop exactly once, at mount — the URL and the tab
- * highlight changed, the list did not, and both tabs showed the same chats.
- * There is one source of truth for this and it is the URL.
- */
-export function AllChatsPage({ archived }: { archived: boolean }) {
+export function AllChatsPage() {
   const router = useRouter();
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
@@ -50,10 +41,7 @@ export function AllChatsPage({ archived }: { archived: boolean }) {
     return () => clearTimeout(timer);
   }, [input]);
 
-  const { chats, loading, loadingMore, hasMore, failed, loadMore, forget } = useChatPages(
-    search,
-    archived,
-  );
+  const { chats, loading, loadingMore, hasMore, failed, loadMore, forget } = useChatPages(search);
   // The sidebar keeps its own copy, so a change made here has to reach it.
   const { patchChat, removeChat, refresh } = useChatsActions();
 
@@ -98,22 +86,10 @@ export function AllChatsPage({ archived }: { archived: boolean }) {
     }));
   }, [chats, now]);
 
-  const onArchive = useCallback(
-    (id: string, next: boolean) => {
-      forget(id);
-      void patchChat(id, { archived: next });
-    },
-    [forget, patchChat],
-  );
-
   return (
     <PageShell
       title="All chats"
       description="Everything you have started, newest first. Scroll to load more."
-      tabs={[
-        { href: "/chats", label: "Active", active: !archived },
-        { href: "/chats?archived=1", label: "Archived", active: archived },
-      ]}
     >
       <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-surface px-3">
         <IconSearch size={14} className="shrink-0 text-text-faint" />
@@ -133,11 +109,7 @@ export function AllChatsPage({ archived }: { archived: boolean }) {
         </div>
       ) : chats.length === 0 ? (
         <p className="py-10 text-center text-dense text-text-faint">
-          {search
-            ? `No chats match "${search}".`
-            : archived
-              ? "Nothing archived."
-              : "No chats yet."}
+          {search ? `No chats match "${search}".` : "No chats yet."}
         </p>
       ) : (
         <div>
@@ -170,16 +142,6 @@ export function AllChatsPage({ archived }: { archived: boolean }) {
                     }`}
                   >
                     <IconPin size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={
-                      chat.archived ? `Unarchive ${chat.title}` : `Archive ${chat.title}`
-                    }
-                    onClick={() => onArchive(chat.id, !chat.archived)}
-                    className="rounded-md p-1.5 text-text-faint transition-colors hover:bg-surface-raised hover:text-text"
-                  >
-                    <IconArchive size={13} />
                   </button>
                   <button
                     type="button"

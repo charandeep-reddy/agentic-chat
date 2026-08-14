@@ -10,6 +10,7 @@ function memory(content: string, useCount = 0): Memory {
   return {
     id: `mem_${content.slice(0, 6)}`,
     userId: "u1",
+    projectId: null,
     content,
     category: "fact",
     source: "agent",

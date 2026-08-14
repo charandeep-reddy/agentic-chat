@@ -37,6 +37,7 @@ export default async function ExistingChatPage({ params }: Props) {
       initialTitle={chat.title}
       initialShareId={chat.shareId}
       isNew={false}
+      projectId={chat.projectId}
     />
   );
 }

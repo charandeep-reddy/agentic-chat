@@ -43,6 +43,20 @@
       "when": 1786615774199,
       "tag": "0005_chat_search_trigram",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786685779029,
+      "tag": "0006_worried_matthew_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786686807362,
+      "tag": "0007_high_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }

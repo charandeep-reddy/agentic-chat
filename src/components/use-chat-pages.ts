@@ -30,7 +30,7 @@ export interface ChatPages {
  * hundreds of rows as a side effect of scrolling a different page. This owns
  * its own state and shares only the endpoint.
  */
-export function useChatPages(search: string, archived: boolean): ChatPages {
+export function useChatPages(search: string): ChatPages {
   /**
    * Which query the state belongs to.
    *
@@ -39,7 +39,7 @@ export function useChatPages(search: string, archived: boolean): ChatPages {
    * blank the list first. That reset was both an extra render and a window in
    * which the old list was still on screen labelled as current.
    */
-  const queryKey = `${archived ? "1" : "0"}:${search.trim()}`;
+  const queryKey = search.trim();
 
   const [page, setPage] = useState({ key: "", chats: [] as ChatSummary[], hasMore: false });
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -69,10 +69,9 @@ export function useChatPages(search: string, archived: boolean): ChatPages {
       const p = new URLSearchParams();
       if (after) p.set("cursor", after);
       if (search.trim()) p.set("q", search.trim());
-      if (archived) p.set("archived", "1");
       return p;
     },
-    [search, archived],
+    [search],
   );
 
   // First page, and a fresh one whenever the query changes.
