@@ -22,13 +22,18 @@ import { createDbSkillStore, selectPromptSkills } from "@/lib/skill-store";
 import {
   createChat,
   getChat,
+  getManagedKey,
   getProject,
   getSettings,
+  getSpendStatus,
+  recordManagedSpend,
   saveMessages,
   truncateFrom,
 } from "@/lib/db/queries";
 import { generateTitleInBackground } from "@/lib/title";
 import { toMessageUsage } from "@/lib/usage";
+import type { MessageUsage } from "@/lib/usage";
+import { estimateManagedCostCents } from "@/lib/managed-pricing";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -84,24 +89,49 @@ export async function POST(req: Request) {
   if ("error" in authed) return authed.error;
   const { user } = authed;
 
-  const apiKey = req.headers.get("x-model-key") ?? req.headers.get("x-openrouter-key");
-  if (!apiKey || apiKey.trim() === "") {
-    return Response.json(
-      { error: "missing_api_key", message: "Add your model API key in Settings first." },
-      { status: 400 },
-    );
-  }
-
   // Which provider the key belongs to, and therefore who gets billed. Rejected
   // rather than defaulted for that reason: sending an unrecognised value to
   // whichever provider we happened to pick would leak the key to a company the
-  // user never chose.
+  // user never chose. Checked before the key itself in managed mode, since the
+  // key there is looked up *by* provider rather than arriving alongside it.
   const provider = req.headers.get("x-model-provider");
   if (!isProviderId(provider)) {
     return Response.json(
       { error: "bad_provider", message: "Unknown model provider — reload the page." },
       { status: 400 },
     );
+  }
+
+  /**
+   * Unset for every deployment except a self-hosted company instance that
+   * opted in — see `lib/managed-keys.ts` and the schema comment on
+   * `managedProviderKey`. Flips where the key comes from; nothing past this
+   * block needs to know which mode produced `apiKey`.
+   */
+  const managedMode = process.env.ORG_MANAGED_KEYS === "true";
+
+  let apiKey: string;
+  if (managedMode) {
+    const managed = await getManagedKey(provider);
+    if (!managed) {
+      return Response.json(
+        {
+          error: "provider_not_configured",
+          message: "Your admin hasn't set up this provider yet.",
+        },
+        { status: 400 },
+      );
+    }
+    apiKey = managed;
+  } else {
+    const headerKey = req.headers.get("x-model-key") ?? req.headers.get("x-openrouter-key");
+    if (!headerKey || headerKey.trim() === "") {
+      return Response.json(
+        { error: "missing_api_key", message: "Add your model API key in Settings first." },
+        { status: 400 },
+      );
+    }
+    apiKey = headerKey;
   }
 
   let body: ChatRequestBody;
@@ -252,6 +282,37 @@ export async function POST(req: Request) {
     });
   }
 
+  /**
+   * Checked before the model is ever called, and regardless of `isPrivate` —
+   * a private chat still spends the org's real key against a real provider
+   * bill, and letting it skip the cap would make `/private` a way around an
+   * employee's limit rather than just a way to not save a transcript.
+   *
+   * This is a check, not a reservation: exact cost isn't known until the
+   * turn finishes (see `recordManagedSpend` in `onEnd`, below), so a request
+   * that starts just under the cap can finish slightly over it. The *next*
+   * request is what actually gets blocked. Good enough to stop real
+   * overspend within one turn's worth of slack — not a payments-grade
+   * ledger, and not trying to be one.
+   */
+  if (managedMode) {
+    const spend = await getSpendStatus(user.id);
+    if (spend.limitCents !== null && spend.spentCentsThisPeriod >= spend.limitCents) {
+      // An unconfigured employee (`configured: false`) has no real period —
+      // `resetAt` there is just "now", a placeholder. Saying "resets today"
+      // would promise this clears itself, when what actually has to happen
+      // is an admin setting a limit. Testing this against a fresh employee
+      // account is what surfaced the wrong message in the first place.
+      const message = spend.configured
+        ? `You've reached your $${(spend.limitCents / 100).toFixed(2)} limit for this period. It resets ${spend.resetAt.toLocaleDateString()}.`
+        : "Your account has no spend limit configured yet — ask your admin to set one.";
+      return Response.json(
+        { error: "spend_limit_reached", message, resetAt: spend.configured ? spend.resetAt.toISOString() : null },
+        { status: 402 },
+      );
+    }
+  }
+
   // Claimed here rather than at the top of the handler so a request that never
   // reaches the model does not spend the user's budget, and so the gap between
   // claiming a slot and handing back the stream that releases it is as small as
@@ -391,6 +452,20 @@ export async function POST(req: Request) {
         // partial write was already in flight, not before it.
         done = true;
         if (partialInFlight) await partialInFlight;
+
+        // Recorded ahead of the private-chat early return below, and
+        // unconditionally on `isPrivate` — see the spend check earlier in
+        // this handler for why a private chat must not be exempt from it.
+        if (managedMode) {
+          const usage = (responseMessage?.metadata as { usage?: MessageUsage } | undefined)?.usage;
+          const cents = usage ? estimateManagedCostCents(usage, modelId) : null;
+          if (cents !== null) {
+            await recordManagedSpend(user.id, cents).catch((error) =>
+              console.error("[api/chat] failed to record managed spend:", error),
+            );
+          }
+        }
+
         // A private chat has nowhere to write. The turn still runs to
         // completion above, which is what releases the concurrency slot.
         if (!responseMessage || isPrivate) return;

@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { admin } from "better-auth/plugins";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/db";
@@ -60,8 +61,20 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24, // refresh the cookie at most once a day
     cookieCache: { enabled: true, maxAge: 5 * 60 },
   },
-  // Must stay last: it lets server actions set the session cookie.
-  plugins: [nextCookies()],
+  plugins: [
+    // Registered unconditionally rather than only when `ORG_MANAGED_KEYS` is
+    // set: `user.role`/`banned` already exist as real columns (see
+    // schema.ts), so there's no half-configured state to worry about, and it
+    // keeps this file from branching on an env var that only the chat route
+    // and the admin pages actually need to know about. Who gets promoted to
+    // "admin" in the first place is handled separately — see
+    // `ensureFirstAdmin` in `session.ts` — rather than through this plugin's
+    // own role-management endpoints, which assume an existing admin already
+    // exists to call them.
+    admin(),
+    // Must stay last: it lets server actions set the session cookie.
+    nextCookies(),
+  ],
 });
 
 export type Session = typeof auth.$Infer.Session;

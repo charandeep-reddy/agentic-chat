@@ -7,7 +7,7 @@ import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
 import { SettingsPanel } from "./settings-panel";
-import { useSidebarToggle } from "./app-shell";
+import { useManagedMode, useSidebarToggle } from "./app-shell";
 import { useProviderSettings } from "./use-provider-settings";
 import { useChatsActions } from "./chats-provider";
 import { Composer } from "./composer";
@@ -136,12 +136,19 @@ export function Chat({
     clearKey,
     clearAllKeys,
   } = useProviderSettings();
+  const { managed } = useManagedMode();
 
   // Keeps the pre-paint attribute honest after the key is added or cleared, so
-  // the CSS above and the React state below never disagree.
+  // the CSS above and the React state below never disagree. `managed` folds
+  // in here too — an employee never has a local key at all, but is just as
+  // "connected" as someone who pasted one. The pre-paint script itself
+  // (`HAS_KEY_INIT_SCRIPT`, in `storage-keys.ts`) doesn't know about managed
+  // mode, so on a managed deployment the very first paint can still flash
+  // "Add API key" for one frame before this effect corrects it — a smaller
+  // version of the flash that script exists to prevent for the personal case.
   useEffect(() => {
-    document.documentElement.toggleAttribute("data-has-key", apiKey !== "");
-  }, [apiKey]);
+    document.documentElement.toggleAttribute("data-has-key", managed || apiKey !== "");
+  }, [managed, apiKey]);
 
   const router = useRouter();
   const { addChat, setChatTitle } = useChatsActions();
@@ -175,7 +182,14 @@ export function Chat({
         api: "/api/chat",
         // The provider travels with the key it belongs to. The route refuses a
         // request whose provider it does not recognise rather than picking one.
-        headers: apiKey ? { "x-model-key": apiKey, "x-model-provider": provider } : {},
+        // In managed mode there is no local key to send at all — the route
+        // resolves the org's own key by provider instead — so the provider
+        // header goes regardless of whether `apiKey` is set.
+        headers: managed
+          ? { "x-model-provider": provider }
+          : apiKey
+            ? { "x-model-key": apiKey, "x-model-provider": provider }
+            : {},
         // `private` rides on every turn rather than being stored, because a
         // private chat has no row to store it on. The server treats it as
         // narrowing-only, so a request that loses it is no worse than a
@@ -189,7 +203,7 @@ export function Chat({
           ...(projectId ? { projectId } : {}),
         },
       }),
-    [apiKey, provider, model, chatId, ephemeral, projectId],
+    [apiKey, managed, provider, model, chatId, ephemeral, projectId],
   );
 
   const { messages, sendMessage, setMessages, regenerate, status, error, stop } = useChat({
@@ -502,7 +516,7 @@ export function Chat({
           {messages.length === 0 ? (
             (emptyState ?? (
               <EmptyState
-                hasKey={apiKey !== ""}
+                hasKey={managed || apiKey !== ""}
                 busy={busy}
                 ephemeral={ephemeral}
                 onSend={send}
@@ -611,7 +625,7 @@ export function Chat({
           ref={composerRef}
           chatId={chatId}
           ephemeral={ephemeral}
-          hasKey={apiKey !== ""}
+          hasKey={managed || apiKey !== ""}
           busy={busy}
           questionPending={pendingQuestion !== null}
           model={model}

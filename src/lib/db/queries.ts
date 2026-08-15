@@ -5,18 +5,22 @@ import type { UIMessage } from "ai";
 import { db } from "./index";
 import {
   chat,
+  managedProviderKey,
   memory,
   memoryPack,
   memoryPackInstall,
   message,
   project,
   skill,
+  spendLimit,
   user,
   userSettings,
 } from "./schema";
 import type { Chat, Memory, MemoryPack, Project, Skill, UserSettings } from "./schema";
 import { newId } from "@/lib/id";
 import type { ChatCursor } from "@/lib/chat-cursor";
+import { decryptProviderKey, encryptProviderKey } from "@/lib/managed-keys";
+import { periodHasElapsed, resetPeriod } from "@/lib/spend-period";
 
 // Re-exported so the call sites that already import it from here keep working,
 // while the implementation stays free of this module's database imports — the
@@ -893,4 +897,183 @@ export async function saveSettings(
 export async function deleteUser(userId: string): Promise<void> {
   // Every app table cascades from `user`, so one delete clears the account.
   await db.delete(user).where(eq(user.id, userId));
+}
+
+/**
+ * Written directly rather than through better-auth's `admin` plugin
+ * endpoint: that endpoint requires the *caller* to already be an admin,
+ * which is exactly the bootstrap problem `ensureFirstAdmin` (in
+ * `session.ts`) exists to solve — there has to be a way to create the first
+ * one. Every promotion after that can go through the plugin's own
+ * `auth.api.setRole` if an admin UI ever calls it directly.
+ */
+export async function setUserRole(userId: string, role: string): Promise<void> {
+  await db.update(user).set({ role }).where(eq(user.id, userId));
+}
+
+/* ------------------------------------------------------------------ *
+ * Managed mode
+ *
+ * Unused unless `ORG_MANAGED_KEYS=true` — see `schema.ts`'s comment on
+ * `managedProviderKey`/`spendLimit` for why there is no org id here.
+ * ------------------------------------------------------------------ */
+
+/** The org's key for one provider, decrypted — `null` if the admin hasn't configured it yet. */
+export async function getManagedKey(provider: string): Promise<string | null> {
+  const [row] = await db
+    .select()
+    .from(managedProviderKey)
+    .where(eq(managedProviderKey.provider, provider))
+    .limit(1);
+  return row ? decryptProviderKey(row) : null;
+}
+
+/** Every provider the admin has configured a key for — what the employee-facing provider picker in managed mode is allowed to show. */
+export async function listManagedProviders(): Promise<string[]> {
+  const rows = await db.select({ provider: managedProviderKey.provider }).from(managedProviderKey);
+  return rows.map((r) => r.provider);
+}
+
+/** Stores (or replaces) the org's key for one provider. Never returns the plaintext back. */
+export async function setManagedKey(provider: string, plaintextKey: string): Promise<void> {
+  const encrypted = encryptProviderKey(plaintextKey);
+  await db
+    .insert(managedProviderKey)
+    .values({ provider, ...encrypted })
+    .onConflictDoUpdate({
+      target: managedProviderKey.provider,
+      set: { ...encrypted, updatedAt: new Date() },
+    });
+}
+
+export async function removeManagedKey(provider: string): Promise<void> {
+  await db.delete(managedProviderKey).where(eq(managedProviderKey.provider, provider));
+}
+
+export interface SpendStatus {
+  /** `null` means unlimited — set for an admin's own account by `ensureFirstAdmin`, in `session.ts`. */
+  limitCents: number | null;
+  spentCentsThisPeriod: number;
+  periodDays: number;
+  resetAt: Date;
+  /**
+   * False for an employee with no `spendLimit` row at all — the admin hasn't
+   * set them up yet. `resetAt` on an unconfigured status is a placeholder
+   * (`now`), not a real period boundary: nothing changes when it passes, only
+   * when an admin actually sets a limit. A caller building a user-facing
+   * message needs this to avoid promising an automatic reset that isn't
+   * coming — that's exactly the message this field exists to prevent.
+   */
+  configured: boolean;
+}
+
+/**
+ * An employee's current spend status against their cap, resetting the
+ * period first if it has elapsed (see `spend-period.ts`).
+ *
+ * An employee with no row at all — the admin hasn't configured them yet —
+ * resolves to a blocking `limitCents: 0`, not unlimited. Unconfigured must
+ * never silently mean "no cap"; that is the one failure mode a spend limit
+ * exists specifically to prevent.
+ */
+export async function getSpendStatus(userId: string, now: Date = new Date()): Promise<SpendStatus> {
+  const [row] = await db.select().from(spendLimit).where(eq(spendLimit.userId, userId)).limit(1);
+  if (!row) {
+    return { limitCents: 0, spentCentsThisPeriod: 0, periodDays: 30, resetAt: now, configured: false };
+  }
+
+  if (periodHasElapsed({ periodStart: row.periodStart, periodDays: row.periodDays }, now)) {
+    const reset = resetPeriod(now);
+    await db.update(spendLimit).set(reset).where(eq(spendLimit.userId, userId));
+    return {
+      limitCents: row.limitCents,
+      spentCentsThisPeriod: reset.spentCentsThisPeriod,
+      periodDays: row.periodDays,
+      resetAt: new Date(reset.periodStart.getTime() + row.periodDays * 24 * 60 * 60 * 1000),
+      configured: true,
+    };
+  }
+
+  return {
+    configured: true,
+    limitCents: row.limitCents,
+    spentCentsThisPeriod: row.spentCentsThisPeriod,
+    periodDays: row.periodDays,
+    resetAt: new Date(row.periodStart.getTime() + row.periodDays * 24 * 60 * 60 * 1000),
+  };
+}
+
+/**
+ * Adds to the running total for the period just spent in. A no-op for a user
+ * with no row (nothing to add to) — that user was already blocked by
+ * `getSpendStatus` before a request could reach the point this is called
+ * from, in `app/api/chat/route.ts`'s `onEnd`.
+ */
+export async function recordManagedSpend(userId: string, cents: number): Promise<void> {
+  if (cents <= 0) return;
+  await db
+    .update(spendLimit)
+    .set({ spentCentsThisPeriod: sql`${spendLimit.spentCentsThisPeriod} + ${cents}` })
+    .where(eq(spendLimit.userId, userId));
+}
+
+/** Sets (or replaces) one employee's cap. Called from the admin panel only. */
+export async function setSpendLimit(
+  userId: string,
+  input: { limitCents: number | null; periodDays: number },
+): Promise<void> {
+  await db
+    .insert(spendLimit)
+    .values({ userId, limitCents: input.limitCents, periodDays: input.periodDays })
+    .onConflictDoUpdate({
+      target: spendLimit.userId,
+      // Explicitly not resetting `periodStart`/`spentCentsThisPeriod` here:
+      // changing an employee's limit mid-period should not also hand them a
+      // fresh, unspent period as a side effect.
+      set: { limitCents: input.limitCents, periodDays: input.periodDays },
+    });
+}
+
+export interface EmployeeSpend {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  limitCents: number | null;
+  spentCentsThisPeriod: number;
+  periodDays: number;
+}
+
+/** Every account on this instance with its role and current spend, for the admin panel's employee table. */
+export async function listEmployeeSpend(): Promise<EmployeeSpend[]> {
+  const rows = await db
+    .select({
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      // Selected separately from `limitCents` so a missing row and a row
+      // whose limit is genuinely `null` (unlimited — the admin's own
+      // account) can be told apart. A left join leaves every selected
+      // spendLimit column null in both cases; `spendLimit.limitCents ?? 0`
+      // alone would wrongly flatten "never configured" and "deliberately
+      // unlimited" into the same value.
+      hasSpendRow: spendLimit.userId,
+      limitCents: spendLimit.limitCents,
+      spentCentsThisPeriod: spendLimit.spentCentsThisPeriod,
+      periodDays: spendLimit.periodDays,
+    })
+    .from(user)
+    .leftJoin(spendLimit, eq(spendLimit.userId, user.id))
+    .orderBy(asc(user.email));
+
+  return rows.map(({ hasSpendRow, ...r }) => ({
+    ...r,
+    // Only defaulted to blocked when there's no row at all — the same
+    // "unconfigured means blocked" rule `getSpendStatus` applies. A row that
+    // exists with `limitCents: null` means unlimited, and must stay null.
+    limitCents: hasSpendRow ? r.limitCents : 0,
+    spentCentsThisPeriod: r.spentCentsThisPeriod ?? 0,
+    periodDays: r.periodDays ?? 30,
+  }));
 }

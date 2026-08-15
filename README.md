@@ -53,6 +53,9 @@ It prints a `better-auth.session_token=…` cookie — paste it into your browse
 | `MODEL_BASE_URL` | — | OpenAI-compatible endpoint. Defaults to OpenCode Go. |
 | `DEFAULT_MODEL` | — | Defaults to `deepseek-v4-flash`. |
 | `UTILITY_MODEL` | — | Cheap model used to name conversations. Defaults to `DEFAULT_MODEL`. |
+| `ORG_MANAGED_KEYS` | — | Set to `true` for a self-hosted company deployment: provider keys live server-side, configured by an admin, and every employee gets a spend cap instead of pasting in their own key. Unset, this app is BYOK exactly as described above — see "Managed mode" below. |
+| `MANAGED_KEY_ENCRYPTION_SECRET` | if `ORG_MANAGED_KEYS=true` | Encrypts the org's provider keys at rest. Generate with `openssl rand -base64 32`. |
+| `ADMIN_EMAIL` | if `ORG_MANAGED_KEYS=true` | The account promoted to admin on its next sign-in — the only one that can configure keys and spend limits, at `/admin`. |
 
 Email and password is always on. The social providers register only when their credentials are present, so a half-filled `.env.local` still boots and shows only the buttons that work.
 
@@ -64,6 +67,17 @@ Email and password is always on. The social providers register only when their c
 ### Using Neon
 
 Copy the **pooled** connection string from the Neon console into `DATABASE_URL`, then `bun run db:migrate`. Nothing else changes: `node-postgres` speaks to Neon and a local Postgres over the same wire protocol, and the `sslmode=require` already in Neon's string is what turns TLS on.
+
+### Managed mode (self-hosted companies)
+
+The default is BYOK: every model key lives in the browser's `localStorage` and is never sent to this app's server. `ORG_MANAGED_KEYS=true` is a different deployment shape for a company self-hosting its own instance — one org-paid key per provider, entered once by an admin and encrypted at rest, with a spend cap enforced per employee instead of everyone pasting in their own key.
+
+- One instance is one company. There's no multi-tenant "organizations" concept — set `ADMIN_EMAIL` to the account that should manage it.
+- The company pays its provider directly, same as BYOK — no money passes through this app either way.
+- An employee with no limit configured yet is **blocked**, not unlimited. The admin sets a cap (amount + reset period, e.g. $20/month) per person at `/admin` before they can send anything.
+- Spend enforcement is a check-then-record, not an atomic reservation: exact turn cost isn't known until it finishes, so a request that starts just under the cap can finish slightly over it — the *next* request is what gets blocked. Good enough to stop real overspend; not a payments-grade ledger.
+
+This mode ships fully open — there's no license gate on it. Everything above `## What the agent can do` still applies unmodified with `ORG_MANAGED_KEYS` unset.
 
 ---
 

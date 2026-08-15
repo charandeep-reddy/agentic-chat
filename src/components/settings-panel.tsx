@@ -6,7 +6,78 @@ import type { ModelInfo } from "@/app/api/models/route";
 import { PROVIDERS, PROVIDER_LIST, type ProviderId } from "@/lib/providers";
 import { Skeleton } from "./skeleton";
 import { setPrice, usePrices } from "./use-prices";
+import { useManagedMode } from "./app-shell";
 import { IconClose, IconKey } from "./icons";
+
+interface SpendStatus {
+  limitCents: number | null;
+  spentCentsThisPeriod: number;
+  periodDays: number;
+  resetAt: string;
+  /**
+   * False when the admin hasn't set this account up yet. `resetAt` in that
+   * case is a placeholder ("now"), not a real period boundary — see the
+   * field's doc in `lib/db/queries.ts`. Gates whether "resets on X" is shown
+   * at all, so an unconfigured employee isn't told this clears itself.
+   */
+  configured: boolean;
+}
+
+function formatCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+/**
+ * Replaces the key-entry section in managed mode: there's nothing to paste,
+ * so the thing worth showing instead is how much of the org's money this
+ * account has used. Fetched only while the panel is open — a value nobody
+ * ever sees isn't worth a background poll.
+ */
+function SpendMeter({ open }: { open: boolean }) {
+  const [status, setStatus] = useState<SpendStatus | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch("/api/spend")
+      .then((res) => res.json() as Promise<SpendStatus>)
+      .then((data) => {
+        if (!cancelled) setStatus(data);
+      })
+      .catch((error: unknown) => console.error("[settings] failed to load spend status:", error));
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  if (!status) return <Skeleton className="h-5 w-40 rounded" />;
+
+  if (!status.configured) {
+    return (
+      <div className="flex items-center gap-1.5 text-dense text-danger">
+        <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-danger" />
+        No spend limit set yet — ask your admin.
+      </div>
+    );
+  }
+
+  const blocked = status.limitCents !== null && status.spentCentsThisPeriod >= status.limitCents;
+
+  return (
+    <div className="flex items-center gap-1.5 text-dense">
+      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${blocked ? "bg-danger" : "bg-accent"}`} />
+      <span className={blocked ? "text-danger" : "text-text-secondary"}>
+        {formatCents(status.spentCentsThisPeriod)}
+        {status.limitCents !== null && ` / ${formatCents(status.limitCents)}`}
+      </span>
+      {status.limitCents !== null && (
+        <span className="text-micro text-text-faint">
+          · resets {new Date(status.resetAt).toLocaleDateString()}
+        </span>
+      )}
+    </div>
+  );
+}
 
 const SHORTCUTS = [
   { keys: "⌘ K", label: "Search chats / jump" },
@@ -124,6 +195,7 @@ export function SettingsPanel({
   open: boolean;
   onClose: () => void;
 }) {
+  const { managed, isAdmin } = useManagedMode();
   const [draftKey, setDraftKey] = useState("");
   const [prevOpen, setPrevOpen] = useState(false);
   const [models, setModels] = useState<{ token: string; list: ModelInfo[] } | null>(null);
@@ -134,12 +206,22 @@ export function SettingsPanel({
   const info = PROVIDERS[provider];
 
   /**
+   * Whether this provider has something to talk to a model with — either a
+   * key pasted into this browser, or (in managed mode) whatever the org's
+   * admin configured server-side, which this component never sees the value
+   * of. Everything below that used to check `apiKey` checks this instead.
+   */
+  const connected = managed || apiKey !== "";
+
+  /**
    * Identifies one model list. Both halves matter: the same key against a
    * different provider is a different catalogue, and switching provider has to
    * invalidate a list fetched for the previous one rather than show Claude's
-   * models under Gemini.
+   * models under Gemini. In managed mode there's no key to distinguish by, so
+   * the provider alone is the identity — the org's key for a provider doesn't
+   * change under a request the way a locally pasted one could.
    */
-  const token = `${provider}:${apiKey}`;
+  const token = managed ? `${provider}:managed` : `${provider}:${apiKey}`;
 
   // Reset the draft when the panel opens (derived state during render).
   if (open && !prevOpen) {
@@ -154,7 +236,7 @@ export function SettingsPanel({
     setConfirmClearAll(false);
   }
 
-  const loadingModels = open && apiKey !== "" && models?.token !== token && errorToken !== token;
+  const loadingModels = open && connected && models?.token !== token && errorToken !== token;
 
   /**
    * The list to offer, with this provider's default guaranteed to be in it.
@@ -170,11 +252,17 @@ export function SettingsPanel({
   }, [models, token, info.defaultModel]);
 
   useEffect(() => {
-    if (!open || !apiKey) return;
+    if (!open || !connected) return;
     if (models?.token === token || errorToken === token) return;
     let cancelled = false;
 
-    fetch("/api/models", { headers: { "x-model-key": apiKey, "x-model-provider": provider } })
+    // No `x-model-key` in managed mode — the server resolves the org's key
+    // for this provider itself; see `app/api/models/route.ts`.
+    const headers: Record<string, string> = managed
+      ? { "x-model-provider": provider }
+      : { "x-model-key": apiKey, "x-model-provider": provider };
+
+    fetch("/api/models", { headers })
       .then(async (res) => {
         if (!res.ok) throw new Error(`The provider rejected the key (${res.status}).`);
         const data = (await res.json()) as { models: ModelInfo[] };
@@ -188,7 +276,7 @@ export function SettingsPanel({
     return () => {
       cancelled = true;
     };
-  }, [open, apiKey, provider, token, models, errorToken]);
+  }, [open, connected, managed, apiKey, provider, token, models, errorToken]);
 
   useEffect(() => {
     if (!open) return;
@@ -265,69 +353,83 @@ export function SettingsPanel({
           </a>
         </p>
 
-        {/* Whether a key is stored is the one fact this section exists to
-            report, so it gets its own element beside the label. It used to be
-            tacked onto the input's placeholder, where it was the first thing
-            to be truncated as the row got busier — leaving a bare row of dots
-            that reads like six typed characters. */}
-        <div className="mb-1.5 mt-6 flex items-baseline justify-between gap-2">
-          <label htmlFor="model-key" className="text-dense font-medium text-text-secondary">
-            {info.label} API key
-          </label>
-          {apiKey && (
-            <span className="flex shrink-0 items-center gap-1.5 text-micro text-accent">
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
-              Saved {maskKey(apiKey)}
-            </span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <input
-            id="model-key"
-            type="password"
-            value={draftKey}
-            onChange={(e) => setDraftKey(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") save();
-            }}
-            placeholder={apiKey ? "Paste a new key to replace it" : info.keyPlaceholder}
-            autoComplete="off"
-            className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-surface px-3 py-2 font-mono text-dense text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
-          />
-          {/* Accent only while it can actually do something. Rendering a
-              faded-accent Save next to an empty field made the panel's
-              loudest element its one no-op control. */}
-          <button
-            type="button"
-            onClick={save}
-            disabled={draftKey.trim() === ""}
-            className="shrink-0 rounded-lg border border-transparent bg-accent px-3 py-2 text-dense font-medium text-accent-text transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-transparent disabled:text-text-faint"
-          >
-            Save
-          </button>
-        </div>
-        {/* One line instead of four. The old paragraph said the same thing
-            three ways and was long enough that nobody read any of them. */}
-        <div className="mt-1.5 flex items-center gap-1.5 text-micro text-text-faint">
-          <IconKey size={11} className="shrink-0" />
-          <span className="min-w-0 flex-1">Kept in this browser. Never sent to our server.</span>
-          {apiKey && (
-            <button
-              type="button"
-              onClick={() => {
-                onClearKey();
-                setDraftKey("");
-                setModels(null);
-                setErrorToken(null);
-              }}
-              className="shrink-0 underline underline-offset-2 transition-colors hover:text-danger"
-            >
-              Clear key
-            </button>
-          )}
-        </div>
+        {managed ? (
+          // No key to enter — the org's admin configured one server-side for
+          // every provider it shows up as available for. What's worth
+          // showing here instead is how much of it this account has used.
+          <div className="mt-6">
+            <div className="mb-1.5 text-dense font-medium text-text-secondary">
+              Connected via your company&apos;s plan
+            </div>
+            <SpendMeter open={open} />
+          </div>
+        ) : (
+          <>
+            {/* Whether a key is stored is the one fact this section exists to
+                report, so it gets its own element beside the label. It used to be
+                tacked onto the input's placeholder, where it was the first thing
+                to be truncated as the row got busier — leaving a bare row of dots
+                that reads like six typed characters. */}
+            <div className="mb-1.5 mt-6 flex items-baseline justify-between gap-2">
+              <label htmlFor="model-key" className="text-dense font-medium text-text-secondary">
+                {info.label} API key
+              </label>
+              {apiKey && (
+                <span className="flex shrink-0 items-center gap-1.5 text-micro text-accent">
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  Saved {maskKey(apiKey)}
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input
+                id="model-key"
+                type="password"
+                value={draftKey}
+                onChange={(e) => setDraftKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") save();
+                }}
+                placeholder={apiKey ? "Paste a new key to replace it" : info.keyPlaceholder}
+                autoComplete="off"
+                className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-surface px-3 py-2 font-mono text-dense text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+              />
+              {/* Accent only while it can actually do something. Rendering a
+                  faded-accent Save next to an empty field made the panel's
+                  loudest element its one no-op control. */}
+              <button
+                type="button"
+                onClick={save}
+                disabled={draftKey.trim() === ""}
+                className="shrink-0 rounded-lg border border-transparent bg-accent px-3 py-2 text-dense font-medium text-accent-text transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:border-border-subtle disabled:bg-transparent disabled:text-text-faint"
+              >
+                Save
+              </button>
+            </div>
+            {/* One line instead of four. The old paragraph said the same thing
+                three ways and was long enough that nobody read any of them. */}
+            <div className="mt-1.5 flex items-center gap-1.5 text-micro text-text-faint">
+              <IconKey size={11} className="shrink-0" />
+              <span className="min-w-0 flex-1">Kept in this browser. Never sent to our server.</span>
+              {apiKey && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearKey();
+                    setDraftKey("");
+                    setModels(null);
+                    setErrorToken(null);
+                  }}
+                  className="shrink-0 underline underline-offset-2 transition-colors hover:text-danger"
+                >
+                  Clear key
+                </button>
+              )}
+            </div>
+          </>
+        )}
 
-        {apiKey && (
+        {connected && (
           <div className="mt-6">
             <div className="mb-1.5 flex items-center justify-between">
               <label htmlFor="model-select" className="block text-dense font-medium text-text-secondary">
@@ -397,6 +499,9 @@ export function SettingsPanel({
             { href: "/profile", label: "Profile & custom instructions" },
             { href: "/memory", label: "Memory & packs" },
             { href: "/skills", label: "Skills" },
+            // Only the account that manages the org's keys and limits sees
+            // this — everyone else on a managed deployment has no use for it.
+            ...(isAdmin ? [{ href: "/admin", label: "Admin: keys & spend limits" }] : []),
           ].map((link) => (
             <Link
               key={link.href}
@@ -410,8 +515,9 @@ export function SettingsPanel({
 
         {/* Only worth offering once a second provider holds a key — with one
             stored, the Clear button beside the field already does this, and
-            two controls for one action is worse than one. */}
-        {providersWithKey.length > 1 && (
+            two controls for one action is worse than one. Nothing to offer at
+            all in managed mode: there are no locally stored keys to clear. */}
+        {!managed && providersWithKey.length > 1 && (
           <div className="mt-6 border-t border-border-subtle pt-4">
             {confirmClearAll ? (
               <>

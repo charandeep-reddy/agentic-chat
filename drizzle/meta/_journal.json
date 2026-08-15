@@ -57,6 +57,13 @@
       "when": 1786686807362,
       "tag": "0007_high_daimon_hellstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786778703762,
+      "tag": "0008_faithful_domino",
+      "breakpoints": true
     }
   ]
 }

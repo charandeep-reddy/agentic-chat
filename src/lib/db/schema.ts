@@ -28,6 +28,18 @@ export const user = pgTable("user", {
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
+  /**
+   * Added by better-auth's `admin` plugin (registered in `lib/auth.ts`),
+   * unused unless `ORG_MANAGED_KEYS=true` — see `managed-keys.ts`. `banned`
+   * and its two companions are the plugin's, kept even though this app
+   * doesn't build a ban flow on top of them yet: the plugin's own database
+   * hooks read and write all four, and a column it expects but can't find
+   * fails the query rather than degrading gracefully.
+   */
+  role: text("role").notNull().default("user"),
+  banned: boolean("banned").notNull().default(false),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
 });
 
 export const session = pgTable(
@@ -46,6 +58,8 @@ export const session = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    /** better-auth `admin` plugin: set while an admin is impersonating this session. */
+    impersonatedBy: text("impersonated_by"),
   },
   (t) => [index("session_user_id_idx").on(t.userId)],
 );
@@ -353,6 +367,43 @@ export const userSettings = pgTable("user_settings", {
 });
 
 /* ------------------------------------------------------------------ *
+ * Managed mode
+ *
+ * Unused unless the deployment sets `ORG_MANAGED_KEYS=true` — see
+ * `lib/managed-keys.ts` and the route branch in `app/api/chat/route.ts`. One
+ * self-hosted instance is one company, so there is deliberately no
+ * organization id anywhere here: `managedProviderKey` is a flat one-row-per-
+ * provider table, not scoped to a tenant that doesn't exist in this model.
+ * ------------------------------------------------------------------ */
+
+/** An org-paid provider key, encrypted at rest. The admin panel writes this; only the server ever reads it. */
+export const managedProviderKey = pgTable("managed_provider_key", {
+  provider: text("provider").primaryKey(),
+  encryptedKey: text("encrypted_key").notNull(),
+  iv: text("iv").notNull(),
+  authTag: text("auth_tag").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+/**
+ * One employee's spend cap against the org's managed keys.
+ *
+ * `limitCents: null` means unlimited — the admin's own account, typically.
+ * The period resets lazily: whichever request next touches this row after
+ * `periodStart + periodDays` has passed zeroes `spentCentsThisPeriod` and
+ * bumps `periodStart`, rather than a cron job doing it on a schedule.
+ */
+export const spendLimit = pgTable("spend_limit", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  limitCents: integer("limit_cents"),
+  periodDays: integer("period_days").notNull().default(30),
+  periodStart: timestamp("period_start").notNull().defaultNow(),
+  spentCentsThisPeriod: integer("spent_cents_this_period").notNull().default(0),
+});
+
+/* ------------------------------------------------------------------ *
  * Relations
  * ------------------------------------------------------------------ */
 
@@ -400,3 +451,5 @@ export type Message = typeof message.$inferSelect;
 export type Memory = typeof memory.$inferSelect;
 export type MemoryPack = typeof memoryPack.$inferSelect;
 export type UserSettings = typeof userSettings.$inferSelect;
+export type ManagedProviderKey = typeof managedProviderKey.$inferSelect;
+export type SpendLimit = typeof spendLimit.$inferSelect;

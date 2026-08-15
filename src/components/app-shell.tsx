@@ -64,6 +64,22 @@ export function useSidebarToggle(): () => void {
 }
 
 /**
+ * Whether this deployment is running managed mode (`ORG_MANAGED_KEYS=true`),
+ * and whether the current user is its admin. Read once, server-side, in
+ * `app/(app)/layout.tsx` — env vars and roles aren't in localStorage, so
+ * unlike the sidebar's collapse preference above this has no client-only
+ * fallback to reconcile; the server value is simply correct from the first
+ * paint. A context rather than a prop for the same reason `useSidebarToggle`
+ * is: components that need it (`settings-panel.tsx`, `sidebar.tsx`) don't sit
+ * under a page that could pass it down.
+ */
+const ManagedModeContext = createContext({ managed: false, isAdmin: false });
+
+export function useManagedMode(): { managed: boolean; isAdmin: boolean } {
+  return useContext(ManagedModeContext);
+}
+
+/**
  * Sidebar + content frame for every signed-in page. The sidebar is a static
  * column from `lg` up and an overlay drawer below it, so the chat gets the full
  * width on a phone.
@@ -79,14 +95,24 @@ export function AppShell({
   user,
   initialChats,
   initialProjects,
+  managed = false,
+  isAdmin = false,
   children,
 }: {
   user: SidebarUser;
   initialChats: ChatSummary[];
   initialProjects: ProjectSummary[];
+  /** Whether this deployment runs managed mode. See `useManagedMode`. */
+  managed?: boolean;
+  isAdmin?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  // Stable across re-renders unless the values genuinely change — this and
+  // the sidebar-toggle function above are both context values, and an
+  // unstable object identity here would re-render every consumer on every
+  // unrelated AppShell re-render (opening the drawer, for one).
+  const managedMode = useMemo(() => ({ managed, isAdmin }), [managed, isAdmin]);
   const collapsed = useSyncExternalStore(subscribeCollapsed, getCollapsed, () => false);
 
   // One control, two behaviours: below `lg` the sidebar is an overlay drawer, so
@@ -131,16 +157,18 @@ export function AppShell({
   const content = useMemo(() => children, [children]);
 
   return (
-    <SidebarToggleContext.Provider value={toggleSidebar}>
-      <ChatsProvider initialChats={initialChats}>
-        <ProjectsProvider initialProjects={initialProjects}>
-          <div className="flex h-dvh overflow-hidden">
-            <Sidebar user={user} open={open} collapsed={collapsed} onClose={closeDrawer} />
-            {content}
-          </div>
-          <CommandPalette />
-        </ProjectsProvider>
-      </ChatsProvider>
-    </SidebarToggleContext.Provider>
+    <ManagedModeContext.Provider value={managedMode}>
+      <SidebarToggleContext.Provider value={toggleSidebar}>
+        <ChatsProvider initialChats={initialChats}>
+          <ProjectsProvider initialProjects={initialProjects}>
+            <div className="flex h-dvh overflow-hidden">
+              <Sidebar user={user} open={open} collapsed={collapsed} onClose={closeDrawer} />
+              {content}
+            </div>
+            <CommandPalette />
+          </ProjectsProvider>
+        </ChatsProvider>
+      </SidebarToggleContext.Provider>
+    </ManagedModeContext.Provider>
   );
 }

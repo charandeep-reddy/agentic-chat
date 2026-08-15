@@ -31,11 +31,19 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     listProjects(user.id),
   ]);
 
+  // `requireUser` above already promoted the `ADMIN_EMAIL` account on the way
+  // through (`ensureFirstAdmin` in `session.ts`), so `user.role` reflects
+  // that promotion by the time it's read here.
+  const managed = process.env.ORG_MANAGED_KEYS === "true";
+  const isAdmin = managed && (user as { role?: string | null }).role === "admin";
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email, image: user.image ?? null }}
       initialChats={chats.map((c) => ({ ...c, updatedAt: c.updatedAt.toISOString() }))}
       initialProjects={projects.map((p) => ({ ...p, updatedAt: p.updatedAt.toISOString() }))}
+      managed={managed}
+      isAdmin={isAdmin}
     >
       {children}
     </AppShell>
