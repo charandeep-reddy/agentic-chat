@@ -541,19 +541,44 @@ export function Chat({
         </div>
       </div>
 
-      {!pinned && messages.length > 0 && (
+      {/*
+       * Mounted whenever the chat has content, faded and shrunk to nothing
+       * when pinned rather than unmounted — a hard mount/unmount has no
+       * transition to animate, so scrolling up used to pop the button in
+       * abruptly instead of it arriving.
+       *
+       * Shape changes with `busy`: mid-answer, a bare chevron cannot tell you
+       * whether scrolling down returns to a finished reply or one still being
+       * written, so it becomes a pill with a live indicator instead.
+       */}
+      {messages.length > 0 && (
         <button
           type="button"
-          aria-label="Scroll to the newest message"
+          aria-label={
+            busy ? "Reply is still being written — scroll to follow it" : "Scroll to the newest message"
+          }
           onClick={() =>
             scrollRef.current?.scrollTo({
               top: scrollRef.current.scrollHeight,
               behavior: "smooth",
             })
           }
-          className="absolute bottom-28 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-surface-raised text-text-muted shadow-lg transition-colors hover:text-text"
+          className={`absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-raised text-text-muted shadow-lg transition-all duration-150 hover:text-text ${
+            pinned ? "pointer-events-none scale-90 opacity-0" : "scale-100 opacity-100"
+          } ${
+            busy
+              ? "px-3 py-1.5 pointer-coarse:px-3.5 pointer-coarse:py-2"
+              : "h-8 w-8 pointer-coarse:h-10 pointer-coarse:w-10"
+          }`}
         >
-          <IconChevron size={15} />
+          {busy ? (
+            <>
+              <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />
+              <span className="text-micro font-medium">Generating…</span>
+            </>
+          ) : (
+            <IconChevron size={15} />
+          )}
         </button>
       )}
 
