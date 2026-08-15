@@ -27,6 +27,10 @@ bun run build
 
 CI runs all four. Keep them green.
 
+`main` is protected: merging needs the `CI` check green and one approving review. If you're a first-time
+contributor, CI on your PR won't start until a maintainer approves the run — that's a GitHub Actions
+setting, not a sign anything's wrong.
+
 ## Working on the schema
 
 Edit `src/lib/db/schema.ts`, then:

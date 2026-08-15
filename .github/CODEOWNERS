@@ -1,0 +1,4 @@
+# Every merge into main needs an approval from an owner. Kept as a single
+# root rule since there's one maintainer today; scope it further if the
+# project ever splits ownership by directory.
+* @charandeep-reddy
