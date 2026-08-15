@@ -116,10 +116,17 @@ export async function POST(req: Request) {
     return Response.json({ error: "no_messages" }, { status: 400 });
   }
 
-  const chatId = typeof body.id === "string" && body.id ? body.id : null;
-  if (!chatId) {
+  const maybeChatId = typeof body.id === "string" && body.id ? body.id : null;
+  if (!maybeChatId) {
     return Response.json({ error: "missing_chat_id" }, { status: 400 });
   }
+  // Re-bound rather than left as the narrowed `maybeChatId`: the guard above
+  // narrows it to `string` for code that follows in this function body, but
+  // not inside the closures defined further down (`schedulePartialSave`) —
+  // TS's control-flow narrowing doesn't cross a function boundary even for a
+  // `const`. A fresh `string`-typed binding sidesteps that instead of an
+  // assertion.
+  const chatId: string = maybeChatId;
 
   /**
    * A private chat is ephemeral in both directions.
@@ -260,6 +267,64 @@ export async function POST(req: Request) {
     skills: !isPrivate && skills.length > 0 ? createDbSkillStore(user.id) : null,
   });
 
+  /**
+   * Fixed ahead of time rather than left to `generateMessageId` below, so a
+   * partial save during the stream and the final save at the end write the
+   * same row instead of two.
+   */
+  const responseId = generateId();
+
+  /**
+   * Recovery for a process that dies mid-stream — a crash, a redeploy,
+   * hitting `maxDuration` — which `onEnd` cannot cover because it never runs.
+   * `consumeSseStream` below already protects the *client* disconnecting;
+   * this protects the *server* not surviving to `onEnd`.
+   *
+   * Throttled to one write in flight at a time rather than one per chunk:
+   * `onChunk` fires per token, and a database round trip per token would
+   * undo the entire point of streaming. Skipped for a private chat, which
+   * has nowhere to write.
+   */
+  let partialText = "";
+  let partialInFlight: Promise<void> | null = null;
+  let partialPending = false;
+  // Set at the top of `onEnd`, before it awaits anything. Stops a trailing
+  // partial save from landing after the real one and leaving the row
+  // truncated — `onEnd` also awaits whatever partial save is already in
+  // flight, so the final write is guaranteed to happen after it, not race it.
+  let done = false;
+
+  function schedulePartialSave() {
+    if (isPrivate || !chat || done) return;
+    if (partialInFlight) {
+      partialPending = true;
+      return;
+    }
+    const text = partialText;
+    partialInFlight = saveMessages(chatId, [
+      {
+        id: responseId,
+        role: "assistant",
+        parts: [{ type: "text", text }],
+        metadata: { partial: true },
+        // `saveMessages`'s upsert only updates `parts`/`metadata` on
+        // conflict — the row's `model` column keeps whatever its first
+        // insert set. Passed here too so the final save (an update, since
+        // this row already exists) isn't the one write that actually
+        // determines it.
+        model: modelId,
+      },
+    ])
+      .catch((error) => console.error("[api/chat] failed to persist partial assistant message:", error))
+      .finally(() => {
+        partialInFlight = null;
+        if (partialPending && !done) {
+          partialPending = false;
+          schedulePartialSave();
+        }
+      });
+  }
+
   const result = streamText({
     model: languageModel(provider, apiKey, modelId),
     system,
@@ -273,6 +338,11 @@ export async function POST(req: Request) {
     // that says "fetch this, then chart it" spends several more following its
     // own instructions. Eight left those turns ending mid-task.
     stopWhen: [isStepCount(12), hasToolCall("ask_user_question")],
+    onChunk: ({ chunk }) => {
+      if (chunk.type !== "text-delta") return;
+      partialText += chunk.text;
+      schedulePartialSave();
+    },
     onError: (error) => {
       console.error("[api/chat] stream error:", error);
     },
@@ -299,8 +369,10 @@ export async function POST(req: Request) {
       // Without this the SDK leaves the response message id as "", so every
       // answer upserts onto the same empty-id row instead of being stored.
       // It also travels to the client in the `start` chunk, which keeps the
-      // id the browser renders identical to the one on disk.
-      generateMessageId: generateId,
+      // id the browser renders identical to the one on disk. Fixed to
+      // `responseId` rather than a fresh `generateId()` call, so a partial
+      // save during the stream and the final save here write the same row.
+      generateMessageId: () => responseId,
       // BYOK means the user pays the provider directly, so the token count is
       // their bill. `finish` carries the usage for the whole turn, tool steps
       // included. It rides along as message metadata, which `saveMessages`
@@ -314,6 +386,11 @@ export async function POST(req: Request) {
         return usage ? { usage, model: modelId } : undefined;
       },
       onEnd: async ({ responseMessage }) => {
+        // Stops any further partial save from being scheduled, and — via the
+        // await below — guarantees this final write lands after whichever
+        // partial write was already in flight, not before it.
+        done = true;
+        if (partialInFlight) await partialInFlight;
         // A private chat has nowhere to write. The turn still runs to
         // completion above, which is what releases the concurrency slot.
         if (!responseMessage || isPrivate) return;

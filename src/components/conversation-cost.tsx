@@ -9,6 +9,7 @@ import type { MessageUsage } from "@/lib/usage";
 interface TurnMetadata {
   usage?: MessageUsage;
   model?: string;
+  partial?: boolean;
 }
 
 export function messageUsage(message: UIMessage): MessageUsage | undefined {
@@ -17,6 +18,16 @@ export function messageUsage(message: UIMessage): MessageUsage | undefined {
 
 export function messageModel(message: UIMessage): string | undefined {
   return (message.metadata as TurnMetadata | undefined)?.model;
+}
+
+/**
+ * Set by a periodic save during streaming (`route.ts`), cleared by the final
+ * one. Still `true` on load means the server never reached the end of this
+ * turn — a crash, a redeploy, `maxDuration` — not that the reply is just
+ * short.
+ */
+export function messagePartial(message: UIMessage): boolean {
+  return (message.metadata as TurnMetadata | undefined)?.partial === true;
 }
 
 /**

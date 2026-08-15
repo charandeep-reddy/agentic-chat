@@ -66,6 +66,10 @@ const metadataSchema = z.object({
   answerPicked: z.boolean().optional(),
   usage: usageSchema.optional(),
   model: z.string().optional(),
+  // Set by a periodic save during streaming, cleared by the final one. A
+  // message still carrying it on load means the server never finished this
+  // turn — see `partial` in `message-list.tsx`.
+  partial: z.boolean().optional(),
 });
 
 /**

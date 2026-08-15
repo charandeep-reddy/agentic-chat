@@ -11,10 +11,10 @@ import { QuestionCard } from "./question-card";
 import { ToolChipRow, type ToolPart, isToolPart } from "./tool-part";
 import { MemoryNotice } from "./memory-notice";
 import { Skeleton } from "./skeleton";
-import { messageModel, messageUsage } from "./conversation-cost";
+import { messageModel, messagePartial, messageUsage } from "./conversation-cost";
 import { usePrices } from "./use-prices";
 import { estimateCost, formatCost, formatTokens } from "@/lib/usage";
-import { IconCheck, IconCopy, IconEdit, IconRefresh } from "./icons";
+import { IconAlert, IconCheck, IconCopy, IconEdit, IconRefresh } from "./icons";
 import type { ChartSpec } from "@/lib/tools/render-chart";
 import type { FlowSpec } from "@/lib/tools/render-flow";
 import type { HtmlSpec } from "@/lib/tools/render-html";
@@ -260,6 +260,9 @@ const AssistantMessage = memo(function AssistantMessage({
 }) {
   const toolParts = message.parts.filter(isToolPart);
   const text = messageText(message);
+  // Gated on `!busy` too: a message can carry a stale `partial` from an
+  // earlier interruption while a *different*, current turn is streaming.
+  const interrupted = messagePartial(message) && !busy;
 
   return (
     <div className="group w-full space-y-3">
@@ -284,6 +287,13 @@ const AssistantMessage = memo(function AssistantMessage({
       })}
 
       {toolParts.length > 0 && <ToolChipRow parts={toolParts} />}
+
+      {interrupted && (
+        <div className="flex items-center gap-1.5 text-micro text-text-faint">
+          <IconAlert size={12} className="shrink-0 text-accent" />
+          Generation was interrupted — this reply may be incomplete.
+        </div>
+      )}
 
       {!busy && (
         <div
