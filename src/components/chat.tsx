@@ -542,67 +542,84 @@ export function Chat({
       </div>
 
       {/*
-       * Mounted whenever the chat has content, faded and shrunk to nothing
-       * when pinned rather than unmounted — a hard mount/unmount has no
-       * transition to animate, so scrolling up used to pop the button in
-       * abruptly instead of it arriving.
-       *
-       * Shape changes with `busy`: mid-answer, a bare chevron cannot tell you
-       * whether scrolling down returns to a finished reply or one still being
-       * written, so it becomes a pill with a live indicator instead.
+       * A shared anchor for the floating button below, rather than the
+       * button measuring its offset from the screen bottom: `QuestionPrompt`
+       * and `Composer`'s textarea (up to 200px) both change height, and a
+       * fixed offset tuned for the common case would put the button over
+       * whichever of them is taller than that. `bottom-full` anchors the
+       * button to the top edge of *this* box instead, so it tracks whatever
+       * that combined height actually is.
        */}
-      {messages.length > 0 && (
-        <button
-          type="button"
-          aria-label={
-            busy ? "Reply is still being written — scroll to follow it" : "Scroll to the newest message"
-          }
-          onClick={() =>
-            scrollRef.current?.scrollTo({
-              top: scrollRef.current.scrollHeight,
-              behavior: "smooth",
-            })
-          }
-          className={`absolute bottom-35 left-1/2 z-10 flex -translate-x-1/2 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-raised text-text-muted shadow-lg transition-all duration-150 hover:text-text ${
-            pinned ? "pointer-events-none scale-90 opacity-0" : "scale-100 opacity-100"
-          } ${
-            busy
-              ? "px-3 py-1.5 pointer-coarse:px-3.5 pointer-coarse:py-2"
-              : "h-8 w-8 pointer-coarse:h-10 pointer-coarse:w-10"
-          }`}
-        >
-          {busy ? (
-            <>
-              <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />
-              <span className="text-micro font-medium">Generating…</span>
-            </>
-          ) : (
-            <IconChevron size={15} />
-          )}
-        </button>
-      )}
+      <div className="relative">
+        {/*
+         * Faded and shrunk to nothing when pinned rather than unmounted — a
+         * hard mount/unmount has no transition to animate, so scrolling up
+         * used to pop the button in abruptly instead of it arriving.
+         *
+         * Shape changes with `busy`: mid-answer, a bare chevron cannot tell
+         * you whether scrolling down returns to a finished reply or one still
+         * being written, so it becomes a pill with a live indicator instead.
+         */}
+        {messages.length > 0 && (
+          <button
+            type="button"
+            aria-label={
+              busy ? "Reply is still being written — scroll to follow it" : "Scroll to the newest message"
+            }
+            onClick={() =>
+              scrollRef.current?.scrollTo({
+                top: scrollRef.current.scrollHeight,
+                behavior: "smooth",
+              })
+            }
+            className={`absolute bottom-full left-1/2 z-10 mb-3 flex -translate-x-1/2 items-center justify-center gap-1.5 rounded-full border border-border-strong bg-surface-raised text-text shadow-xl backdrop-blur-sm transition-all duration-150 hover:border-accent/50 hover:text-accent active:scale-95 ${
+              pinned ? "pointer-events-none scale-90 opacity-0" : "scale-100 opacity-100"
+            } ${
+              busy
+                ? "px-2.5 py-1.5 sm:px-3.5 sm:py-2"
+                : "h-9 w-9 sm:h-10 sm:w-10"
+            }`}
+          >
+            {busy ? (
+              <>
+                <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />
+                <span className="text-micro font-medium">Generating…</span>
+              </>
+            ) : (
+              // Two icons, one shown via `hidden`/`sm:block`, rather than one
+              // sized by breakpoint: `IconChevron`'s `size` prop sets pixel
+              // width/height directly, which Tailwind's responsive prefixes
+              // can't reach — there's no `sm:size` for a component prop.
+              <>
+                <IconChevron size={16} className="sm:hidden" />
+                <IconChevron size={18} className="hidden sm:block" />
+              </>
+            )}
+          </button>
+        )}
 
-      {pendingQuestion && !busy && (
-        <QuestionPrompt
-          key={pendingQuestion.toolCallId}
-          payload={pendingQuestion.payload}
-          onAnswer={(text) => answerQuestion(text, pendingQuestion.toolCallId)}
-          onDismiss={() => dismissQuestion(pendingQuestion.toolCallId)}
+        {pendingQuestion && !busy && (
+          <QuestionPrompt
+            key={pendingQuestion.toolCallId}
+            payload={pendingQuestion.payload}
+            onAnswer={(text) => answerQuestion(text, pendingQuestion.toolCallId)}
+            onDismiss={() => dismissQuestion(pendingQuestion.toolCallId)}
+          />
+        )}
+
+        <Composer
+          ref={composerRef}
+          chatId={chatId}
+          ephemeral={ephemeral}
+          hasKey={apiKey !== ""}
+          busy={busy}
+          questionPending={pendingQuestion !== null}
+          model={model}
+          onSend={send}
+          onStop={stop}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
-      )}
-
-      <Composer
-        ref={composerRef}
-        chatId={chatId}
-        ephemeral={ephemeral}
-        hasKey={apiKey !== ""}
-        busy={busy}
-        questionPending={pendingQuestion !== null}
-        model={model}
-        onSend={send}
-        onStop={stop}
-        onOpenSettings={() => setSettingsOpen(true)}
-      />
+      </div>
 
       <SettingsPanel
         provider={provider}
