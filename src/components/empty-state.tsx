@@ -8,7 +8,7 @@ import {
   IconFlow,
   IconIncognito,
   IconKey,
-  IconSpark,
+  IconLogo,
   IconTable,
 } from "./icons";
 
@@ -116,7 +116,7 @@ export function EmptyState({
   return (
     <div className="mt-10 flex flex-col items-center text-center sm:mt-16">
       <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent">
-        <IconSpark size={22} />
+        <IconLogo size={22} />
       </span>
       {/* Both headings and both blocks below are rendered, with CSS dropping
           the wrong one — `hasKey` is not readable until after hydration, so

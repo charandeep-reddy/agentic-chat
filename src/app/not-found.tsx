@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { IconSpark } from "@/components/icons";
+import { IconLogo } from "@/components/icons";
 
 export default function NotFound() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
       <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent">
-        <IconSpark size={22} />
+        <IconLogo size={22} />
       </span>
       <p className="font-mono text-micro uppercase tracking-widest text-text-faint">
         404 · page not found
@@ -21,7 +21,7 @@ export default function NotFound() {
         href="/"
         className="mt-8 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-ui font-medium text-accent-text hover:brightness-110"
       >
-        <IconSpark size={15} />
+        <IconLogo size={15} />
         Back to a new chat
       </Link>
     </main>

@@ -3,7 +3,7 @@ import { enabledProviders } from "@/lib/auth";
 import { getSession } from "@/lib/session";
 import { SignInButtons } from "@/components/sign-in-buttons";
 import { EmailAuthForm } from "@/components/email-auth-form";
-import { IconSpark } from "@/components/icons";
+import { IconLogo } from "@/components/icons";
 
 export const metadata = { title: "Sign in · Agentic Chat" };
 
@@ -16,7 +16,7 @@ export default async function SignInPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <span className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent">
-            <IconSpark size={22} />
+            <IconLogo size={22} />
           </span>
           <h1 className="text-2xl font-semibold tracking-tight text-text">Agentic Chat</h1>
           <p className="mt-2 text-ui text-text-muted">

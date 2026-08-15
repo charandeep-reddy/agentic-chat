@@ -14,7 +14,7 @@ import { Skeleton } from "./skeleton";
 import { messageModel, messagePartial, messageUsage } from "./conversation-cost";
 import { usePrices } from "./use-prices";
 import { estimateCost, formatCost, formatTokens } from "@/lib/usage";
-import { IconAlert, IconCheck, IconCopy, IconEdit, IconRefresh } from "./icons";
+import { IconAlert, IconCheck, IconCopy, IconEdit, IconLogo, IconRefresh } from "./icons";
 import type { ChartSpec } from "@/lib/tools/render-chart";
 import type { FlowSpec } from "@/lib/tools/render-flow";
 import type { HtmlSpec } from "@/lib/tools/render-html";
@@ -380,7 +380,7 @@ export function MessageList({
       ) : (
         busy && (
           <div role="status" className="flex items-center gap-2 text-dense text-text-faint">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+            <IconLogo size={14} pulse className="text-accent" />
             Working…
           </div>
         )

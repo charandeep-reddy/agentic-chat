@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { UIMessage } from "ai";
 import { getMessages, getSharedChat } from "@/lib/db/queries";
 import { SharedTranscript } from "@/components/shared-transcript";
-import { IconSpark } from "@/components/icons";
+import { IconLogo } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +37,7 @@ export default async function SharedChatPage({ params }: Props) {
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-3 border-b border-border-subtle bg-bg/90 px-4 backdrop-blur">
         <Link href="/" className="flex items-center gap-2 text-ui font-semibold text-text">
-          <IconSpark size={15} className="text-accent" />
+          <IconLogo size={15} className="text-accent" />
           Agentic Chat
         </Link>
         <span className="min-w-0 flex-1 truncate text-dense text-text-muted">{chat.title}</span>

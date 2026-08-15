@@ -29,6 +29,30 @@ export function IconSpark(props: IconProps) {
   );
 }
 
+/**
+ * The app mark — a bubble with a solid accent dot. The dot has no colour of
+ * its own; it fills with `currentColor`, same as the stroke, so wherever this
+ * is rendered inside a `text-accent` wrapper it repaints with the active
+ * skin's accent automatically (Claude's terracotta, ChatGPT's teal, an
+ * imported skin's own colour) with no JS or theme lookup involved.
+ */
+export function IconLogo({ pulse, ...props }: IconProps & { pulse?: boolean }) {
+  return (
+    <svg {...base(props)}>
+      <rect x="4" y="4.5" width="16" height="10.5" rx="3" />
+      <path d="M8 15v4l4-4" />
+      <circle
+        cx="14"
+        cy="9.5"
+        r="2"
+        fill="currentColor"
+        stroke="none"
+        className={pulse ? "animate-logo-pulse" : undefined}
+      />
+    </svg>
+  );
+}
+
 export function IconSun(props: IconProps) {
   return (
     <svg {...base(props)}>

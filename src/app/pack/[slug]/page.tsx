@@ -4,7 +4,7 @@ import { getPackBySlug } from "@/lib/db/queries";
 import type { PackEntry } from "@/lib/db/queries";
 import { getSession } from "@/lib/session";
 import { InstallPackButton } from "@/components/install-pack-button";
-import { IconBrain, IconSpark } from "@/components/icons";
+import { IconBrain, IconLogo } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,7 @@ export default async function PackPage({ params }: Props) {
     <div className="flex min-h-dvh flex-col">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border-subtle px-4">
         <Link href="/" className="flex items-center gap-2 text-ui font-semibold text-text">
-          <IconSpark size={15} className="text-accent" />
+          <IconLogo size={15} className="text-accent" />
           Agentic Chat
         </Link>
       </header>

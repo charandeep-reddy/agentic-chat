@@ -19,6 +19,7 @@ import {
   IconBrain,
   IconCheck,
   IconFolder,
+  IconLogo,
   IconLogout,
   IconMore,
   IconPin,
@@ -626,7 +627,7 @@ export function Sidebar({
         <div className="flex h-full w-[270px] flex-col">
           <div className="flex items-center justify-between px-3 py-3">
             <Link href="/" className="flex items-center gap-2 text-ui font-semibold text-text">
-              <IconSpark size={15} className="text-accent" />
+              <IconLogo size={15} className="text-accent" />
               Agentic Chat
             </Link>
           </div>
