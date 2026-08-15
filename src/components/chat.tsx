@@ -563,7 +563,7 @@ export function Chat({
               behavior: "smooth",
             })
           }
-          className={`absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-raised text-text-muted shadow-lg transition-all duration-150 hover:text-text ${
+          className={`absolute bottom-35 left-1/2 z-10 flex -translate-x-1/2 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-raised text-text-muted shadow-lg transition-all duration-150 hover:text-text ${
             pinned ? "pointer-events-none scale-90 opacity-0" : "scale-100 opacity-100"
           } ${
             busy
