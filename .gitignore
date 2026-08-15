@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# sample theme JSON — local-only scratch files for testing the import flow,
+# not part of the shipped app
+/examples/*.json

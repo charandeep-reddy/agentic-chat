@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth-client";
 import { ConfirmDialog } from "./confirm-dialog";
 import { PageShell, Section } from "./page-shell";
-import { ThemeToggle } from "./theme-toggle";
+import { ThemeSkinToggle, ThemeToggle } from "./theme-toggle";
+import { ThemeImport } from "./theme-import";
 import { IconDownload, IconGithub, IconGoogle, IconKey, IconTrash, IconUser } from "./icons";
 import { STYLE_PRESETS, isCustom, matchPreset, type StylePreset } from "@/lib/style-presets";
 
@@ -186,9 +187,14 @@ export function ProfilePage({
         title="Appearance"
         description="System follows your operating system and changes with it."
       >
-        <div className="max-w-xs">
+        <div className="max-w-xs space-y-3">
           <ThemeToggle />
+          <ThemeSkinToggle />
         </div>
+      </Section>
+
+      <Section title="Import a theme" description="Bring in a skin exported from a theme editor.">
+        <ThemeImport />
       </Section>
 
       <Section

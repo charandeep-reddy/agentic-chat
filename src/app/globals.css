@@ -117,6 +117,233 @@
   color-scheme: light;
 }
 
+/*
+ * Skins: an axis independent of light/dark, picked via data-skin on <html>
+ * (see theme.ts / ThemeSkinToggle). Each skin defines both a dark and a light
+ * variant, same "unqualified = dark default" shape as the base palette above,
+ * so switching skin never changes whether light/dark/system is honored.
+ *
+ * These are original palettes evoking two familiar chat UIs, not literal
+ * copies — Claude's skin leans warm/cream with a terracotta accent, ChatGPT's
+ * leans neutral gray with a teal accent. Semantic colours (danger/warn/info)
+ * are re-tuned per skin only for contrast, not redefined in meaning.
+ */
+/*
+ * Dark Claude skin's bg/text/border come straight from the product: a near-
+ * black canvas (rgb(21,21,21)), warm off-white text (rgb(240,239,236)), and
+ * a white-at-10%-alpha border rather than an opaque grey — using alpha keeps
+ * the border relative to whatever's behind it instead of a fixed hex, which
+ * is how the real UI does it.
+ */
+:root[data-skin="claude"] {
+  --background: #151515;
+  --foreground: #f0efec;
+
+  --bg: #151515;
+  --bg-elevated: #1a1a1a;
+  --surface: #202020;
+  --surface-raised: #262626;
+
+  --border-subtle: rgb(255 255 255 / 0.06);
+  --border: rgb(255 255 255 / 0.1);
+  --border-strong: rgb(255 255 255 / 0.16);
+
+  --text: #f0efec;
+  --text-secondary: #d5d3cc;
+  --text-muted: #a8a59d;
+  --text-faint: #7a776f;
+
+  --accent: #d97757;
+  --accent-text: #2b1207;
+  --accent-soft: rgb(217 119 87 / 0.15);
+  --accent-glow: rgb(217 119 87 / 0.3);
+  --info: #7dabf8;
+  --info-soft: rgb(125 171 248 / 0.12);
+  --human: #c8a2e0;
+  --human-soft: rgb(200 162 224 / 0.12);
+  --danger: #e57a6d;
+  --danger-soft: rgb(229 122 109 / 0.1);
+  --warn: #e0b04f;
+  --warn-soft: rgb(224 176 79 / 0.1);
+
+  --code-bg: #1a1a1a;
+  --code-border: rgb(255 255 255 / 0.1);
+  --code-text: #e3b98a;
+  --link: #d97757;
+
+  --syntax-comment: #8a8579;
+  --syntax-keyword: #e08a72;
+  --syntax-string: #93b58a;
+  --syntax-number: #e0b04f;
+  --syntax-function: #7dabf8;
+  --syntax-name: #c8a2e0;
+  --syntax-type: #7dc4c4;
+
+  color-scheme: dark;
+}
+
+/*
+ * Light Claude skin is built directly from the four named swatches in
+ * Claude's palette: Crail #C15F3C (accent), Cloudy #B1ADA1 (borders/muted
+ * text), Pampas #F4F3EE (page canvas), White #FFFFFF (raised panels). Every
+ * other value here is a mix or alpha of one of those four, not a fifth
+ * invented colour.
+ */
+/*
+ * bg/text/border below are measured off the live product (background
+ * rgb(252,252,251), text rgb(11,11,11), border black-at-10%-alpha) rather
+ * than derived from the Pampas/Cloudy swatches — the real canvas runs
+ * lighter than Pampas and the border rides alpha over content the same way
+ * the dark variant's does. Pampas/Cloudy/Crail still anchor the surface
+ * steps and accent below.
+ */
+:root[data-skin="claude"][data-theme="light"] {
+  --background: #fcfcfb;
+  --foreground: #0b0b0b;
+
+  --bg: #fcfcfb;
+  --bg-elevated: #ffffff; /* White */
+  --surface: #f4f3ee; /* Pampas */
+  --surface-raised: #eae7de; /* Pampas, stepped toward Cloudy */
+
+  --border-subtle: rgb(11 11 11 / 0.04);
+  --border: rgb(11 11 11 / 0.1);
+  --border-strong: rgb(11 11 11 / 0.18);
+
+  --text: #0b0b0b;
+  --text-secondary: rgb(11 11 11 / 0.75);
+  --text-muted: rgb(11 11 11 / 0.55);
+  --text-faint: rgb(11 11 11 / 0.35);
+
+  --accent: #c15f3c; /* Crail */
+  --accent-text: #ffffff; /* White */
+  --accent-soft: rgb(193 95 60 / 0.1);
+  --accent-glow: rgb(193 95 60 / 0.22);
+  --info: #3a6fc4;
+  --info-soft: rgb(58 111 196 / 0.1);
+  --human: #8759a8;
+  --human-soft: rgb(135 89 168 / 0.1);
+  --danger: #c0402f;
+  --danger-soft: rgb(192 64 47 / 0.08);
+  --warn: #9a6a12;
+  --warn-soft: rgb(154 106 18 / 0.1);
+
+  --code-bg: #f4f3ee; /* Pampas */
+  --code-border: rgb(11 11 11 / 0.1);
+  --code-text: #8a4a1f;
+  --link: #c15f3c; /* Crail */
+
+  --syntax-comment: #7d796e;
+  --syntax-keyword: #a8442f;
+  --syntax-string: #4f7a45;
+  --syntax-number: #9a6a12;
+  --syntax-function: #3a6fc4;
+  --syntax-name: #8759a8;
+  --syntax-type: #2f7d7d;
+
+  color-scheme: light;
+}
+
+/*
+ * Dark ChatGPT skin's bg/text/border are pulled straight from the product:
+ * pure black canvas, pure white text, and a white-at-5%-alpha border — even
+ * lower alpha than Claude's dark border, which is why ChatGPT's chrome reads
+ * as barely-there compared to Claude's.
+ */
+:root[data-skin="chatgpt"] {
+  --background: #000000;
+  --foreground: #ffffff;
+
+  --bg: #000000;
+  --bg-elevated: #0d0d0d;
+  --surface: #171717;
+  --surface-raised: #212121;
+
+  --border-subtle: rgb(255 255 255 / 0.05);
+  --border: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.14);
+
+  --text: #ffffff;
+  --text-secondary: #d4d4d4;
+  --text-muted: #a3a3a3;
+  --text-faint: #737373;
+
+  --accent: #10a37f;
+  --accent-text: #04120d;
+  --accent-soft: rgb(16 163 127 / 0.15);
+  --accent-glow: rgb(16 163 127 / 0.3);
+  --info: #5b9bd5;
+  --info-soft: rgb(91 155 213 / 0.12);
+  --human: #b48ce0;
+  --human-soft: rgb(180 140 224 / 0.12);
+  --danger: #ef5350;
+  --danger-soft: rgb(239 83 80 / 0.1);
+  --warn: #eab308;
+  --warn-soft: rgb(234 179 8 / 0.1);
+
+  --code-bg: #0d0d0d;
+  --code-border: rgb(255 255 255 / 0.08);
+  --code-text: #9fd3c7;
+  --link: #10a37f;
+
+  --syntax-comment: #7a7a7a;
+  --syntax-keyword: #ef8fb0;
+  --syntax-string: #6fcf97;
+  --syntax-number: #eab308;
+  --syntax-function: #5b9bd5;
+  --syntax-name: #b48ce0;
+  --syntax-type: #56c2c2;
+
+  color-scheme: dark;
+}
+
+:root[data-skin="chatgpt"][data-theme="light"] {
+  --background: #ffffff;
+  --foreground: #0d0d0d;
+
+  --bg: #ffffff;
+  --bg-elevated: #f7f7f8;
+  --surface: #f2f2f3;
+  --surface-raised: #e9e9ea;
+
+  --border-subtle: #ececec;
+  --border: #e0e0e0;
+  --border-strong: #c7c7c7;
+
+  --text: #0d0d0d;
+  --text-secondary: #3a3a3a;
+  --text-muted: #676767;
+  --text-faint: #8f8f8f;
+
+  --accent: #0e8f6f;
+  --accent-text: #eafaf5;
+  --accent-soft: rgb(14 143 111 / 0.1);
+  --accent-glow: rgb(14 143 111 / 0.22);
+  --info: #2563a8;
+  --info-soft: rgb(37 99 168 / 0.1);
+  --human: #7c3fb0;
+  --human-soft: rgb(124 63 176 / 0.1);
+  --danger: #d1352b;
+  --danger-soft: rgb(209 53 43 / 0.08);
+  --warn: #a3760a;
+  --warn-soft: rgb(163 118 10 / 0.1);
+
+  --code-bg: #f2f2f3;
+  --code-border: #e0e0e0;
+  --code-text: #0e6f56;
+  --link: #0e8f6f;
+
+  --syntax-comment: #8f8f8f;
+  --syntax-keyword: #b23e63;
+  --syntax-string: #1e824c;
+  --syntax-number: #a3760a;
+  --syntax-function: #2563a8;
+  --syntax-name: #7c3fb0;
+  --syntax-type: #1b7a7a;
+
+  color-scheme: light;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
