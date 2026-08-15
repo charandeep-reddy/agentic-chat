@@ -1,13 +1,30 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { getStorage, removeStorage, setStorage } from "@/lib/local-storage";
-import { IconArrowUp, IconIncognito, IconStop } from "./icons";
+import { formatDocumentBlock, type AttachmentSummary } from "@/lib/document";
+import { IconArrowUp, IconClose, IconIncognito, IconLoader, IconPaperclip, IconStop } from "./icons";
 
 const MAX_HEIGHT = 200;
 const DRAFT_SAVE_DELAY = 250;
 
 const draftKey = (chatId: string) => `composer:draft:${chatId}`;
+
+/**
+ * A PDF attached in the composer. Extraction happens the moment the file is
+ * picked, not on send — so the text is ready (or the error is visible)
+ * before the user commits to sending, and a slow extraction doesn't stall
+ * the message itself.
+ */
+interface Attachment {
+  id: string;
+  name: string;
+  status: "extracting" | "ready" | "error";
+  block?: string;
+  pageCount?: number;
+  hasUncapturedImages?: boolean;
+  error?: string;
+}
 
 export function Composer({
   ref,
@@ -33,13 +50,21 @@ export function Composer({
   busy: boolean;
   questionPending: boolean;
   model: string;
-  onSend: (text: string) => void;
+  /**
+   * `text` is the full string sent to the model, attachment blocks and all.
+   * `attachment` info is display-only — no extracted text — so the transcript
+   * can show a chip and just what was typed, instead of dumping the whole
+   * document into the bubble.
+   */
+  onSend: (text: string, attachments?: { summaries: AttachmentSummary[]; typed: string }) => void;
   onStop: () => void;
   onOpenSettings: () => void;
 }) {
   const inner = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => inner.current as HTMLTextAreaElement, []);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const resize = () => {
     const el = inner.current;
@@ -70,10 +95,54 @@ export function Composer({
     }, DRAFT_SAVE_DELAY);
   };
 
+  const extracting = attachments.some((a) => a.status === "extracting");
+
+  const attachFile = async (file: File) => {
+    const id = `${Date.now()}-${file.name}`;
+    setAttachments((prev) => [...prev, { id, name: file.name, status: "extracting" }]);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/documents/extract", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Could not read this PDF.");
+      const block = formatDocumentBlock(data.name, data);
+      setAttachments((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                status: "ready",
+                block,
+                pageCount: data.pageCount,
+                hasUncapturedImages: data.hasUncapturedImages,
+              }
+            : a,
+        ),
+      );
+    } catch (err) {
+      setAttachments((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? { ...a, status: "error", error: err instanceof Error ? err.message : "Extraction failed." }
+            : a,
+        ),
+      );
+    }
+  };
+
   const submit = () => {
     const value = inner.current?.value ?? "";
-    if (!value.trim() || busy || disabled) return;
-    onSend(value);
+    const ready = attachments.filter((a) => a.status === "ready");
+    if ((!value.trim() && ready.length === 0) || busy || disabled || extracting) return;
+    const text = [...ready.map((a) => a.block as string), value].filter((part) => part.trim()).join("\n\n");
+    const summaries: AttachmentSummary[] = ready.map((a) => ({
+      name: a.name,
+      pageCount: a.pageCount ?? 0,
+      hasUncapturedImages: a.hasUncapturedImages ?? false,
+    }));
+    onSend(text, summaries.length ? { summaries, typed: value.trim() } : undefined);
+    setAttachments([]);
     if (inner.current) {
       inner.current.value = "";
       resize();
@@ -119,6 +188,41 @@ export function Composer({
           </p>
         )}
 
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-4 pt-3">
+            {attachments.map((a) => (
+              <span
+                key={a.id}
+                title={a.status === "error" ? a.error : undefined}
+                className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-micro ${
+                  a.status === "error"
+                    ? "border-danger/40 bg-danger-soft text-danger"
+                    : "border-border-subtle bg-bg-elevated text-text-muted"
+                }`}
+              >
+                {a.status === "extracting" ? (
+                  <IconLoader size={11} className="animate-spin" />
+                ) : (
+                  <IconPaperclip size={11} />
+                )}
+                <span className="max-w-[14rem] truncate">
+                  {a.name}
+                  {a.status === "ready" && a.pageCount ? ` · ${a.pageCount}p` : ""}
+                  {a.status === "error" ? " · couldn't read" : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))}
+                  aria-label={`Remove ${a.name}`}
+                  className="text-text-faint hover:text-text"
+                >
+                  <IconClose size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <textarea
           ref={inner}
           rows={1}
@@ -140,6 +244,27 @@ export function Composer({
 
         <div className="flex items-center justify-between gap-3 px-3 pb-3">
           <div className="flex min-w-0 items-center gap-2">
+            <input
+              ref={fileInput}
+              type="file"
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void attachFile(file);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => fileInput.current?.click()}
+              title="Attach a PDF"
+              aria-label="Attach a PDF"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-faint transition-colors hover:bg-bg-elevated hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <IconPaperclip size={14} />
+            </button>
             <button
               type="button"
               onClick={onOpenSettings}
@@ -175,7 +300,7 @@ export function Composer({
           ) : (
             <button
               type="button"
-              disabled={disabled}
+              disabled={disabled || extracting}
               onClick={submit}
               aria-label="Send message"
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-accent-text transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-30"

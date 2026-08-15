@@ -14,7 +14,8 @@ import { Skeleton } from "./skeleton";
 import { messageModel, messagePartial, messageUsage } from "./conversation-cost";
 import { usePrices } from "./use-prices";
 import { estimateCost, formatCost, formatTokens } from "@/lib/usage";
-import { IconAlert, IconCheck, IconCopy, IconEdit, IconLogo, IconRefresh } from "./icons";
+import { IconAlert, IconCheck, IconCopy, IconEdit, IconLogo, IconPaperclip, IconRefresh } from "./icons";
+import type { AttachmentSummary } from "@/lib/document";
 import type { ChartSpec } from "@/lib/tools/render-chart";
 import type { FlowSpec } from "@/lib/tools/render-flow";
 import type { HtmlSpec } from "@/lib/tools/render-html";
@@ -114,8 +115,19 @@ const UserMessage = memo(function UserMessage({
   const [draft, setDraft] = useState(text);
 
   const answerMeta = message.metadata as
-    | { answerTo?: string; answerPicked?: boolean }
+    | {
+        answerTo?: string;
+        answerPicked?: boolean;
+        attachments?: AttachmentSummary[];
+        displayText?: string;
+      }
     | undefined;
+  const attachments = answerMeta?.attachments;
+  // `text` is what was actually sent to the model — extracted document text
+  // included. That's never what the bubble should show; with an attachment,
+  // show only what was typed alongside it, and let the chip stand for the
+  // rest. `displayText` can legitimately be "" (a document with no message).
+  const shown = attachments?.length ? (answerMeta?.displayText ?? "") : text;
   // Transcripts written before a question could be answered in prose have no
   // `answerPicked`, and every answer they hold was picked from the list.
   const isPickedAnswer = Boolean(answerMeta?.answerTo) && answerMeta?.answerPicked !== false;
@@ -183,12 +195,35 @@ const UserMessage = memo(function UserMessage({
 
   return (
     <div className="group flex flex-col items-end gap-1">
-      <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-prose text-accent-text">
-        {text}
-      </div>
+      {attachments && attachments.length > 0 && (
+        <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
+          {attachments.map((a) => (
+            <span
+              key={a.name}
+              title={
+                a.hasUncapturedImages
+                  ? `${a.name} may also contain images or charts not shown as text`
+                  : a.name
+              }
+              className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-raised px-2 py-1 text-micro text-text-muted"
+            >
+              <IconPaperclip size={11} />
+              <span className="max-w-[12rem] truncate">
+                {a.name}
+                {a.pageCount ? ` · ${a.pageCount}p` : ""}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+      {shown && (
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-prose text-accent-text">
+          {shown}
+        </div>
+      )}
       <div className="flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
         <CopyButton text={text} />
-        {!readOnly && (
+        {!readOnly && !attachments?.length && (
           <button
             type="button"
             disabled={busy}

@@ -24,6 +24,7 @@ import { ProjectCrumb } from "./project-crumb";
 import { requestLeave, setLeaveGuard } from "./leave-guard";
 import { startNewChat } from "./new-chat";
 import { IconChevron, IconKey, IconSidebar } from "./icons";
+import type { AttachmentSummary } from "@/lib/document";
 
 export interface ChatProps {
   chatId: string;
@@ -246,19 +247,27 @@ export function Chat({
   );
 
   const send = useCallback(
-    (text: string) => {
+    (text: string, attachments?: { summaries: AttachmentSummary[]; typed: string }) => {
       const trimmed = text.trim();
       if (!trimmed || busy || !apiKey) return;
       claimUrl();
       // Typing instead of picking is a valid answer, so it is recorded as one.
       // Without the tag the reply settled the question on screen but not in
       // the transcript, and a reload put the card back.
+      //
+      // `attachments`/`displayText` carry a document summary for rendering —
+      // the extracted text itself lives only in `trimmed`, sent to the model,
+      // never duplicated into metadata.
+      const metadata = {
+        ...(pendingQuestion ? { answerTo: pendingQuestion.toolCallId, answerPicked: false } : {}),
+        ...(attachments
+          ? { attachments: attachments.summaries, displayText: attachments.typed }
+          : {}),
+      };
       void sendMessage({
         role: "user",
         parts: [{ type: "text", text: trimmed }],
-        ...(pendingQuestion
-          ? { metadata: { answerTo: pendingQuestion.toolCallId, answerPicked: false } }
-          : {}),
+        ...(Object.keys(metadata).length ? { metadata } : {}),
       });
     },
     [busy, pendingQuestion, apiKey, sendMessage, claimUrl],
