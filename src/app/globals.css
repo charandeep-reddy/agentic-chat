@@ -155,7 +155,7 @@
   --foreground: #f0efec;
 
   --bg: #151515;
-  --bg-elevated: #1a1a1a;
+  --bg-elevated: #111111; /* Sidebar canvas — measured off the real product */
   --surface: #202020;
   --surface-raised: #262626;
 

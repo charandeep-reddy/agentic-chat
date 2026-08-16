@@ -19,6 +19,15 @@ import {
   type ThemeSkin,
   type ThemeSkinSet,
 } from "@/lib/theme";
+import {
+  CODE_SKIN_CUSTOM_STORAGE,
+  CODE_SKIN_STORAGE,
+  isCodeSkin,
+  resolveCodeTokens,
+  sanitizeCodeSkinSet,
+  type CodeSkin,
+  type CodeSkinSet,
+} from "@/lib/code-theme";
 
 type ImportResult = { ok: true } | { ok: false; error: string };
 
@@ -35,6 +44,17 @@ interface ThemeContextValue {
   customTheme: ThemeSkinSet | null;
   /** Validates and stores `raw` as the custom skin, and switches to it. */
   importTheme: (raw: unknown) => ImportResult;
+  /**
+   * The code (syntax highlighting) theme — independent of `skin`. "auto"
+   * means the active UI skin's own syntax colours stand, which is the
+   * default and what everyone had before this existed.
+   */
+  codeSkin: CodeSkin;
+  setCodeSkin: (next: CodeSkin) => void;
+  /** The imported syntax palette, if any. Present even when a preset is active. */
+  customCodeSkin: CodeSkinSet | null;
+  /** Validates and stores `raw` as the imported code skin, and switches to it. */
+  importCodeSkin: (raw: unknown) => ImportResult;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
@@ -45,6 +65,10 @@ const ThemeContext = createContext<ThemeContextValue>({
   setSkin: () => {},
   customTheme: null,
   importTheme: () => ({ ok: false, error: "not ready" }),
+  codeSkin: "auto",
+  setCodeSkin: () => {},
+  customCodeSkin: null,
+  importCodeSkin: () => ({ ok: false, error: "not ready" }),
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -55,6 +79,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<ResolvedTheme>("dark");
   const [skin, setSkinState] = useState<ThemeSkin>("default");
   const [customTheme, setCustomTheme] = useState<ThemeSkinSet | null>(null);
+  const [codeSkin, setCodeSkinState] = useState<CodeSkin>("auto");
+  const [customCodeSkin, setCustomCodeSkin] = useState<CodeSkinSet | null>(null);
 
   useEffect(() => {
     const read = () => {
@@ -94,14 +120,41 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return subscribeStorage(CUSTOM_THEME_STORAGE, read);
   }, []);
 
-  // The one place tokens are actually painted for the "custom" skin — every
-  // other skin's palette lives in globals.css and needs no JS to apply.
-  // Re-runs on every input that changes what should be on screen: picking
-  // "custom", flipping light/dark, or importing a different skin while
-  // already on "custom".
   useEffect(() => {
-    applyCustomTokens(skin === "custom" ? customTheme?.[theme] : undefined);
-  }, [skin, theme, customTheme]);
+    const read = () => {
+      const stored = getStorage(CODE_SKIN_STORAGE);
+      setCodeSkinState(isCodeSkin(stored) ? stored : "auto");
+    };
+    read();
+    return subscribeStorage(CODE_SKIN_STORAGE, read);
+  }, []);
+
+  useEffect(() => {
+    const read = () => {
+      const raw = getStorage(CODE_SKIN_CUSTOM_STORAGE);
+      if (!raw) return setCustomCodeSkin(null);
+      try {
+        setCustomCodeSkin(sanitizeCodeSkinSet(JSON.parse(raw)));
+      } catch {
+        setCustomCodeSkin(null);
+      }
+    };
+    read();
+    return subscribeStorage(CODE_SKIN_CUSTOM_STORAGE, read);
+  }, []);
+
+  // The one place tokens are actually painted for the "custom" UI skin and/or
+  // a code skin — every built-in skin's palette lives in globals.css and
+  // needs no JS to apply. Computed as one merged map and applied in one call
+  // so the two independently-configurable layers (UI skin, code skin) can't
+  // race and clobber each other: applyCustomTokens clears every token before
+  // setting the ones it's given, so calling it twice per commit would have
+  // the second call erase the first's syntax overrides.
+  useEffect(() => {
+    const base = skin === "custom" ? customTheme?.[theme] : undefined;
+    const code = resolveCodeTokens(codeSkin, theme, customCodeSkin);
+    applyCustomTokens(base || code ? { ...base, ...code } : undefined);
+  }, [skin, theme, customTheme, codeSkin, customCodeSkin]);
 
   // Only matters while the preference is "system": the OS can flip underneath
   // us, and nothing else would tell us.
@@ -132,6 +185,25 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setStorage(THEME_SKIN_STORAGE, next);
   }, []);
 
+  const setCodeSkin = useCallback((next: CodeSkin) => {
+    setCodeSkinState(next);
+    setStorage(CODE_SKIN_STORAGE, next);
+  }, []);
+
+  const importCodeSkin = useCallback(
+    (raw: unknown): ImportResult => {
+      const set = sanitizeCodeSkinSet(raw);
+      if (!set) {
+        return { ok: false, error: "That JSON isn't a valid code skin — no recognisable colours found." };
+      }
+      setCustomCodeSkin(set);
+      setStorage(CODE_SKIN_CUSTOM_STORAGE, JSON.stringify(set));
+      setCodeSkin("custom");
+      return { ok: true };
+    },
+    [setCodeSkin],
+  );
+
   const importTheme = useCallback(
     (raw: unknown): ImportResult => {
       const set = sanitizeThemeSkinSet(raw);
@@ -148,7 +220,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeContext.Provider
-      value={{ preference, theme, setPreference, skin, setSkin, customTheme, importTheme }}
+      value={{
+        preference,
+        theme,
+        setPreference,
+        skin,
+        setSkin,
+        customTheme,
+        importTheme,
+        codeSkin,
+        setCodeSkin,
+        customCodeSkin,
+        importCodeSkin,
+      }}
     >
       {children}
     </ThemeContext.Provider>

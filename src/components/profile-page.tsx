@@ -7,6 +7,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { PageShell, Section } from "./page-shell";
 import { ThemeSkinToggle, ThemeToggle } from "./theme-toggle";
 import { ThemeImport } from "./theme-import";
+import { CodeThemePicker } from "./code-theme-picker";
 import { IconDownload, IconGithub, IconGoogle, IconKey, IconTrash, IconUser } from "./icons";
 import { STYLE_PRESETS, isCustom, matchPreset, type StylePreset } from "@/lib/style-presets";
 
@@ -195,6 +196,13 @@ export function ProfilePage({
 
       <Section title="Import a theme" description="Bring in a skin exported from a theme editor.">
         <ThemeImport />
+      </Section>
+
+      <Section
+        title="Code theme"
+        description="Syntax highlighting colours in code blocks — separate from the UI skin above."
+      >
+        <CodeThemePicker />
       </Section>
 
       <Section
