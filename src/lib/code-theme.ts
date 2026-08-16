@@ -1,4 +1,4 @@
-import { isValidColorValue, THEME_STORAGE, type ThemeTokenKey } from "./theme";
+import { isValidColorValue, THEME_STORAGE, THEME_TOKEN_KEYS, type ThemeTokenKey } from "./theme";
 
 export const CODE_SKIN_STORAGE = "agentic-chat.code-skin";
 export const CODE_SKIN_CUSTOM_STORAGE = "agentic-chat.code-skin-custom";
@@ -135,6 +135,26 @@ export function sanitizeCodeSkinSet(raw: unknown): CodeSkinSet | null {
   const dark = sanitizeSyntaxTokenMap(hasVariantShape ? obj.dark : obj);
   if (!light && !dark) return null;
   return { name, light: light ?? undefined, dark: dark ?? undefined };
+}
+
+const NON_SYNTAX_THEME_KEYS = new Set<ThemeTokenKey>(
+  THEME_TOKEN_KEYS.filter((key) => !(SYNTAX_TOKEN_KEYS as readonly string[]).includes(key)),
+);
+
+/**
+ * True when the parsed input carries theme tokens beyond the seven syntax
+ * ones — i.e. it looks like a full ThemeSkinSet export rather than a
+ * code-skin-only file. `sanitizeCodeSkinSet` already ignores those extra
+ * keys silently; this exists only so the import toast can say so, instead
+ * of reporting success identically either way.
+ */
+export function looksLikeFullTheme(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  const obj = raw as Record<string, unknown>;
+  const buckets = [obj, obj.light, obj.dark].filter(
+    (b): b is Record<string, unknown> => !!b && typeof b === "object",
+  );
+  return buckets.some((b) => Object.keys(b).some((k) => NON_SYNTAX_THEME_KEYS.has(k as ThemeTokenKey)));
 }
 
 /**

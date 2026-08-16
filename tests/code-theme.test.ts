@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CODE_SKIN_PRESETS,
   isCodeSkin,
+  looksLikeFullTheme,
   resolveCodeTokens,
   sanitizeCodeSkinSet,
   sanitizeSyntaxTokenMap,
@@ -72,6 +73,25 @@ describe("sanitizeCodeSkinSet", () => {
     expect(sanitizeCodeSkinSet({ dark: { "--syntax-keyword": "url(evil)" } })).toBeNull();
     expect(sanitizeCodeSkinSet(null)).toBeNull();
     expect(sanitizeCodeSkinSet("not an object")).toBeNull();
+  });
+});
+
+describe("looksLikeFullTheme", () => {
+  it("is false for a code-skin-only file, variant shape or flat", () => {
+    expect(looksLikeFullTheme({ name: "Mine", dark: { "--syntax-keyword": "#ff79c6" } })).toBe(false);
+    expect(looksLikeFullTheme({ "--syntax-keyword": "#ff79c6" })).toBe(false);
+  });
+
+  it("is true when a non-syntax theme token is present, at top level or in a variant", () => {
+    expect(looksLikeFullTheme({ "--accent": "#ff79c6", "--syntax-keyword": "#ff79c6" })).toBe(true);
+    expect(looksLikeFullTheme({ dark: { "--background": "#111", "--syntax-keyword": "#ff79c6" } })).toBe(
+      true,
+    );
+  });
+
+  it("is false for non-objects", () => {
+    expect(looksLikeFullTheme(null)).toBe(false);
+    expect(looksLikeFullTheme("not an object")).toBe(false);
   });
 });
 

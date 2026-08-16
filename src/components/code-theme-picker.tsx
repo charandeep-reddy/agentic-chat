@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CODE_SKIN_LABELS, CODE_SKINS } from "@/lib/code-theme";
+import { CODE_SKIN_LABELS, CODE_SKINS, looksLikeFullTheme } from "@/lib/code-theme";
 import { IconAlert, IconCheck } from "./icons";
 import { useTheme } from "./theme-provider";
 
@@ -34,7 +34,12 @@ export function CodeThemePicker() {
     const result = importCodeSkin(parsed);
     setStatus(
       result.ok
-        ? { ok: true, message: "Code theme imported and applied." }
+        ? {
+            ok: true,
+            message: looksLikeFullTheme(parsed)
+              ? "Code theme imported — pulled just the syntax colors from this file; the rest of the theme was ignored."
+              : "Code theme imported and applied.",
+          }
         : { ok: false, message: result.error },
     );
   }
