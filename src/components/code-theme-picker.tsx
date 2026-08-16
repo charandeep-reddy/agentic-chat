@@ -48,7 +48,7 @@ export function CodeThemePicker() {
       <div
         role="radiogroup"
         aria-label="Code theme"
-        className="flex flex-wrap gap-1 rounded-lg border border-border-subtle bg-surface p-1"
+        className="flex w-fit flex-wrap gap-1 rounded-lg border border-border-subtle bg-surface p-1"
       >
         {options.map((option) => {
           const active = codeSkin === option;
@@ -128,7 +128,53 @@ export function CodeThemePicker() {
             {status.message}
           </p>
         )}
+
+        <CodeThemeSample />
       </div>
+    </div>
+  );
+}
+
+/**
+ * A static snippet styled with the same `.markdown .hljs-*` classes the real
+ * markdown renderer uses, so it picks up whatever `--syntax-*` tokens are
+ * currently applied to the document — no highlighting library needed here,
+ * just enough token variety (comment, keyword, string, number, function,
+ * name, type) to preview every colour the picker above controls.
+ */
+function CodeThemeSample() {
+  return (
+    <div className="markdown">
+      <pre className="my-0! text-micro">
+        <code>
+          <span className="hljs-comment">{"// fibonacci"}</span>
+          {"\n"}
+          <span className="hljs-keyword">function</span>{" "}
+          <span className="hljs-title">fib</span>
+          {"("}
+          <span className="hljs-attr">n</span>
+          {": "}
+          <span className="hljs-type">number</span>
+          {") {"}
+          {"\n  "}
+          <span className="hljs-keyword">if</span> {"(n <= "}
+          <span className="hljs-number">1</span>
+          {") "}
+          <span className="hljs-keyword">return</span> n{";"}
+          {"\n  "}
+          <span className="hljs-keyword">return</span> fib(n -{" "}
+          <span className="hljs-number">1</span>
+          {") + fib(n - "}
+          <span className="hljs-number">2</span>
+          {");"}
+          {"\n}"}
+          {"\n\n"}
+          <span className="hljs-keyword">const</span> <span className="hljs-variable">label</span>{" "}
+          {"= "}
+          <span className="hljs-string">{'"result"'}</span>
+          {";"}
+        </code>
+      </pre>
     </div>
   );
 }
