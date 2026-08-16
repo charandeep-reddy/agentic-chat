@@ -25,6 +25,7 @@ import { requestLeave, setLeaveGuard } from "./leave-guard";
 import { startNewChat } from "./new-chat";
 import { IconChevron, IconKey, IconSidebar } from "./icons";
 import type { AttachmentSummary } from "@/lib/document";
+import { useDisabledTools } from "./use-disabled-tools";
 
 export interface ChatProps {
   chatId: string;
@@ -126,6 +127,7 @@ export function Chat({
   emptyState,
 }: ChatProps) {
   const toggleSidebar = useSidebarToggle();
+  const [disabledTools, setDisabledTools] = useDisabledTools(chatId);
   const {
     provider,
     apiKey,
@@ -188,9 +190,10 @@ export function Chat({
           // Omitted rather than sent as null when there is no project, so a
           // private chat's body stays exactly as bare as it was.
           ...(projectId ? { projectId } : {}),
+          ...(disabledTools.length ? { disabledTools } : {}),
         },
       }),
-    [apiKey, provider, model, chatId, ephemeral, projectId],
+    [apiKey, provider, model, chatId, ephemeral, projectId, disabledTools],
   );
 
   const { messages, sendMessage, setMessages, regenerate, status, error, stop } = useChat({
@@ -640,6 +643,8 @@ export function Chat({
         onModelChange={setModel}
         onClearKey={clearKey}
         onClearAllKeys={clearAllKeys}
+        disabledTools={disabledTools}
+        onDisabledToolsChange={setDisabledTools}
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />

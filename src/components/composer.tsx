@@ -3,6 +3,7 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { getStorage, removeStorage, setStorage } from "@/lib/local-storage";
 import { formatDocumentBlock, type AttachmentSummary } from "@/lib/document";
+import { useSendKeyPreference } from "./use-send-key";
 import { IconArrowUp, IconClose, IconIncognito, IconLoader, IconPaperclip, IconStop } from "./icons";
 
 const MAX_HEIGHT = 200;
@@ -63,6 +64,7 @@ export function Composer({
   const inner = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => inner.current as HTMLTextAreaElement, []);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sendKey = useSendKeyPreference();
   const fileInput = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
@@ -234,7 +236,12 @@ export function Composer({
             saveDraft();
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (e.key !== "Enter") return;
+            // The other combination always falls through un-prevented, which
+            // is what makes it insert a newline — the textarea's own default
+            // Enter behaviour, still available whichever key sends.
+            const sends = sendKey === "enter" ? !e.shiftKey : e.shiftKey;
+            if (sends) {
               e.preventDefault();
               submit();
             }
@@ -278,11 +285,13 @@ export function Composer({
                 shortcuts it can use, and a tablet was told to press Shift
                 when it has no Shift to press. */}
             <span className="hidden text-micro text-text-faint pointer-fine:inline">
-              <kbd className="rounded border border-border-subtle px-1 font-mono text-micro">↵</kbd>{" "}
+              <kbd className="rounded border border-border-subtle px-1 font-mono text-micro">
+                {sendKey === "enter" ? "↵" : "⇧↵"}
+              </kbd>{" "}
               send
               <span className="mx-1.5 opacity-50">·</span>
               <kbd className="rounded border border-border-subtle px-1 font-mono text-micro">
-                ⇧↵
+                {sendKey === "enter" ? "⇧↵" : "↵"}
               </kbd>{" "}
               newline
             </span>

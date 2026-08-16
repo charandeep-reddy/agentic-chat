@@ -4,17 +4,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { ModelInfo } from "@/app/api/models/route";
 import { PROVIDERS, PROVIDER_LIST, type ProviderId } from "@/lib/providers";
+import { TOGGLEABLE_TOOLS, type ToggleableTool } from "@/lib/tool-visibility";
 import { Skeleton } from "./skeleton";
 import { setPrice, usePrices } from "./use-prices";
+import { setSendKeyPreference, useSendKeyPreference } from "./use-send-key";
 import { IconClose, IconKey } from "./icons";
 
-const SHORTCUTS = [
+/** Fixed shortcuts. Send/newline are appended dynamically — see SHORTCUTS below. */
+const FIXED_SHORTCUTS = [
   { keys: "⌘ K", label: "Search chats / jump" },
   { keys: "⌘ ⇧ O", label: "New chat" },
   { keys: "⌘ B", label: "Show / hide sidebar" },
   { keys: "⌘ /", label: "Focus composer" },
-  { keys: "↵", label: "Send" },
-  { keys: "⇧ ↵", label: "Newline" },
   { keys: "esc", label: "Stop generating" },
 ];
 
@@ -109,6 +110,8 @@ export function SettingsPanel({
   onModelChange,
   onClearKey,
   onClearAllKeys,
+  disabledTools,
+  onDisabledToolsChange,
   open,
   onClose,
 }: {
@@ -121,9 +124,23 @@ export function SettingsPanel({
   onModelChange: (model: string) => void;
   onClearKey: () => void;
   onClearAllKeys: () => void;
+  /** Tools turned off for this one chat — see useDisabledTools. */
+  disabledTools: ToggleableTool[];
+  onDisabledToolsChange: (next: ToggleableTool[]) => void;
   open: boolean;
   onClose: () => void;
 }) {
+  const sendKey = useSendKeyPreference();
+  const shortcuts = [
+    ...FIXED_SHORTCUTS.slice(0, 4),
+    sendKey === "enter"
+      ? { keys: "↵", label: "Send" }
+      : { keys: "⇧ ↵", label: "Send" },
+    sendKey === "enter"
+      ? { keys: "⇧ ↵", label: "Newline" }
+      : { keys: "↵", label: "Newline" },
+    ...FIXED_SHORTCUTS.slice(4),
+  ];
   const [draftKey, setDraftKey] = useState("");
   const [prevOpen, setPrevOpen] = useState(false);
   const [models, setModels] = useState<{ token: string; list: ModelInfo[] } | null>(null);
@@ -373,13 +390,72 @@ export function SettingsPanel({
         )}
         <PriceFields model={model} />
 
+        <div className="mt-6">
+          <h3 className="mb-1.5 text-dense font-medium text-text-secondary">Send with</h3>
+          <div className="flex gap-2">
+            {(
+              [
+                { value: "enter" as const, label: "Enter", hint: "Shift+Enter for a newline" },
+                { value: "shift-enter" as const, label: "Shift+Enter", hint: "Enter for a newline" },
+              ]
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSendKeyPreference(opt.value)}
+                title={opt.hint}
+                className={`flex-1 rounded-lg border px-3 py-2 text-dense transition-colors ${
+                  sendKey === opt.value
+                    ? "border-accent/40 bg-accent-soft text-text"
+                    : "border-border-subtle text-text-muted hover:border-border hover:text-text"
+                }`}
+              >
+                {opt.label} sends
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <h3 className="mb-1.5 text-dense font-medium text-text-secondary">Tools for this chat</h3>
+          <p className="mb-2 text-micro text-text-faint">
+            Turned off here means the model cannot call it in this conversation — other chats are
+            unaffected.
+          </p>
+          <div className="space-y-1">
+            {TOGGLEABLE_TOOLS.map((t) => {
+              const on = !disabledTools.includes(t.name);
+              return (
+                <label
+                  key={t.name}
+                  className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 hover:bg-surface"
+                >
+                  <span className="text-dense text-text-secondary">{t.label}</span>
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() =>
+                      onDisabledToolsChange(
+                        on
+                          ? [...disabledTools, t.name]
+                          : disabledTools.filter((name) => name !== t.name),
+                      )
+                    }
+                    className="h-4 w-4 accent-accent"
+                  />
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
         {/* The whole section, heading included — a reference table for keys
             the reader has no way to press is not a shorter list, it is a list
             of things that do not apply to them. */}
         <div className="mt-6 hidden pointer-fine:block">
           <h3 className="mb-2 text-dense font-medium text-text-secondary">Shortcuts</h3>
           <dl className="space-y-1.5">
-            {SHORTCUTS.map((s) => (
+            {shortcuts.map((s) => (
               <div key={s.label} className="flex items-center justify-between">
                 <dt className="text-dense text-text-muted">{s.label}</dt>
                 <dd className="rounded border border-border-subtle bg-surface px-1.5 py-px font-mono text-micro text-text-faint">

@@ -11,6 +11,7 @@ import {
 } from "ai";
 import type { UIMessage } from "ai";
 import { buildTools } from "@/lib/tools";
+import { sanitizeDisabledTools } from "@/lib/tool-visibility";
 import { ToolError } from "@/lib/tools/errors";
 import { buildSystemPrompt } from "@/lib/prompts";
 import { DEFAULT_MODEL, languageModel, resolveModelId } from "@/lib/provider";
@@ -53,6 +54,14 @@ interface ChatRequestBody {
   projectId?: unknown;
   /** Present on edit/regenerate: drop this message and everything after it. */
   truncateFromId?: string;
+  /**
+   * Tool names the user turned off for this chat, chosen client-side and
+   * kept in that browser's localStorage — see `useDisabledTools`. Only ever
+   * narrows the registry (see `sanitizeDisabledTools`), so an unrecognised
+   * or tampered value just fails to disable anything rather than doing
+   * anything unsafe.
+   */
+  disabledTools?: unknown;
 }
 
 function userTextAt(messages: UIMessage[], from: "first" | "last"): string {
@@ -259,13 +268,22 @@ export async function POST(req: Request) {
   const limit = rateLimit("chat", user.id);
   if (!limit.ok) return rateLimitResponse(limit);
 
-  const tools = buildTools({
+  const allTools = buildTools({
     memory: memoryStore,
     // No skills means no skill tools: the model cannot usefully call them, and
     // leaving them in the registry only invites hallucinated skill names. A
     // private chat is never given the index, so it is never given the tools.
     skills: !isPrivate && skills.length > 0 ? createDbSkillStore(user.id) : null,
   });
+  // A user-chosen narrowing of the registry above — see ChatRequestBody's
+  // `disabledTools` doc. Filtered here rather than left to the model to
+  // "just not call it": an unusable-but-present tool is a standing
+  // invitation to call it anyway, same reasoning `buildTools` already
+  // applies to memory/skill tools.
+  const disabled = new Set<string>(sanitizeDisabledTools(body.disabledTools));
+  const tools = disabled.size
+    ? Object.fromEntries(Object.entries(allTools).filter(([name]) => !disabled.has(name)))
+    : allTools;
 
   /**
    * Fixed ahead of time rather than left to `generateMessageId` below, so a
