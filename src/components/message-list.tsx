@@ -7,6 +7,7 @@ import { ChartWidget } from "./chart-view";
 import { FlowWidget } from "./flow-view";
 import { HtmlWidget } from "./html-view";
 import { DataTable } from "./data-table";
+import { FileWidget } from "./file-view";
 import { QuestionCard } from "./question-card";
 import { ToolChipRow, type ToolPart, isToolPart } from "./tool-part";
 import { MemoryNotice } from "./memory-notice";
@@ -20,6 +21,7 @@ import type { ChartSpec } from "@/lib/tools/render-chart";
 import type { FlowSpec } from "@/lib/tools/render-flow";
 import type { HtmlSpec } from "@/lib/tools/render-html";
 import type { ParsedTable } from "@/lib/tools/parse-data";
+import type { FileSpec } from "@/lib/tools/generate-file";
 import type { MemorySaved } from "@/lib/tools/memory";
 
 function Widget({
@@ -51,6 +53,8 @@ function Widget({
       return output.kind === "html" ? <HtmlWidget spec={output as unknown as HtmlSpec} /> : null;
     case "parse_data":
       return output.kind === "table" ? <DataTable table={output as unknown as ParsedTable} /> : null;
+    case "generate_file":
+      return output.kind === "file" ? <FileWidget spec={output as unknown as FileSpec} /> : null;
     case "save_memory":
       return output.kind === "memory_saved" ? (
         <MemoryNotice saved={output as unknown as MemorySaved} />

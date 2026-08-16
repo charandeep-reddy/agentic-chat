@@ -4,6 +4,7 @@ import { renderChartSchema, renderChart, type ChartSpec } from "./render-chart";
 import { renderFlowSchema, renderFlow, type FlowSpec } from "./render-flow";
 import { renderHtmlSchema, renderHtml, type HtmlSpec } from "./render-html";
 import { fetchUrlSchema, fetchUrl } from "./fetch-url";
+import { generateFileSchema, generateFile, type FileSpec } from "./generate-file";
 import { parseDataSchema, parseData, describeTable, type ParsedTable } from "./parse-data";
 import {
   forgetMemory,
@@ -136,6 +137,21 @@ export const baseTools = {
     inputSchema: parseDataSchema,
     execute: withTiming((args) => parseData(args)),
     toModelOutput: ({ output }) => ack(describeTable(output as ParsedTable)),
+  }),
+  generate_file: tool({
+    description: [
+      "Produce a downloadable file from text content you already have - JSON, CSV, plain text, Markdown, XML, or YAML.",
+      "Use when the user asks to 'download', 'export', 'save as a file', or 'generate a JSON/CSV/config file' - not for content meant to be read in the chat itself.",
+      "For tabular data the user wants to see and sort, use parse_data instead; this tool is for a file they will download.",
+      "`format: \"json\"` requires content that is valid JSON - it is parsed and rejected with an error if it is not, so you can fix and retry.",
+      "This displays a download button to the user; do not paste the file's content into your reply as well.",
+    ].join(" "),
+    inputSchema: generateFileSchema,
+    execute: withTiming((args) => generateFile(args)),
+    toModelOutput: ({ output }) => {
+      const spec = output as FileSpec;
+      return ack(`Generated ${spec.filename} (${spec.format}, ${spec.bytes} bytes) as a downloadable file.`);
+    },
   }),
 };
 

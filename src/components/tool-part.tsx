@@ -9,6 +9,7 @@ import {
   IconChevron,
   IconCode,
   IconFetch,
+  IconFile,
   IconFlow,
   IconQuestion,
   IconSpark,
@@ -33,6 +34,7 @@ const TOOL_ICONS: Record<string, typeof IconChart> = {
   render_html: IconCode,
   fetch_url: IconFetch,
   parse_data: IconTable,
+  generate_file: IconFile,
   save_memory: IconBrain,
   search_memory: IconBrain,
   forget_memory: IconBrain,
@@ -83,6 +85,7 @@ function chipLabel(name: string, part: ToolPart, pending: boolean): string {
     render_flow: ["Diagramming", "Diagram"],
     render_html: ["Building", "Widget"],
     parse_data: ["Parsing", "Table"],
+    generate_file: ["Generating file", "File"],
     save_memory: ["Saving", "Remembered"],
     search_memory: ["Searching memory", "Memory"],
     forget_memory: ["Forgetting", "Forgotten"],
@@ -107,6 +110,8 @@ function outcome(output: unknown): string {
       return `${Math.round(String(o.html).length / 1024)}kb`;
     case "table":
       return `${String(o.totalRows)} rows`;
+    case "file":
+      return `${String(o.filename)} · ${formatSize(Number(o.bytes) || 0)}`;
     case "fetch":
       // Deliberately not the status code or MIME type: neither tells a reader
       // anything they can act on when the call already succeeded.
@@ -170,6 +175,8 @@ function summary(name: string, output: unknown): string[] {
         t.columns.map((c) => `${c.name}:${c.type}`).join(" · "),
       ];
     }
+    case "generate_file":
+      return [`${String(o.filename)}`, `Format: ${String(o.format)} · ${formatSize(Number(o.bytes) || 0)}`];
     case "save_memory":
       return [String(o.content), `Category: ${String(o.category)}`];
     case "search_memory": {

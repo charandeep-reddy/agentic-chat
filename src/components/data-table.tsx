@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Cell, ParsedTable } from "@/lib/tools/parse-data";
 import { WidgetShell, StatusChip, WidgetAction } from "./widget-shell";
-import { IconTable, IconDownload } from "./icons";
+import { IconTable, IconDownload, IconFile } from "./icons";
 
 const TYPE_LABELS = { number: "num", string: "str", boolean: "bool", null: "null" } as const;
 
@@ -15,16 +15,27 @@ function compareCells(a: Cell, b: Cell): number {
   return String(a).localeCompare(String(b));
 }
 
-function exportCsv(table: ParsedTable) {
-  const header = table.columns.map((c) => `"${c.name.replace(/"/g, '""')}"`).join(",");
-  const lines = table.rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","));
-  const blob = new Blob([[header, ...lines].join("\n")], { type: "text/csv" });
+function downloadBlob(content: string, mimeType: string, filename: string) {
+  const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "data.csv";
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function exportCsv(table: ParsedTable) {
+  const header = table.columns.map((c) => `"${c.name.replace(/"/g, '""')}"`).join(",");
+  const lines = table.rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","));
+  downloadBlob([header, ...lines].join("\n"), "text/csv", "data.csv");
+}
+
+function exportJson(table: ParsedTable) {
+  const rows = table.rows.map((row) =>
+    Object.fromEntries(table.columns.map((c, i) => [c.name, row[i] ?? null])),
+  );
+  downloadBlob(JSON.stringify(rows, null, 2), "application/json", "data.json");
 }
 
 export function DataTable({ table }: { table: ParsedTable }) {
@@ -57,9 +68,14 @@ export function DataTable({ table }: { table: ParsedTable }) {
         </StatusChip>
       }
       actions={
-        <WidgetAction onClick={() => exportCsv(table)} label="Export CSV">
-          <IconDownload size={14} />
-        </WidgetAction>
+        <>
+          <WidgetAction onClick={() => exportCsv(table)} label="Export CSV">
+            <IconDownload size={14} />
+          </WidgetAction>
+          <WidgetAction onClick={() => exportJson(table)} label="Export JSON">
+            <IconFile size={14} />
+          </WidgetAction>
+        </>
       }
       footer={
         table.totalRows > preview.length ? (
