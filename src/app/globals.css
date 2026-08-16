@@ -32,6 +32,18 @@
   --accent-text: #052e1c;
   --accent-soft: rgb(16 185 129 / 0.12);
   --accent-glow: rgb(16 185 129 / 0.3);
+  /*
+    The user message bubble — deliberately its own pair, not the accent one.
+    A solid saturated fill on every one of your own messages reads as a
+    notification, not speech, and forces --accent-text to exist purely for
+    contrast rather than because it's a colour anyone would pick. A quiet
+    overlay keeps --accent free to mean "interactive" everywhere else it's
+    used. Each skin below tunes this to its own canvas: a translucent overlay
+    here for the default and claude skins, a flat neutral fill for chatgpt's
+    (see its own comment — that product's bubble was never translucent).
+  */
+  --user-bubble-bg: rgb(255 255 255 / 0.06);
+  --user-bubble-text: var(--text);
   --info: #60a5fa;
   --info-soft: rgb(96 165 250 / 0.12);
   --human: #c084fc;
@@ -84,6 +96,9 @@
   --text-secondary: #3f3f46;
   --text-muted: #52525b;
   --text-faint: #71717a;
+
+  --user-bubble-bg: rgb(0 0 0 / 0.05);
+  --user-bubble-text: var(--text);
 
   /* Darker than the dark-theme accents: the same hue at the same lightness
      fails contrast against a white surface. */
@@ -157,6 +172,11 @@
   --accent-text: #2b1207;
   --accent-soft: rgb(217 119 87 / 0.15);
   --accent-glow: rgb(217 119 87 / 0.3);
+  /* Measured off the real product: a near-transparent white overlay, not a
+     solid accent fill. Plain --text reads on it; --accent-text was picked
+     for contrast against a solid fill this bubble no longer has. */
+  --user-bubble-bg: rgb(255 255 255 / 0.05);
+  --user-bubble-text: var(--text);
   --info: #7dabf8;
   --info-soft: rgb(125 171 248 / 0.12);
   --human: #c8a2e0;
@@ -219,6 +239,10 @@
   --accent-text: #ffffff; /* White */
   --accent-soft: rgb(193 95 60 / 0.1);
   --accent-glow: rgb(193 95 60 / 0.22);
+  /* Same translucent-overlay treatment as the dark variant, mirrored onto a
+     light canvas: black instead of white, same 5% alpha. */
+  --user-bubble-bg: rgb(0 0 0 / 0.05);
+  --user-bubble-text: var(--text);
   --info: #3a6fc4;
   --info-soft: rgb(58 111 196 / 0.1);
   --human: #8759a8;
@@ -262,6 +286,13 @@
   --border-subtle: rgb(255 255 255 / 0.05);
   --border: rgb(255 255 255 / 0.08);
   --border-strong: rgb(255 255 255 / 0.14);
+
+  /* ChatGPT's own user bubble isn't a translucent overlay like Claude's — it's
+     a flat neutral fill, one step up from the page. --surface-raised already
+     is that step, so the bubble just borrows it rather than inventing a
+     third grey. */
+  --user-bubble-bg: var(--surface-raised);
+  --user-bubble-text: var(--text);
 
   --text: #ffffff;
   --text-secondary: #d4d4d4;
@@ -309,6 +340,9 @@
   --border-subtle: #ececec;
   --border: #e0e0e0;
   --border-strong: #c7c7c7;
+
+  --user-bubble-bg: var(--surface-raised);
+  --user-bubble-text: var(--text);
 
   --text: #0d0d0d;
   --text-secondary: #3a3a3a;
@@ -364,6 +398,8 @@
   --color-accent: var(--accent);
   --color-accent-text: var(--accent-text);
   --color-accent-soft: var(--accent-soft);
+  --color-user-bubble-bg: var(--user-bubble-bg);
+  --color-user-bubble-text: var(--user-bubble-text);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
   --color-human: var(--human);
