@@ -14,6 +14,7 @@ import { IconClose, IconKey } from "./icons";
 const FIXED_SHORTCUTS = [
   { keys: "⌘ K", label: "Search chats / jump" },
   { keys: "⌘ ⇧ O", label: "New chat" },
+  { keys: "⌘ ⇧ P", label: "New private chat" },
   { keys: "⌘ B", label: "Show / hide sidebar" },
   { keys: "⌘ /", label: "Focus composer" },
   { keys: "esc", label: "Stop generating" },
