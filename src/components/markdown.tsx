@@ -58,7 +58,7 @@ function CodeBlock({ children }: { children?: ReactNode }) {
             setTimeout(() => setCopied(false), 1600);
           });
         }}
-        className="absolute right-2 top-2 rounded-md border border-border-subtle bg-bg-elevated p-1.5 text-text-faint opacity-0 transition-opacity hover:text-text focus-visible:opacity-100 group-hover/code:opacity-100"
+        className="absolute right-2 top-2 rounded-md border border-border-subtle bg-bg-elevated p-1.5 text-text-faint opacity-0 transition-opacity hover:text-text focus-visible:opacity-100 group-hover/code:opacity-100 pointer-coarse:opacity-100"
       >
         {copied ? <IconCheck size={13} className="text-accent" /> : <IconCopy size={13} />}
       </button>
