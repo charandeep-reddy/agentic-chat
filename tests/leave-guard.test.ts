@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { requestLeave, setLeaveGuard } from "@/components/leave-guard";
+import { requestLeave, setLeaveGuard } from "@/components/sidebar/leave-guard";
 
 afterEach(() => setLeaveGuard(null));
 

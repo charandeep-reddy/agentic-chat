@@ -14,7 +14,7 @@ export async function GET() {
 
   const chats = await db.select().from(chat).where(eq(chat.userId, user.id));
   const withMessages = await Promise.all(
-    chats.map(async (c) => ({ ...c, messages: await getMessages(c.id) })),
+    chats.map(async (c) => ({ ...c, messages: await getMessages(c.id, user.id) })),
   );
 
   const payload = {

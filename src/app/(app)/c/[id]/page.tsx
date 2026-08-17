@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { UIMessage } from "ai";
-import { ChatPage } from "@/components/chat-page";
+import { ChatPage } from "@/components/chat/chat-page";
 import { getChat, getMessages } from "@/lib/db/queries";
 import { requireUser } from "@/lib/session";
 
@@ -22,7 +22,7 @@ export default async function ExistingChatPage({ params }: Props) {
   const chat = await getChat(id, user.id);
   if (!chat) notFound();
 
-  const stored = await getMessages(id);
+  const stored = await getMessages(id, user.id);
   const messages: UIMessage[] = stored.map((m) => ({
     id: m.id,
     role: m.role as UIMessage["role"],

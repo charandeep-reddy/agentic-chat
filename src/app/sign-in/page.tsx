@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { enabledProviders } from "@/lib/auth";
 import { getSession } from "@/lib/session";
-import { SignInButtons } from "@/components/sign-in-buttons";
-import { EmailAuthForm } from "@/components/email-auth-form";
+import { SignInButtons } from "@/components/auth/sign-in-buttons";
+import { EmailAuthForm } from "@/components/auth/email-auth-form";
 import { IconLogo } from "@/components/icons";
 
 export const metadata = { title: "Sign in · Agentic Chat" };

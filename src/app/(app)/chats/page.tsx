@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/session";
-import { AllChatsPage } from "@/components/all-chats-page";
+import { AllChatsPage } from "@/components/chat/all-chats-page";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "All chats · Agentic Chat" };

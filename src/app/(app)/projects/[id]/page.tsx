@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { ChatPage } from "@/components/chat-page";
-import { ProjectIntro } from "@/components/project-intro";
+import { ChatPage } from "@/components/chat/chat-page";
+import { ProjectIntro } from "@/components/projects/project-intro";
 import { getProject, listChats } from "@/lib/db/queries";
 import { requireUser } from "@/lib/session";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { UIMessage } from "ai";
-import { messageModel, messagePartial, messageUsage } from "@/components/conversation-cost";
+import { messageModel, messagePartial, messageUsage } from "@/components/chat/conversation-cost";
 
 function messageWithMetadata(metadata: unknown): UIMessage {
   return { id: "m1", role: "assistant", parts: [], metadata } as UIMessage;

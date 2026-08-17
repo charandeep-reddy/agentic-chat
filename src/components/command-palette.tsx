@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { ChatSummary } from "./chats-provider";
-import { requestLeave } from "./leave-guard";
-import { startNewChat } from "./new-chat";
+import type { ChatSummary } from "./chat/chats-provider";
+import { requestLeave } from "./sidebar/leave-guard";
+import { startNewChat } from "./sidebar/new-chat";
 import {
   IconBrain,
   IconIncognito,

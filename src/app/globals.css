@@ -534,6 +534,21 @@ body {
 }
 
 /*
+ * Fully hidden scrollbar — still scrollable, just no track/thumb painted.
+ * For a rendered artifact (e.g. a clipped HTML widget): the widget is meant
+ * to read as content, not as a page with browser chrome around it, and a
+ * scrollbar down the side is exactly that chrome.
+ */
+.scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/*
   The assistant's answer.
 
   This is the one thing on the page anybody came to read, and it used to be set

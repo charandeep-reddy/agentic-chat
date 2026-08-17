@@ -1,5 +1,6 @@
 import { deleteMemory, updateMemory } from "@/lib/db/queries";
 import { requireUserApi } from "@/lib/session";
+import { MAX_MEMORY_LENGTH } from "@/lib/tools/memory";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export async function PATCH(req: Request, { params }: Params) {
   const patch: { content?: string; category?: string; enabled?: boolean } = {};
   if (typeof body.content === "string") {
     const content = body.content.trim();
-    if (!content || content.length > 500) {
+    if (!content || content.length > MAX_MEMORY_LENGTH) {
       return Response.json({ error: "invalid_content" }, { status: 400 });
     }
     patch.content = content;

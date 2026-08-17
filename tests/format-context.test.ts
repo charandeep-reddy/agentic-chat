@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatContext } from "@/components/settings-panel";
+import { formatContext } from "@/components/settings/settings-panel";
 
 /**
  * Providers quote context windows in decimal even when the API reports a

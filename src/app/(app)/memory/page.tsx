@@ -1,6 +1,6 @@
 import { listInstalledPacks, listMemories, listOwnedPacks, listPublicPacks } from "@/lib/db/queries";
 import { requireUser } from "@/lib/session";
-import { MemoryPage } from "@/components/memory-page";
+import { MemoryPage } from "@/components/memory/memory-page";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Memory · Agentic Chat" };

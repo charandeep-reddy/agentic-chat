@@ -26,7 +26,7 @@ export function createDbSkillStore(userId: string): SkillStore {
       // Fire-and-forget: the usage counter is for the management page, and
       // waiting on the write would sit between the model and the instructions
       // it just asked for.
-      void markSkillUsed(row.id).catch((error) => {
+      void markSkillUsed(row.id, userId).catch((error) => {
         console.error("[skills] failed to record use:", error);
       });
       return toDetail(row);
