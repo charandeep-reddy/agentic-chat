@@ -3,11 +3,18 @@ import { ToolError } from "./errors";
 
 export const MEMORY_CATEGORIES = ["preference", "fact", "project", "instruction"] as const;
 
+/**
+ * The one definition of "too long" for a memory's content — the model-facing
+ * tool schema below and the `/api/memories` write routes all import this
+ * rather than repeating the number, so the three can't quietly drift apart.
+ */
+export const MAX_MEMORY_LENGTH = 500;
+
 export const saveMemorySchema = z.object({
   content: z
     .string()
     .min(4, "content must be at least 4 characters")
-    .max(500, "content must be under 500 characters"),
+    .max(MAX_MEMORY_LENGTH, `content must be under ${MAX_MEMORY_LENGTH} characters`),
   category: z.enum(MEMORY_CATEGORIES).optional(),
 });
 

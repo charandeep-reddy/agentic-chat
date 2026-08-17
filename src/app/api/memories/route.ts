@@ -1,5 +1,6 @@
 import { createMemory, deleteAllMemories, listMemories } from "@/lib/db/queries";
 import { requireUserApi } from "@/lib/session";
+import { MAX_MEMORY_LENGTH } from "@/lib/tools/memory";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
 
   const content = body.content?.trim();
   if (!content) return Response.json({ error: "empty_content" }, { status: 400 });
-  if (content.length > 500) return Response.json({ error: "too_long" }, { status: 400 });
+  if (content.length > MAX_MEMORY_LENGTH) return Response.json({ error: "too_long" }, { status: 400 });
 
   const created = await createMemory(authed.user.id, {
     content,
