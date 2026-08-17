@@ -10,7 +10,7 @@ import {
   validateName,
   validatePassword,
 } from "@/lib/credentials";
-import { IconEye, IconEyeOff, IconLoader } from "./icons";
+import { IconEye, IconEyeOff, IconLoader } from "../icons";
 
 type Mode = "signin" | "signup";
 

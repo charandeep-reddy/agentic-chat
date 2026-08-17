@@ -10,10 +10,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ChatsProvider, type ChatSummary } from "./chats-provider";
+import { ChatsProvider, type ChatSummary } from "./chat/chats-provider";
 import { CommandPalette } from "./command-palette";
-import { ProjectsProvider } from "./projects-provider";
-import { Sidebar, type SidebarUser } from "./sidebar";
+import { ProjectsProvider } from "./projects/projects-provider";
+import { Sidebar, type SidebarUser } from "./sidebar/sidebar";
 import type { ProjectSummary } from "@/lib/projects";
 
 const SIDEBAR_STORAGE = "agentic-chat.sidebar";

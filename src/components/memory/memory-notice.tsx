@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { MemorySaved } from "@/lib/tools/memory";
-import { IconBrain } from "./icons";
+import { IconBrain } from "../icons";
 
 /**
  * A quiet inline confirmation that something was remembered — the same

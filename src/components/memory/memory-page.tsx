@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PageShell, Section } from "./page-shell";
-import { Skeleton } from "./skeleton";
+import { PageShell, Section } from "../page-shell";
+import { Skeleton } from "../skeleton";
 import { MEMORY_CATEGORIES } from "@/lib/tools/memory";
 import {
   IconBrain,
@@ -14,7 +14,7 @@ import {
   IconSearch,
   IconShare,
   IconTrash,
-} from "./icons";
+} from "../icons";
 
 interface MemoryItem {
   id: string;

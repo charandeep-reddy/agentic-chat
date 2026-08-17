@@ -1,8 +1,8 @@
 "use client";
 
 import { THEME_PREFERENCES, THEME_SKINS, type ThemePreference, type ThemeSkin } from "@/lib/theme";
-import { IconMonitor, IconMoon, IconSun } from "./icons";
-import { useTheme } from "./theme-provider";
+import { IconMonitor, IconMoon, IconSun } from "../icons";
+import { useTheme } from "../theme-provider";
 
 const OPTIONS: Record<ThemePreference, { label: string; icon: typeof IconSun }> = {
   system: { label: "System", icon: IconMonitor },

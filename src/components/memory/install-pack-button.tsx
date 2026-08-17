@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { IconCheck, IconDownload } from "./icons";
+import { IconCheck, IconDownload } from "../icons";
 
 export function InstallPackButton({ slug }: { slug: string }) {
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { ProjectSettingsPage } from "@/components/project-settings-page";
+import { ProjectSettingsPage } from "@/components/projects/project-settings-page";
 import { getProject, listChats, listMemories } from "@/lib/db/queries";
 import { requireUser } from "@/lib/session";
 

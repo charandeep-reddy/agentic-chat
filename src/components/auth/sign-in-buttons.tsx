@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "@/lib/auth-client";
-import { IconGithub, IconGoogle, IconLoader } from "./icons";
+import { IconGithub, IconGoogle, IconLoader } from "../icons";
 
 type Provider = "google" | "github";
 

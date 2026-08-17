@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/auth-client";
-import { ConfirmDialog } from "./confirm-dialog";
-import { PageShell, Section } from "./page-shell";
+import { ConfirmDialog } from "../confirm-dialog";
+import { PageShell, Section } from "../page-shell";
 import { ThemeSkinToggle, ThemeToggle } from "./theme-toggle";
 import { ThemeImport } from "./theme-import";
 import { CodeThemePicker } from "./code-theme-picker";
-import { IconDownload, IconGithub, IconGoogle, IconKey, IconTrash, IconUser } from "./icons";
+import { IconDownload, IconGithub, IconGoogle, IconKey, IconTrash, IconUser } from "../icons";
 import { STYLE_PRESETS, isCustom, matchPreset, type StylePreset } from "@/lib/style-presets";
 
 interface Settings {

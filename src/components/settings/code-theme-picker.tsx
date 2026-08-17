@@ -2,8 +2,8 @@
 
 import { useRef, useState } from "react";
 import { CODE_SKIN_LABELS, CODE_SKINS, looksLikeFullTheme } from "@/lib/code-theme";
-import { IconAlert, IconCheck } from "./icons";
-import { useTheme } from "./theme-provider";
+import { IconAlert, IconCheck } from "../icons";
+import { useTheme } from "../theme-provider";
 
 /**
  * Syntax-highlighting theme, independent of the UI skin above it — the same

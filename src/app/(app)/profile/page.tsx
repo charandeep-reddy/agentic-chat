@@ -3,7 +3,7 @@ import { account } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { countUserStats, getSettings } from "@/lib/db/queries";
 import { requireUser } from "@/lib/session";
-import { ProfilePage } from "@/components/profile-page";
+import { ProfilePage } from "@/components/settings/profile-page";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Profile & settings · Agentic Chat" };

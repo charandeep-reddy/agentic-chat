@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { IconFolder, IconMessage, IconSliders } from "./icons";
+import { IconFolder, IconMessage, IconSliders } from "../icons";
 
 export interface ProjectChat {
   id: string;

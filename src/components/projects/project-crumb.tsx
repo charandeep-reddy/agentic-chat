@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useChatsList } from "./chats-provider";
+import { useChatsList } from "../chat/chats-provider";
 import { useProject } from "./projects-provider";
-import { IconFolder } from "./icons";
+import { IconFolder } from "../icons";
 
 /**
  * Which project this chat is in, as context rather than as a control.

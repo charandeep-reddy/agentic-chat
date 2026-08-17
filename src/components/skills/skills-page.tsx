@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PageShell, Section } from "./page-shell";
+import { PageShell, Section } from "../page-shell";
 import {
   parseSkillMarkdown,
   slugifySkillName,
   SKILL_LIMITS,
   validateSkill,
 } from "@/lib/tools/skills";
-import { IconCheck, IconClose, IconEdit, IconPlus, IconSpark, IconTrash } from "./icons";
+import { IconCheck, IconClose, IconEdit, IconPlus, IconSpark, IconTrash } from "../icons";
 
 export interface SkillItem {
   id: string;

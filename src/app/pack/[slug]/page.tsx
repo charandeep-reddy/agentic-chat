@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getPackBySlug } from "@/lib/db/queries";
 import type { PackEntry } from "@/lib/db/queries";
 import { getSession } from "@/lib/session";
-import { InstallPackButton } from "@/components/install-pack-button";
+import { InstallPackButton } from "@/components/memory/install-pack-button";
 import { IconBrain, IconLogo } from "@/components/icons";
 
 export const dynamic = "force-dynamic";

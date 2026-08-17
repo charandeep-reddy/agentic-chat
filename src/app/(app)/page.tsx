@@ -1,4 +1,4 @@
-import { ChatPage } from "@/components/chat-page";
+import { ChatPage } from "@/components/chat/chat-page";
 
 /**
  * A fresh conversation. The id is minted in the browser and no row is written

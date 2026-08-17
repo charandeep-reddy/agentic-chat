@@ -5,10 +5,10 @@ import Link from "next/link";
 import type { ModelInfo } from "@/app/api/models/route";
 import { PROVIDERS, PROVIDER_LIST, type ProviderId } from "@/lib/providers";
 import { TOGGLEABLE_TOOLS, type ToggleableTool } from "@/lib/tool-visibility";
-import { Skeleton } from "./skeleton";
-import { setPrice, usePrices } from "./use-prices";
-import { setSendKeyPreference, useSendKeyPreference } from "./use-send-key";
-import { IconClose, IconKey } from "./icons";
+import { Skeleton } from "../skeleton";
+import { setPrice, usePrices } from "../use-prices";
+import { setSendKeyPreference, useSendKeyPreference } from "../chat/use-send-key";
+import { IconClose, IconKey } from "../icons";
 
 /** Fixed shortcuts. Send/newline are appended dynamically — see SHORTCUTS below. */
 const FIXED_SHORTCUTS = [

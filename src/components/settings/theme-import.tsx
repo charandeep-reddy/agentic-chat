@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useTheme } from "./theme-provider";
-import { IconAlert, IconCheck } from "./icons";
+import { useTheme } from "../theme-provider";
+import { IconAlert, IconCheck } from "../icons";
 
 /**
  * Imports a skin exported from an external theme editor/marketplace — this

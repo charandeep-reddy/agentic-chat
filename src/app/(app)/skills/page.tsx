@@ -1,6 +1,6 @@
 import { listSkills } from "@/lib/db/queries";
 import { requireUser } from "@/lib/session";
-import { SkillsPage } from "@/components/skills-page";
+import { SkillsPage } from "@/components/skills/skills-page";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Skills · Agentic Chat" };

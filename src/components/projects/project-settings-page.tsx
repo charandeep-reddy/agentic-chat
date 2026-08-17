@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ConfirmDialog } from "./confirm-dialog";
-import { PageShell, Section } from "./page-shell";
+import { ConfirmDialog } from "../confirm-dialog";
+import { PageShell, Section } from "../page-shell";
 import { useProjectsActions } from "./projects-provider";
-import { IconBrain, IconCheck, IconFolder } from "./icons";
+import { IconBrain, IconCheck, IconFolder } from "../icons";
 import {
   describeProjectDeletion,
   MAX_PROJECT_DESCRIPTION,

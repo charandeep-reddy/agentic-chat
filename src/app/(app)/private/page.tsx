@@ -1,4 +1,4 @@
-import { ChatPage } from "@/components/chat-page";
+import { ChatPage } from "@/components/chat/chat-page";
 
 export const metadata = { title: "Private chat · Agentic Chat" };
 
