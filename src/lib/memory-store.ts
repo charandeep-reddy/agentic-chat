@@ -38,7 +38,7 @@ export function createDbMemoryStore(userId: string, projectId: string | null = n
     async search(query) {
       const all = await listMemories(userId, { enabledOnly: true, scope });
       const ranked = rankMemories(all, query).slice(0, 10);
-      await markMemoriesUsed(ranked.map((m) => m.id));
+      await markMemoriesUsed(ranked.map((m) => m.id), userId);
       return ranked.map((m) => ({ id: m.id, content: m.content, category: m.category }));
     },
 

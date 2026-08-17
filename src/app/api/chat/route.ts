@@ -206,7 +206,7 @@ export async function POST(req: Request) {
   // id that collided with a real chat's must not be able to destroy it. The
   // client truncates its own copy either way.
   if (body.truncateFromId && !isPrivate) {
-    await truncateFrom(chatId, body.truncateFromId);
+    await truncateFrom(chatId, user.id, body.truncateFromId);
   }
 
   const memoryEnabled = !isPrivate && (settings?.memoryEnabled ?? true);
@@ -240,7 +240,7 @@ export async function POST(req: Request) {
   const incoming = messages[messages.length - 1];
   let userSaved: Promise<void> = Promise.resolve();
   if (incoming?.role === "user" && chat) {
-    userSaved = saveMessages(chatId, [
+    userSaved = saveMessages(chatId, user.id, [
       {
         id: incoming.id,
         role: "user",
@@ -319,7 +319,7 @@ export async function POST(req: Request) {
       return;
     }
     const text = partialText;
-    partialInFlight = saveMessages(chatId, [
+    partialInFlight = saveMessages(chatId, user.id, [
       {
         id: responseId,
         role: "assistant",
@@ -414,7 +414,7 @@ export async function POST(req: Request) {
         if (!responseMessage || isPrivate) return;
         try {
           await userSaved;
-          await saveMessages(chatId, [
+          await saveMessages(chatId, user.id, [
             {
               id: responseMessage.id,
               role: responseMessage.role,

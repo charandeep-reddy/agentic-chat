@@ -13,7 +13,7 @@ export async function GET(_req: Request, { params }: Params) {
   const chat = await getChat(id, authed.user.id);
   if (!chat) return Response.json({ error: "not_found" }, { status: 404 });
 
-  const messages = await getMessages(id);
+  const messages = await getMessages(id, authed.user.id);
   return Response.json({ chat, messages });
 }
 

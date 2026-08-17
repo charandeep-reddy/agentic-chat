@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { UIMessage } from "ai";
-import { getMessages, getSharedChat } from "@/lib/db/queries";
-import { SharedTranscript } from "@/components/shared-transcript";
+import { getSharedChat, getSharedMessages } from "@/lib/db/queries";
+import { SharedTranscript } from "@/components/chat/shared-transcript";
 import { IconLogo } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function SharedChatPage({ params }: Props) {
   const chat = await getSharedChat(shareId);
   if (!chat) notFound();
 
-  const stored = await getMessages(chat.id);
+  const stored = await getSharedMessages(chat.id);
   const messages: UIMessage[] = stored.map((m) => ({
     id: m.id,
     role: m.role as UIMessage["role"],
