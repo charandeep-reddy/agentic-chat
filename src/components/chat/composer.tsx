@@ -20,7 +20,7 @@ import {
   IconPaperclip,
   IconSpark,
   IconStop,
-} from "./icons";
+} from "../icons";
 
 const MAX_HEIGHT = 200;
 const DRAFT_SAVE_DELAY = 250;

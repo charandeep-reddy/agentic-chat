@@ -6,26 +6,28 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import { SettingsPanel } from "./settings-panel";
-import { useSidebarToggle } from "./app-shell";
-import { useProviderSettings } from "./use-provider-settings";
+import { SettingsPanel } from "../settings/settings-panel";
+import { useSidebarToggle } from "../app-shell";
+import { useProviderSettings } from "../settings/use-provider-settings";
 import { useChatsActions } from "./chats-provider";
 import { Composer } from "./composer";
-import { EmptyState } from "./empty-state";
+import { EmptyState } from "../empty-state";
 import { MessageList } from "./message-list";
 import { QuestionPrompt } from "./question-prompt";
 import { pendingQuestionOf, questionAnswersOf } from "@/lib/question-state";
 import { ShareButton } from "./share-button";
 import { usageSchema } from "@/lib/usage";
 import { ConversationCost } from "./conversation-cost";
-import { ConfirmDialog } from "./confirm-dialog";
+import { ConfirmDialog } from "../confirm-dialog";
 import { PrivateButton } from "./private-button";
-import { ProjectCrumb } from "./project-crumb";
-import { requestLeave, setLeaveGuard } from "./leave-guard";
-import { startNewChat } from "./new-chat";
-import { IconChevron, IconKey, IconSidebar } from "./icons";
+import { ProjectCrumb } from "../projects/project-crumb";
+import { requestLeave, setLeaveGuard } from "../sidebar/leave-guard";
+import { startNewChat } from "../sidebar/new-chat";
+import { IconChevron, IconKey, IconSidebar } from "../icons";
 import type { AttachmentSummary } from "@/lib/document";
 import { useDisabledTools } from "./use-disabled-tools";
+import { describeError } from "@/lib/chat-errors";
+import { TitleSync } from "./chat-title-sync";
 
 export interface ChatProps {
   chatId: string;
@@ -84,37 +86,6 @@ const metadataSchema = z.object({
  * not zero — an empty or half-typed chat should not argue with you.
  */
 const LEAVE_GUARD_AFTER = 2;
-
-/** Codes the route returns without a sentence of its own. */
-const ERROR_TEXT: Record<string, string> = {
-  unauthorized: "Your session expired. Sign in again.",
-  bad_request: "The app sent a malformed request.",
-  no_messages: "There was nothing to send.",
-  missing_chat_id: "This chat has no id — reload the page.",
-  too_many_requests: "Too many requests. Give it a moment.",
-  too_many_streams: "Another response is still generating.",
-};
-
-/**
- * A failed response reaches us as an Error whose message is the raw body, which
- * for this API is JSON — so the banner was showing `{"error":"…"}` verbatim.
- * Prefer the sentence the route wrote, and only offer the Settings shortcut for
- * the failures Settings can actually fix.
- */
-function describeError(error: Error): { message: string; showSettings: boolean } {
-  let parsed: { error?: string; message?: string };
-  try {
-    parsed = JSON.parse(error.message) as typeof parsed;
-  } catch {
-    return { message: error.message, showSettings: true };
-  }
-
-  const code = parsed.error ?? "";
-  return {
-    message: parsed.message ?? ERROR_TEXT[code] ?? error.message,
-    showSettings: code === "missing_api_key" || code === "provider",
-  };
-}
 
 export function Chat({
   chatId,
@@ -688,42 +659,4 @@ export function Chat({
       )}
     </div>
   );
-}
-
-/**
- * Polls once shortly after the first exchange to pick up the generated title.
- * Cheaper and simpler than streaming it down the message channel, and the
- * window where it matters is a couple of seconds long.
- */
-function TitleSync({
-  chatId,
-  current,
-  onChange,
-  active,
-}: {
-  chatId: string;
-  current: string;
-  onChange: (title: string) => void;
-  active: boolean;
-}) {
-  useEffect(() => {
-    if (!active || current !== "New chat") return;
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/chats/${chatId}`);
-        if (!res.ok) return;
-        const data = (await res.json()) as { chat: { title: string } };
-        if (!cancelled && data.chat.title !== "New chat") onChange(data.chat.title);
-      } catch {
-        // A missed title is cosmetic; the sidebar picks it up on next load.
-      }
-    }, 2500);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [chatId, current, onChange, active]);
-
-  return null;
 }

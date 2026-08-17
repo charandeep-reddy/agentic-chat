@@ -7,11 +7,11 @@ import { GridComponent, TooltipComponent, LegendComponent, TitleComponent, DataZ
 import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsCoreOption } from "echarts/core";
 import type { ChartSpec } from "@/lib/tools/render-chart";
-import { WidgetShell, StatusChip, WidgetAction } from "./widget-shell";
-import { IconChart, IconDownload, IconTable } from "./icons";
+import { WidgetShell, StatusChip, WidgetAction } from "../widget-shell";
+import { IconChart, IconDownload, IconTable } from "../icons";
 import { DataTable } from "./data-table";
 import { chartToTable } from "@/lib/tools/chart-util";
-import { useTheme } from "./theme-provider";
+import { useTheme } from "../theme-provider";
 import type { ResolvedTheme } from "@/lib/theme";
 
 echarts.use([BarChart, LineChart, PieChart, ScatterChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, DataZoomComponent, CanvasRenderer]);

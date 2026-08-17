@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { withTheme, type HtmlSpec } from "@/lib/tools/render-html";
-import { WidgetAction } from "./widget-shell";
-import { useTheme } from "./theme-provider";
-import { useMenu } from "./use-menu";
-import { IconCode, IconCopy, IconDownload, IconExpand, IconEye, IconExternal } from "./icons";
+import { WidgetAction } from "../widget-shell";
+import { FullscreenDialog } from "../fullscreen-dialog";
+import { useTheme } from "../theme-provider";
+import { useMenu } from "../use-menu";
+import { IconCode, IconCopy, IconDownload, IconExpand, IconEye, IconExternal } from "../icons";
 
 /**
  * `allow-scripts` without `allow-same-origin` gives the document a unique
@@ -127,7 +128,7 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
           // outer box scrolls, so the tail of a long artifact is reachable
           // instead of simply absent.
           <div
-            className={`w-full rounded-lg ${clipped ? "scroll-thin overflow-y-auto" : "overflow-hidden"}`}
+            className={`w-full rounded-lg ${clipped ? "scroll-hidden overflow-y-auto" : "overflow-hidden"}`}
             style={{ height: displayHeight }}
           >
             <iframe
@@ -184,45 +185,31 @@ export function HtmlWidget({ spec }: { spec: HtmlSpec }) {
       </section>
 
       {fullscreen && (
-        <div
-          ref={overlayRef}
-          className="fixed inset-0 z-50 flex flex-col bg-black/80 p-4 backdrop-blur-sm sm:p-8"
-          role="dialog"
-          aria-modal="true"
-          aria-label={spec.title ?? "Rendered HTML"}
+        <FullscreenDialog
+          overlayRef={overlayRef}
+          icon={<IconCode size={14} className="text-accent" />}
+          title={spec.title ?? "HTML"}
+          ariaLabel={spec.title ?? "Rendered HTML"}
+          padding="p-4 sm:p-8"
+          actions={
+            <WidgetAction onClick={openInTab} label="Open in a new tab">
+              <IconExternal size={14} />
+            </WidgetAction>
+          }
+          onClose={() => setFullscreen(false)}
         >
-          <div className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-surface">
-            <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
-              <IconCode size={14} className="text-accent" />
-              <h3 className="text-dense font-medium text-text">{spec.title ?? "HTML"}</h3>
-              <div className="ml-auto flex items-center gap-2">
-                <WidgetAction onClick={openInTab} label="Open in a new tab">
-                  <IconExternal size={14} />
-                </WidgetAction>
-                <button
-                  type="button"
-                  onClick={() => setFullscreen(false)}
-                  className="rounded-md px-2 py-1 text-dense text-text-muted hover:bg-surface-raised hover:text-text"
-                >
-                  {/* The button stays; only the key it doubles for goes. */}
-                  Close{" "}
-                  <kbd className="ml-1 hidden font-mono text-micro pointer-fine:inline">esc</kbd>
-                </button>
-              </div>
-            </header>
-            <div className="min-h-0 flex-1 p-3">
-              <iframe
-                title={spec.title ?? "Rendered HTML"}
-                srcDoc={doc}
-                sandbox={SANDBOX}
-                referrerPolicy="no-referrer"
-                // No background of its own — the document is transparent now, so
-                // it sits on the dialog surface the same way it sits on the chat.
-                className="h-full w-full"
-              />
-            </div>
+          <div className="min-h-0 flex-1 p-3">
+            <iframe
+              title={spec.title ?? "Rendered HTML"}
+              srcDoc={doc}
+              sandbox={SANDBOX}
+              referrerPolicy="no-referrer"
+              // No background of its own — the document is transparent now, so
+              // it sits on the dialog surface the same way it sits on the chat.
+              className="h-full w-full"
+            />
           </div>
-        </div>
+        </FullscreenDialog>
       )}
     </>
   );

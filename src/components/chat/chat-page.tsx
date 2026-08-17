@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import type { UIMessage } from "ai";
 import { newId } from "@/lib/id";
-import { useNewChatNonce } from "./new-chat";
+import { useNewChatNonce } from "../sidebar/new-chat";
 import { Chat } from "./chat";
 
 /**

@@ -3,8 +3,8 @@
 import { useCallback, useRef, useState } from "react";
 import type { UIMessage } from "ai";
 import { chatToMarkdown } from "@/lib/export-markdown";
-import { useMenu } from "./use-menu";
-import { IconCheck, IconCopy, IconDownload, IconShare, IconTrash } from "./icons";
+import { useMenu } from "../use-menu";
+import { IconCheck, IconCopy, IconDownload, IconShare, IconTrash } from "../icons";
 
 export function ShareButton({
   chatId,

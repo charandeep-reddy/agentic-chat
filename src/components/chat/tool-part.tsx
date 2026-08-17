@@ -14,7 +14,7 @@ import {
   IconQuestion,
   IconSpark,
   IconTable,
-} from "./icons";
+} from "../icons";
 import type { ToolMeta } from "@/lib/tools";
 import type { ChartSpec } from "@/lib/tools/render-chart";
 import { questionsOf } from "@/lib/tools/ask-question";

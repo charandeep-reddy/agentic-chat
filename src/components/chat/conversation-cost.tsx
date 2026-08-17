@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { UIMessage } from "ai";
-import { usePrices } from "./use-prices";
+import { usePrices } from "../use-prices";
 import { estimateCost, formatCost, formatTokens, totalUsage } from "@/lib/usage";
 import type { MessageUsage } from "@/lib/usage";
 

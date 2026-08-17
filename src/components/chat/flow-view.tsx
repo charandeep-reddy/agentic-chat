@@ -11,10 +11,11 @@ import {
 } from "react";
 import mermaid from "mermaid";
 import type { FlowSpec } from "@/lib/tools/render-flow";
-import { WidgetShell, WidgetAction } from "./widget-shell";
-import { IconFlow, IconExpand } from "./icons";
-import { useMenu } from "./use-menu";
-import { useTheme } from "./theme-provider";
+import { WidgetShell, WidgetAction } from "../widget-shell";
+import { FullscreenDialog } from "../fullscreen-dialog";
+import { IconFlow, IconExpand } from "../icons";
+import { useMenu } from "../use-menu";
+import { useTheme } from "../theme-provider";
 import type { ResolvedTheme } from "@/lib/theme";
 
 /**
@@ -323,75 +324,56 @@ function DiagramViewer({
   };
 
   return (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 z-50 flex flex-col bg-black/80 p-2 backdrop-blur-sm sm:p-8"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
+    <FullscreenDialog
+      overlayRef={overlayRef}
+      icon={<IconFlow size={14} className="shrink-0 text-accent" />}
+      title={title}
+      ariaLabel={title}
+      actions={
+        <div className="flex items-center rounded-lg border border-border-subtle">
+          <ZoomButton
+            label="Zoom out"
+            disabled={zoom <= ZOOM_MIN}
+            onClick={() => setZoomTo((z) => z - ZOOM_STEP)}
+          >
+            −
+          </ZoomButton>
+          {/* One button, because "fit" and "actual size" are the only two
+              positions anyone actually wants to return to. */}
+          <button
+            type="button"
+            onClick={fitted ? () => setZoomTo(() => 1) : fit}
+            className="w-16 py-1 font-mono text-micro text-text-muted tabular-nums hover:text-text"
+          >
+            {fitted ? "100%" : "Fit"}
+          </button>
+          <ZoomButton
+            label="Zoom in"
+            disabled={zoom >= ZOOM_MAX}
+            onClick={() => setZoomTo((z) => z + ZOOM_STEP)}
+          >
+            +
+          </ZoomButton>
+        </div>
+      }
+      onClose={onClose}
     >
-      <div className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-surface">
-        <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
-          <IconFlow size={14} className="shrink-0 text-accent" />
-          <h3 className="truncate text-dense font-medium text-text">{title}</h3>
-          <div className="ml-auto flex shrink-0 items-center gap-1">
-            <div className="flex items-center rounded-lg border border-border-subtle">
-              <ZoomButton
-                label="Zoom out"
-                disabled={zoom <= ZOOM_MIN}
-                onClick={() => setZoomTo((z) => z - ZOOM_STEP)}
-              >
-                −
-              </ZoomButton>
-              {/* One button, because "fit" and "actual size" are the only two
-                  positions anyone actually wants to return to. */}
-              <button
-                type="button"
-                onClick={fitted ? () => setZoomTo(() => 1) : fit}
-                className="w-16 py-1 font-mono text-micro text-text-muted tabular-nums hover:text-text"
-              >
-                {fitted ? "100%" : "Fit"}
-              </button>
-              <ZoomButton
-                label="Zoom in"
-                disabled={zoom >= ZOOM_MAX}
-                onClick={() => setZoomTo((z) => z + ZOOM_STEP)}
-              >
-                +
-              </ZoomButton>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md px-2 py-1 text-dense text-text-muted hover:bg-surface-raised hover:text-text"
-            >
-              {/* The button stays; only the key it doubles for goes. */}
-              Close <kbd className="ml-1 hidden font-mono text-micro pointer-fine:inline">esc</kbd>
-            </button>
-          </div>
-        </header>
-
-        <div
-          ref={scrollRef}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          className="scroll-thin min-h-0 flex-1 overflow-auto p-3 pointer-fine:cursor-grab pointer-fine:active:cursor-grabbing"
-        >
-          {/* The transform does the zooming; this box carries the scaled size,
-              because that is what the scrollbars measure. `mx-auto` keeps a
-              diagram smaller than the frame centred rather than in a corner. */}
-          <div className="mx-auto" style={{ width: width * zoom, height: height * zoom }}>
-            <Diagram
-              markup={markup}
-              className="origin-top-left"
-              style={{ transform: `scale(${zoom})` }}
-            />
-          </div>
+      <div
+        ref={scrollRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        className="scroll-thin min-h-0 flex-1 overflow-auto p-3 pointer-fine:cursor-grab pointer-fine:active:cursor-grabbing"
+      >
+        {/* The transform does the zooming; this box carries the scaled size,
+            because that is what the scrollbars measure. `mx-auto` keeps a
+            diagram smaller than the frame centred rather than in a corner. */}
+        <div className="mx-auto" style={{ width: width * zoom, height: height * zoom }}>
+          <Diagram markup={markup} className="origin-top-left" style={{ transform: `scale(${zoom})` }} />
         </div>
       </div>
-    </div>
+    </FullscreenDialog>
   );
 }
 

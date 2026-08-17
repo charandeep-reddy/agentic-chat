@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { startNewChat } from "./new-chat";
-import { IconIncognito } from "./icons";
+import { startNewChat } from "../sidebar/new-chat";
+import { IconIncognito } from "../icons";
 
 /**
  * Enters and leaves private mode, and shows which one you are in.

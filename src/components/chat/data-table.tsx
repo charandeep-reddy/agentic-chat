@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { Cell, ParsedTable } from "@/lib/tools/parse-data";
-import { WidgetShell, StatusChip, WidgetAction } from "./widget-shell";
-import { IconTable, IconDownload, IconFile } from "./icons";
+import { WidgetShell, StatusChip, WidgetAction } from "../widget-shell";
+import { IconTable, IconDownload, IconFile } from "../icons";
 
 const TYPE_LABELS = { number: "num", string: "str", boolean: "bool", null: "null" } as const;
 

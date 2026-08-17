@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PageShell } from "./page-shell";
+import { PageShell } from "../page-shell";
 import { useChatPages } from "./use-chat-pages";
 import { useChatsActions } from "./chats-provider";
-import { ConfirmDialog } from "./confirm-dialog";
-import { IconPin, IconSearch, IconTrash } from "./icons";
+import { ConfirmDialog } from "../confirm-dialog";
+import { IconPin, IconSearch, IconTrash } from "../icons";
 
 /** Same buckets as the sidebar, so the two lists read as one thing. */
 function bucketOf(updatedAt: string, now: number): string {

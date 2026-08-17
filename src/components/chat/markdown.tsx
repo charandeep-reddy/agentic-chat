@@ -12,9 +12,10 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { IconCheck, IconCopy, IconExpand } from "./icons";
-import { WidgetAction } from "./widget-shell";
-import { useMenu } from "./use-menu";
+import { IconCheck, IconCopy, IconExpand } from "../icons";
+import { WidgetAction } from "../widget-shell";
+import { FullscreenDialog } from "../fullscreen-dialog";
+import { useMenu } from "../use-menu";
 
 /**
  * Syntax highlighting, for fenced blocks that name their language.
@@ -155,32 +156,15 @@ function QuoteCard({ depth, children }: { depth: number; children?: ReactNode })
       </blockquote>
 
       {expanded && (
-        <div
-          ref={overlayRef}
-          className="fixed inset-0 z-50 flex flex-col bg-black/80 p-2 backdrop-blur-sm sm:p-8"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Drafted text"
+        <FullscreenDialog
+          overlayRef={overlayRef}
+          ariaLabel="Drafted text"
+          maxWidthClassName="max-w-3xl"
+          actions={controls}
+          onClose={close}
         >
-          <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-surface">
-            <header className="flex shrink-0 items-center gap-1 border-b border-border-subtle px-3 py-2">
-              <div className="ml-auto flex items-center gap-1">
-                {controls}
-                <button
-                  type="button"
-                  onClick={close}
-                  className="rounded-md px-2 py-1 text-dense text-text-muted hover:bg-surface-raised hover:text-text"
-                >
-                  Close{" "}
-                  <kbd className="ml-1 hidden font-mono text-micro pointer-fine:inline">esc</kbd>
-                </button>
-              </div>
-            </header>
-            <div className="markdown scroll-thin min-h-0 flex-1 overflow-auto px-5 py-4">
-              {body}
-            </div>
-          </div>
-        </div>
+          <div className="markdown scroll-thin min-h-0 flex-1 overflow-auto px-5 py-4">{body}</div>
+        </FullscreenDialog>
       )}
     </>
   );

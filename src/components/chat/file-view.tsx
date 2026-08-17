@@ -2,8 +2,8 @@
 
 import { useCallback, useState } from "react";
 import type { FileSpec } from "@/lib/tools/generate-file";
-import { WidgetShell, StatusChip, WidgetAction } from "./widget-shell";
-import { IconFile, IconCopy, IconCheck, IconDownload } from "./icons";
+import { WidgetShell, StatusChip, WidgetAction } from "../widget-shell";
+import { IconFile, IconCopy, IconCheck, IconDownload } from "../icons";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

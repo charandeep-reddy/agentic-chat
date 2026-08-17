@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { questionsOf } from "@/lib/tools/ask-question";
-import { IconQuestion } from "./icons";
+import { IconQuestion } from "../icons";
 
 /**
  * What was asked, in the transcript.

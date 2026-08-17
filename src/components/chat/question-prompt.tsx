@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SKIPPED_ANSWER, formatQuestionAnswer, questionsOf } from "@/lib/tools/ask-question";
-import { IconCheck, IconChevron, IconClose, IconEdit } from "./icons";
+import { IconCheck, IconChevron, IconClose, IconEdit } from "../icons";
 
 /**
  * The pending question, docked above the composer.
