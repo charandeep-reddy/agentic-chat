@@ -106,6 +106,7 @@ export const baseTools = {
       "Keep it tight: the markup is generated a token at a time, so a compact widget appears far sooner than a long one.",
       "The frame measures itself and grows to fit, so never size the widget against the viewport: no `100vh`, no `height: 100%` on a wrapper, and no `overflow: hidden` on anything that holds the main content - each of those clips the widget at whatever height it happened to start with. Let the content determine the height.",
       "`height` is only the placeholder shown for the first paint; set it to roughly what you expect. Prefer this tool over describing a UI in prose when the user asks to 'build', 'show', 'design' or 'make' something visual.",
+      "Not for plain text: a script, a checklist, a guide, an explanation. Markdown already renders headings, bold, bullet lists and blockquotes natively in the chat, at a fraction of the tokens the same content costs as HTML markup, and stays selectable like normal text. Reach for this tool only when something needs to actually run — computation, interactivity, animation, or a layout Markdown genuinely cannot express — not because the content happens to have structure.",
     ].join(" "),
     inputSchema: renderHtmlSchema,
     execute: withTiming(renderHtml),
