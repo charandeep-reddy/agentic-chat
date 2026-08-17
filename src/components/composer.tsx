@@ -3,11 +3,28 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { getStorage, removeStorage, setStorage } from "@/lib/local-storage";
 import { formatDocumentBlock, type AttachmentSummary } from "@/lib/document";
+import {
+  applySkillMention,
+  expandSkillMentions,
+  filterSkillMentions,
+  findSkillMentionToken,
+  type SkillMentionToken,
+} from "@/lib/skill-mention";
 import { useSendKeyPreference } from "./use-send-key";
-import { IconArrowUp, IconClose, IconIncognito, IconLoader, IconPaperclip, IconStop } from "./icons";
+import { useSkillIndex } from "./use-skill-index";
+import {
+  IconArrowUp,
+  IconClose,
+  IconIncognito,
+  IconLoader,
+  IconPaperclip,
+  IconSpark,
+  IconStop,
+} from "./icons";
 
 const MAX_HEIGHT = 200;
 const DRAFT_SAVE_DELAY = 250;
+const MENTION_LIMIT = 6;
 
 const draftKey = (chatId: string) => `composer:draft:${chatId}`;
 
@@ -67,6 +84,31 @@ export function Composer({
   const sendKey = useSendKeyPreference();
   const fileInput = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const skills = useSkillIndex();
+  const [mention, setMention] = useState<SkillMentionToken | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const mentionMatches = mention ? filterSkillMentions(skills, mention.query).slice(0, MENTION_LIMIT) : [];
+  const mentionOpen = mention !== null && mentionMatches.length > 0;
+
+  const updateMention = () => {
+    const el = inner.current;
+    if (!el) return;
+    const token = findSkillMentionToken(el.value, el.selectionStart ?? el.value.length);
+    setMention(token);
+    setMentionIndex(0);
+  };
+
+  const pickMention = (name: string) => {
+    const el = inner.current;
+    if (!el || !mention) return;
+    const { value, cursor } = applySkillMention(el.value, mention, name);
+    el.value = value;
+    el.setSelectionRange(cursor, cursor);
+    setMention(null);
+    resize();
+    saveDraft();
+    el.focus();
+  };
 
   const resize = () => {
     const el = inner.current;
@@ -134,9 +176,13 @@ export function Composer({
   };
 
   const submit = () => {
-    const value = inner.current?.value ?? "";
+    const raw = inner.current?.value ?? "";
     const ready = attachments.filter((a) => a.status === "ready");
-    if ((!value.trim() && ready.length === 0) || busy || disabled || extracting) return;
+    if ((!raw.trim() && ready.length === 0) || busy || disabled || extracting) return;
+    // "/name" tags stayed compact while typing (see applySkillMention); this
+    // is the one place they turn into the directive the model actually acts
+    // on, so the composer is never showing prose the user didn't write.
+    const value = expandSkillMentions(raw, skills.map((s) => s.name));
     const text = [...ready.map((a) => a.block as string), value].filter((part) => part.trim()).join("\n\n");
     const summaries: AttachmentSummary[] = ready.map((a) => ({
       name: a.name,
@@ -145,6 +191,7 @@ export function Composer({
     }));
     onSend(text, summaries.length ? { summaries, typed: value.trim() } : undefined);
     setAttachments([]);
+    setMention(null);
     if (inner.current) {
       inner.current.value = "";
       resize();
@@ -225,29 +272,90 @@ export function Composer({
           </div>
         )}
 
-        <textarea
-          ref={inner}
-          rows={1}
-          placeholder={placeholder}
-          disabled={disabled}
-          aria-describedby={ephemeral ? "composer-private-note" : undefined}
-          onInput={() => {
-            resize();
-            saveDraft();
-          }}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            // The other combination always falls through un-prevented, which
-            // is what makes it insert a newline — the textarea's own default
-            // Enter behaviour, still available whichever key sends.
-            const sends = sendKey === "enter" ? !e.shiftKey : e.shiftKey;
-            if (sends) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          className="scroll-thin w-full resize-none bg-transparent px-4 pb-2 pt-3.5 text-ui leading-relaxed text-text placeholder:text-text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-        />
+        <div className="relative">
+          {mentionOpen && (
+            <div
+              role="listbox"
+              aria-label="Skills"
+              className="scroll-thin absolute bottom-full left-4 z-20 mb-1.5 max-h-56 w-72 overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised p-1 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)]"
+            >
+              {mentionMatches.map((skill, i) => (
+                <button
+                  key={skill.name}
+                  type="button"
+                  role="option"
+                  aria-selected={i === mentionIndex}
+                  // mousedown, not click: fires before the textarea's blur
+                  // would otherwise close the menu out from under the click.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    pickMention(skill.name);
+                  }}
+                  onMouseEnter={() => setMentionIndex(i)}
+                  className={`flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-1.5 text-left ${
+                    i === mentionIndex ? "bg-bg-elevated" : ""
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 text-dense font-medium text-text">
+                    <IconSpark size={11} className="shrink-0 text-accent" />
+                    {skill.name}
+                  </span>
+                  <span className="line-clamp-1 text-micro text-text-faint">{skill.description}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <textarea
+            ref={inner}
+            rows={1}
+            placeholder={placeholder}
+            disabled={disabled}
+            aria-describedby={ephemeral ? "composer-private-note" : undefined}
+            onInput={() => {
+              resize();
+              saveDraft();
+              updateMention();
+            }}
+            onClick={updateMention}
+            onSelect={updateMention}
+            onBlur={() => setMention(null)}
+            onKeyDown={(e) => {
+              if (mentionOpen) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setMentionIndex((i) => (i + 1) % mentionMatches.length);
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setMentionIndex((i) => (i - 1 + mentionMatches.length) % mentionMatches.length);
+                  return;
+                }
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault();
+                  pickMention(mentionMatches[mentionIndex].name);
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setMention(null);
+                  return;
+                }
+              }
+              if (e.key !== "Enter") return;
+              // The other combination always falls through un-prevented, which
+              // is what makes it insert a newline — the textarea's own default
+              // Enter behaviour, still available whichever key sends.
+              const sends = sendKey === "enter" ? !e.shiftKey : e.shiftKey;
+              if (sends) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            className="scroll-thin w-full resize-none bg-transparent px-4 pb-2 pt-3.5 text-ui leading-relaxed text-text placeholder:text-text-faint focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          />
+        </div>
 
         <div className="flex items-center justify-between gap-3 px-3 pb-3">
           <div className="flex min-w-0 items-center gap-2">
