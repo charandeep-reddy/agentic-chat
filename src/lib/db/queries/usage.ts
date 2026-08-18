@@ -30,7 +30,7 @@ export async function getCumulativeUsage(userId: string): Promise<ModelUsageRoll
   `);
 
   return result.rows.map((r: Record<string, unknown>) => ({
-    model: r.model,
+    model: String(r.model),
     input: Number(r.input) || 0,
     output: Number(r.output) || 0,
     total: Number(r.total) || 0,
