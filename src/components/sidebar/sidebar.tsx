@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useChatsActions, useChatsFilter, useChatsList, type ChatSummary } from "../chat/chats-provider";
+import { clampSidebarWidth } from "../../lib/sidebar-width";
+import { setStoredSidebarWidth, useStoredSidebarWidth } from "./use-sidebar-width";
 import { startNewChat } from "./new-chat";
 import { ChatRow } from "./sidebar-chat-row";
 import { ProjectsSection } from "./sidebar-projects-section";
@@ -77,6 +79,31 @@ export function Sidebar({
   // re-ran on every keystroke in the filter box.
   const groups = useMemo(() => groupChats(chats, now), [chats, now]);
 
+  const storedWidth = useStoredSidebarWidth();
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const width = dragWidth ?? storedWidth;
+  const isDragging = dragWidth !== null;
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const nextWidth = clampSidebarWidth(moveEvent.clientX);
+      setDragWidth(nextWidth);
+    };
+
+    const onMouseUp = (upEvent: MouseEvent) => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      const finalWidth = clampSidebarWidth(upEvent.clientX);
+      setDragWidth(null);
+      setStoredSidebarWidth(finalWidth);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }, []);
+
   return (
     <>
       {/*
@@ -117,11 +144,18 @@ export function Sidebar({
         shorter duration than the panel (see above) so the fade completes first.
       */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-[270px] transform-gpu overflow-hidden border-r border-border-subtle bg-bg-elevated backface-hidden transition-[transform,width] duration-[340ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[transform] motion-reduce:transition-none lg:static lg:translate-x-0 lg:will-change-auto ${
+        style={{
+          width: collapsed ? 0 : `${width}px`,
+          transitionDuration: isDragging ? "0ms" : undefined,
+        }}
+        className={`fixed inset-y-0 left-0 z-40 transform-gpu overflow-hidden border-r border-border-subtle bg-bg-elevated backface-hidden transition-[transform,width] duration-[340ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[transform] motion-reduce:transition-none lg:static lg:translate-x-0 lg:will-change-auto ${
           open ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-0 lg:border-r-0" : ""}`}
       >
-        <div className="flex h-full w-[270px] flex-col">
+        <div
+          style={{ width: `${width}px` }}
+          className="relative flex h-full flex-col"
+        >
           <div className="flex items-center justify-between px-3 py-3">
             <Link href="/" className="flex items-center gap-2 text-ui font-semibold text-text">
               <IconLogo size={15} className="text-accent" />
@@ -203,6 +237,15 @@ export function Sidebar({
           <div className="border-t border-border-subtle p-2">
             <UserMenu user={user} />
           </div>
+
+          {/* Desktop resize handle rail */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+            onMouseDown={handleMouseDown}
+            className="hidden lg:block absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-accent/40 active:bg-accent transition-colors z-50 select-none"
+          />
         </div>
       </aside>
     </>
