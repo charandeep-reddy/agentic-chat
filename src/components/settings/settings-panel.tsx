@@ -55,27 +55,45 @@ function CumulativeSpend() {
   const [usage, setUsage] = useState<ModelUsageRollup[] | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     fetch("/api/usage")
       .then((r) => r.json())
-      .then((data) => setUsage(data.usage))
+      .then((data) => {
+        if (!cancelled) setUsage(data.usage);
+      })
       .catch(console.error);
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (!usage) return null;
 
+  // Same honest caveat as `ConversationCost`: a total that silently covers
+  // only the priced models would look complete while under-reporting, so say
+  // when part of it is missing instead of just dropping those models.
   let totalCost = 0;
+  const unpriced = new Set<string>();
   for (const row of usage) {
     const cost = estimateCost(row, prices[row.model]);
-    if (cost) totalCost += cost;
+    if (cost === undefined) {
+      unpriced.add(row.model);
+      continue;
+    }
+    totalCost += cost;
   }
 
-  if (totalCost === 0) return null;
+  if (totalCost === 0 && unpriced.size === 0) return null;
 
   return (
     <div className="mt-6 rounded-lg border border-border-subtle bg-surface-raised p-4">
       <h3 className="mb-1 text-dense font-medium text-text">Cumulative Spend</h3>
       <div className="text-dense text-text-secondary">
-        {formatCost(totalCost)} estimated across all conversations.
+        {totalCost > 0 ? formatCost(totalCost) : "$0"} estimated across all conversations
+        {unpriced.size > 0 && ` (+ spend from ${unpriced.size} model${unpriced.size === 1 ? "" : "s"} without a price)`}
+        .
       </div>
     </div>
   );

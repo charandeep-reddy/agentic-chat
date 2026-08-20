@@ -14,8 +14,8 @@ export interface ModelUsageRollup {
 
 export async function getCumulativeUsage(userId: string): Promise<ModelUsageRollup[]> {
   const result = await db.execute(sql`
-    SELECT 
-      m.metadata->>'model' as model,
+    SELECT
+      m.model as model,
       sum((m.metadata->'usage'->>'input')::numeric) as input,
       sum((m.metadata->'usage'->>'output')::numeric) as output,
       sum((m.metadata->'usage'->>'total')::numeric) as total,
@@ -24,9 +24,9 @@ export async function getCumulativeUsage(userId: string): Promise<ModelUsageRoll
     FROM message m
     JOIN chat c ON c.id = m.chat_id
     WHERE c.user_id = ${userId}
-      AND m.metadata->>'model' IS NOT NULL
+      AND m.model IS NOT NULL
       AND m.metadata->>'usage' IS NOT NULL
-    GROUP BY m.metadata->>'model'
+    GROUP BY m.model
   `);
 
   return result.rows.map((r: Record<string, unknown>) => ({
