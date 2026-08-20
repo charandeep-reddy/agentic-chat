@@ -7,6 +7,8 @@ import { PROVIDERS, PROVIDER_LIST, type ProviderId } from "@/lib/providers";
 import { TOGGLEABLE_TOOLS, type ToggleableTool } from "@/lib/tool-visibility";
 import { Skeleton } from "../skeleton";
 import { setPrice, usePrices } from "../use-prices";
+import { estimateCost, formatCost } from "@/lib/usage";
+import type { ModelUsageRollup } from "@/lib/db/queries/usage";
 import { setSendKeyPreference, useSendKeyPreference } from "../chat/use-send-key";
 import { IconClose, IconKey } from "../icons";
 
@@ -47,6 +49,38 @@ export function formatContext(tokens: number): string {
  * price list. Without a price the app still shows token counts — it just does
  * not pretend to know what they cost.
  */
+
+function CumulativeSpend() {
+  const prices = usePrices();
+  const [usage, setUsage] = useState<ModelUsageRollup[] | null>(null);
+
+  useEffect(() => {
+    fetch("/api/usage")
+      .then((r) => r.json())
+      .then((data) => setUsage(data.usage))
+      .catch(console.error);
+  }, []);
+
+  if (!usage) return null;
+
+  let totalCost = 0;
+  for (const row of usage) {
+    const cost = estimateCost(row, prices[row.model]);
+    if (cost) totalCost += cost;
+  }
+
+  if (totalCost === 0) return null;
+
+  return (
+    <div className="mt-6 rounded-lg border border-border-subtle bg-surface-raised p-4">
+      <h3 className="mb-1 text-dense font-medium text-text">Cumulative Spend</h3>
+      <div className="text-dense text-text-secondary">
+        {formatCost(totalCost)} estimated across all conversations.
+      </div>
+    </div>
+  );
+}
+
 function PriceFields({ model }: { model: string }) {
   const prices = usePrices();
   const price = prices[model];
@@ -390,6 +424,7 @@ export function SettingsPanel({
           </div>
         )}
         <PriceFields model={model} />
+          <CumulativeSpend />
 
         <div className="mt-6">
           <h3 className="mb-1.5 text-dense font-medium text-text-secondary">Send with</h3>
