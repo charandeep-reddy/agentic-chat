@@ -50,7 +50,7 @@ It prints a `better-auth.session_token=…` cookie — paste it into your browse
 | `BETTER_AUTH_URL` | yes | Public origin, e.g. `http://localhost:3000`. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | Enables the Google button. |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | — | Enables the GitHub button. |
-| `MODEL_BASE_URL` | — | OpenAI-compatible endpoint. Defaults to OpenCode Go. |
+| `MODEL_BASE_URL` | — | OpenAI-compatible endpoint. Defaults to OpenCode Go. Point it at `http://localhost:11434/v1` for a local Ollama — use a model with native tool support (e.g. `qwen3`, `llama3.1+`), since skills and widgets depend on tool calls. |
 | `DEFAULT_MODEL` | — | Defaults to `deepseek-v4-flash`. |
 | `UTILITY_MODEL` | — | Cheap model used to name conversations. Defaults to `DEFAULT_MODEL`. |
 
