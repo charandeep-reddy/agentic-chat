@@ -51,7 +51,7 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
   custom: {
     id: "custom",
     label: "OpenAI-compatible",
-    hint: "Any OpenAI-compatible endpoint — OpenCode Zen by default, or whatever MODEL_BASE_URL points at.",
+    hint: "Any OpenAI-compatible endpoint — OpenCode by default, or point MODEL_BASE_URL at OpenRouter, Together, Groq, or a local Ollama.",
     keysUrl: "https://opencode.ai/zen",
     // No fixed format: this is whatever the configured endpoint accepts.
     keyPlaceholder: "Your endpoint's API key",

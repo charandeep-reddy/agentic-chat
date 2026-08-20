@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useChatsActions, useChatsFilter, useChatsList, type ChatSummary } from "../chat/chats-provider";
+import { clampSidebarWidth } from "../../lib/sidebar-width";
+import { setStoredSidebarWidth, useStoredSidebarWidth } from "./use-sidebar-width";
 import { startNewChat } from "./new-chat";
 import { ChatRow } from "./sidebar-chat-row";
 import { ProjectsSection } from "./sidebar-projects-section";
@@ -77,6 +79,42 @@ export function Sidebar({
   // re-ran on every keystroke in the filter box.
   const groups = useMemo(() => groupChats(chats, now), [chats, now]);
 
+  const storedWidth = useStoredSidebarWidth();
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const width = dragWidth ?? storedWidth;
+  const isDragging = dragWidth !== null;
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    // Read at drag-end, whichever path ends it — a plain closure over the
+    // latest `clientX` would need its own ref, this is simpler.
+    let lastX = e.clientX;
+
+    const end = (finalX: number) => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("blur", onBlur);
+      setDragWidth(null);
+      setStoredSidebarWidth(clampSidebarWidth(finalX));
+    };
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      lastX = moveEvent.clientX;
+      setDragWidth(clampSidebarWidth(lastX));
+    };
+
+    const onMouseUp = (upEvent: MouseEvent) => end(upEvent.clientX);
+
+    // The OS can steal the mouseup (alt-tab, a system dialog) — without this
+    // the drag never formally ends and the sidebar snaps to wherever the next
+    // unrelated click in the window happens to land.
+    const onBlur = () => end(lastX);
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("blur", onBlur);
+  }, []);
+
   return (
     <>
       {/*
@@ -117,11 +155,18 @@ export function Sidebar({
         shorter duration than the panel (see above) so the fade completes first.
       */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-[270px] transform-gpu overflow-hidden border-r border-border-subtle bg-bg-elevated backface-hidden transition-[transform,width] duration-[340ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[transform] motion-reduce:transition-none lg:static lg:translate-x-0 lg:will-change-auto ${
+        style={{
+          width: collapsed ? 0 : `${width}px`,
+          transitionDuration: isDragging ? "0ms" : undefined,
+        }}
+        className={`fixed inset-y-0 left-0 z-40 transform-gpu overflow-hidden border-r border-border-subtle bg-bg-elevated backface-hidden transition-[transform,width] duration-[340ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[transform] motion-reduce:transition-none lg:static lg:translate-x-0 lg:will-change-auto ${
           open ? "translate-x-0" : "-translate-x-full"
-        } ${collapsed ? "lg:w-0 lg:border-r-0" : ""}`}
+        } ${collapsed ? "lg:border-r-0" : ""}`}
       >
-        <div className="flex h-full w-[270px] flex-col">
+        <div
+          style={{ width: `${width}px` }}
+          className="relative flex h-full flex-col"
+        >
           <div className="flex items-center justify-between px-3 py-3">
             <Link href="/" className="flex items-center gap-2 text-ui font-semibold text-text">
               <IconLogo size={15} className="text-accent" />
@@ -202,6 +247,24 @@ export function Sidebar({
 
           <div className="border-t border-border-subtle p-2">
             <UserMenu user={user} />
+          </div>
+
+          {/* Desktop resize handle. The hit target runs the full height for an
+              easy grab, but stays invisible — a rail colored top-to-bottom
+              read as a second border, not a control. Only the small centered
+              grip is ever painted. */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+            onMouseDown={handleMouseDown}
+            className="group hidden lg:block absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize select-none z-50"
+          >
+            <div
+              className={`absolute right-0 top-1/2 h-10 w-1 -translate-y-1/2 rounded-full transition-colors ${
+                isDragging ? "bg-accent" : "bg-transparent group-hover:bg-accent/50"
+              }`}
+            />
           </div>
         </div>
       </aside>
