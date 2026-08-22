@@ -80,6 +80,19 @@ export function expandSkillMentions(value: string, skillNames: ReadonlySet<strin
 }
 
 /**
+ * DOM id of the mention listbox itself.
+ *
+ * The textarea claims it with `aria-owns` while the menu is open. Without
+ * that, `aria-activedescendant` names a row inside an element that is only a
+ * *sibling* of the textarea, and the spec resolves the attribute against the
+ * focused element's descendants — actual or `aria-owns`-declared — so a
+ * conforming reader is entitled to ignore it entirely. Only ever one composer
+ * is mounted, so a constant is enough; this would have to be per-instance if
+ * that stopped being true.
+ */
+export const SKILL_MENTION_LISTBOX_ID = "skill-mention-listbox";
+
+/**
  * Stable DOM id for one option row in the skill-mention listbox. The
  * textarea's `aria-activedescendant` points at this id, which is how a
  * screen reader learns which option is highlighted while the textarea

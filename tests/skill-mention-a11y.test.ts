@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { activeSkillMentionDescendant, skillMentionOptionId } from "@/lib/skill-mention";
+import {
+  activeSkillMentionDescendant,
+  SKILL_MENTION_LISTBOX_ID,
+  skillMentionOptionId,
+} from "@/lib/skill-mention";
 
 describe("skillMentionOptionId", () => {
   it("builds a stable id from the skill name", () => {
@@ -30,5 +34,16 @@ describe("activeSkillMentionDescendant", () => {
 
   it("is undefined when no skills match", () => {
     expect(activeSkillMentionDescendant(true, [], 0)).toBeUndefined();
+  });
+
+  it("names a row that lives under the listbox the textarea owns", () => {
+    // The two ids are what tie `aria-owns` to `aria-activedescendant`: the
+    // textarea claims the listbox, and the active descendant has to be one of
+    // its rows. Distinct ids, and neither one empty, or the reference the
+    // screen reader follows dead-ends.
+    const active = activeSkillMentionDescendant(true, matches, 1);
+    expect(active).toBe("skill-mention-beta");
+    expect(SKILL_MENTION_LISTBOX_ID).toBeTruthy();
+    expect(active).not.toBe(SKILL_MENTION_LISTBOX_ID);
   });
 });

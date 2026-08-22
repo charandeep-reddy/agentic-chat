@@ -9,6 +9,7 @@ import {
   expandSkillMentions,
   filterSkillMentions,
   findSkillMentionToken,
+  SKILL_MENTION_LISTBOX_ID,
   skillMentionOptionId,
   type SkillMentionToken,
 } from "@/lib/skill-mention";
@@ -278,6 +279,7 @@ export function Composer({
           {mentionOpen && (
             <div
               role="listbox"
+              id={SKILL_MENTION_LISTBOX_ID}
               aria-label="Skills"
               className="scroll-thin absolute bottom-full left-4 z-20 mb-1.5 max-h-56 w-72 overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised p-1 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)]"
             >
@@ -315,6 +317,11 @@ export function Composer({
             placeholder={placeholder}
             disabled={disabled}
             aria-describedby={ephemeral ? "composer-private-note" : undefined}
+            // The listbox is a sibling, not a child, so `aria-activedescendant`
+            // alone points outside this element's subtree — which the spec does
+            // not resolve. `aria-owns` is what makes those rows logical
+            // descendants of the textarea, and the id below reachable.
+            aria-owns={mentionOpen ? SKILL_MENTION_LISTBOX_ID : undefined}
             aria-activedescendant={activeSkillMentionDescendant(mentionOpen, mentionMatches, mentionIndex)}
             onInput={() => {
               resize();
