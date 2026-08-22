@@ -78,3 +78,28 @@ export function expandSkillMentions(value: string, skillNames: ReadonlySet<strin
       names.has(name) ? `${boundary}${skillMentionDirective(name)}` : match,
   );
 }
+
+/**
+ * Stable DOM id for one option row in the skill-mention listbox. The
+ * textarea's `aria-activedescendant` points at this id, which is how a
+ * screen reader learns which option is highlighted while the textarea
+ * itself keeps focus.
+ */
+export function skillMentionOptionId(skillName: string): string {
+  return `skill-mention-${skillName}`;
+}
+
+/**
+ * Value for the composer textarea's `aria-activedescendant` attribute:
+ * the id of the currently highlighted option while the menu is open,
+ * `undefined` (attribute omitted) otherwise. Guards the index so a stale
+ * highlight can never point at a row that no longer exists.
+ */
+export function activeSkillMentionDescendant(
+  open: boolean,
+  matches: ReadonlyArray<{ name: string }>,
+  index: number,
+): string | undefined {
+  if (!open || index < 0 || index >= matches.length) return undefined;
+  return skillMentionOptionId(matches[index].name);
+}
