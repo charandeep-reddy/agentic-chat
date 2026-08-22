@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   estimateCost,
   formatCost,
+  tallyCost,
   formatTokens,
   parsePrices,
   toMessageUsage,
@@ -87,6 +88,65 @@ describe("formatCost", () => {
     expect(formatCost(0.00042)).toBe("$0.0004");
     expect(formatCost(0.031)).toBe("$0.031");
     expect(formatCost(12.5)).toBe("$12.50");
+  });
+});
+
+describe("tallyCost", () => {
+  const prices = { "priced-model": { input: 3, output: 15 } };
+
+  it("adds up the turns it has a price for", () => {
+    const tally = tallyCost(
+      [
+        { model: "priced-model", usage: { input: 1_000_000, output: 0 } },
+        { model: "priced-model", usage: { input: 0, output: 1_000_000 } },
+      ],
+      prices,
+    );
+    expect(tally.cost).toBeCloseTo(18);
+    expect([...tally.priced]).toEqual(["priced-model"]);
+    expect(tally.unpriced.size).toBe(0);
+  });
+
+  it("separates the models with no price instead of dropping them silently", () => {
+    const tally = tallyCost(
+      [
+        { model: "priced-model", usage: { input: 1_000_000, output: 0 } },
+        { model: "mystery-model", usage: { input: 5_000_000, output: 5_000_000 } },
+      ],
+      prices,
+    );
+    expect(tally.cost).toBeCloseTo(3);
+    expect([...tally.unpriced]).toEqual(["mystery-model"]);
+  });
+
+  it("keeps a priced model priced when the provider reported only a total", () => {
+    // The bug this replaced: `estimateCost` returns undefined for a turn with
+    // no input/output split, and the callers read that as "no price set" — so
+    // a model the user had priced was reported back to them as unpriced.
+    const tally = tallyCost([{ model: "priced-model", usage: { total: 500 } }], prices);
+    expect([...tally.priced]).toEqual(["priced-model"]);
+    expect(tally.unpriced.size).toBe(0);
+    expect(tally.cost).toBe(0);
+  });
+
+  it("ignores a turn whose model is unknown", () => {
+    // It cannot be priced and it is not evidence of a missing price, so it
+    // belongs in neither set.
+    const tally = tallyCost([{ model: undefined, usage: { input: 10, output: 10 } }], prices);
+    expect(tally.priced.size).toBe(0);
+    expect(tally.unpriced.size).toBe(0);
+    expect(tally.cost).toBe(0);
+  });
+
+  it("reports each model once however many turns it wrote", () => {
+    const tally = tallyCost(
+      [
+        { model: "mystery-model", usage: { input: 1, output: 1 } },
+        { model: "mystery-model", usage: { input: 2, output: 2 } },
+      ],
+      prices,
+    );
+    expect([...tally.unpriced]).toEqual(["mystery-model"]);
   });
 });
 

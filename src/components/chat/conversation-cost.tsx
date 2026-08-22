@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { UIMessage } from "ai";
 import { usePrices } from "../use-prices";
-import { estimateCost, formatCost, formatTokens, totalUsage } from "@/lib/usage";
+import { formatCost, formatTokens, tallyCost, totalUsage } from "@/lib/usage";
 import type { MessageUsage } from "@/lib/usage";
 
 interface TurnMetadata {
@@ -42,25 +42,18 @@ export function ConversationCost({ messages }: { messages: UIMessage[] }) {
 
   const { tokens, cost, priced, unpriced } = useMemo(() => {
     const usages: MessageUsage[] = [];
-    let cost = 0;
-    const priced = new Set<string>();
-    const unpriced = new Set<string>();
+    const turns: Array<{ model: string | undefined; usage: MessageUsage }> = [];
 
     for (const message of messages) {
       const usage = messageUsage(message);
       if (!usage) continue;
+      // Tokens are counted for every turn that reported them, including one
+      // whose model is unknown — only the *cost* needs a model to price it.
       usages.push(usage);
-
-      const model = messageModel(message);
-      const amount = model ? estimateCost(usage, prices[model]) : undefined;
-      if (amount === undefined) {
-        if (model) unpriced.add(model);
-        continue;
-      }
-      cost += amount;
-      if (model) priced.add(model);
+      turns.push({ model: messageModel(message), usage });
     }
 
+    const { cost, priced, unpriced } = tallyCost(turns, prices);
     return { tokens: totalUsage(usages).total ?? 0, cost, priced, unpriced };
   }, [messages, prices]);
 
