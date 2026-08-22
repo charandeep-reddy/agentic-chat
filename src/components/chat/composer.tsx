@@ -4,10 +4,12 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "reac
 import { getStorage, removeStorage, setStorage } from "@/lib/local-storage";
 import { formatDocumentBlock, type AttachmentSummary } from "@/lib/document";
 import {
+  activeSkillMentionDescendant,
   applySkillMention,
   expandSkillMentions,
   filterSkillMentions,
   findSkillMentionToken,
+  skillMentionOptionId,
   type SkillMentionToken,
 } from "@/lib/skill-mention";
 import { useSendKeyPreference } from "./use-send-key";
@@ -284,6 +286,7 @@ export function Composer({
                   key={skill.name}
                   type="button"
                   role="option"
+                  id={skillMentionOptionId(skill.name)}
                   aria-selected={i === mentionIndex}
                   // mousedown, not click: fires before the textarea's blur
                   // would otherwise close the menu out from under the click.
@@ -312,6 +315,7 @@ export function Composer({
             placeholder={placeholder}
             disabled={disabled}
             aria-describedby={ephemeral ? "composer-private-note" : undefined}
+            aria-activedescendant={activeSkillMentionDescendant(mentionOpen, mentionMatches, mentionIndex)}
             onInput={() => {
               resize();
               saveDraft();
