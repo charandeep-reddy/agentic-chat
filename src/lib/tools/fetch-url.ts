@@ -11,21 +11,52 @@ export type FetchUrlArgs = z.infer<typeof fetchUrlSchema>;
 const MAX_BYTES = 2 * 1024 * 1024;
 const TIMEOUT_MS = 15_000;
 
-function isPrivateIP(ip: string): boolean {
-  if (ip.includes(":")) {
-    if (ip === "::1" || ip.startsWith("::ffff:")) return ip === "::1" || ip.startsWith("::ffff:127.") || ip.startsWith("::ffff:10.") || ip.startsWith("::ffff:192.168.");
-    if (ip.toLowerCase().startsWith("fc") || ip.toLowerCase().startsWith("fd")) return true;
+/** Redirect hops allowed before giving up, matching what browsers settled on. */
+const MAX_REDIRECTS = 5;
+
+/**
+ * Whether an IP literal is one this tool must never reach.
+ *
+ * Exported for its own tests: it is the whole of the SSRF defence, and every
+ * case it gets wrong is a way to reach the loopback interface or a cloud
+ * metadata endpoint from a URL the model was asked to read.
+ *
+ * Unknown or unparseable input returns true — refusing to fetch something we
+ * could not classify is the safe direction to be wrong in.
+ */
+export function isPrivateIP(ip: string): boolean {
+  const address = ip.trim().toLowerCase().replace(/^\[|\]$/g, "");
+
+  if (address.includes(":")) {
+    // An IPv4-mapped address has to be judged on the IPv4 it carries. Matching
+    // on the text prefix instead meant `::ffff:169.254.169.254` — the cloud
+    // metadata service, written in its v6 form — was read as "not 127./10./
+    // 192.168., therefore public" and allowed straight through.
+    const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(address);
+    if (mapped) return isPrivateIP(mapped[1]);
+    // Any other `::ffff:` spelling (hex-form mapping) is refused rather than
+    // guessed at.
+    if (address.startsWith("::ffff:")) return true;
+    if (address === "::" || address === "::1") return true; // unspecified, loopback
+    if (/^f[cd]/.test(address)) return true; // fc00::/7 unique-local
+    if (/^fe[89ab]/.test(address)) return true; // fe80::/10 link-local
     return false;
   }
-  const parts = ip.split(".").map(Number);
+
+  const parts = address.split(".");
   if (parts.length !== 4) return true;
-  const [a, b] = parts;
-  if (a === 10) return true;
-  if (a === 127) return true;
-  if (a === 169 && b === 254) return true;
+  const nums = parts.map((part) => (/^\d{1,3}$/.test(part) ? Number(part) : NaN));
+  if (nums.some((n) => Number.isNaN(n) || n > 255)) return true;
+
+  const [a, b] = nums;
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true; // link-local, incl. cloud metadata
   if (a === 172 && b >= 16 && b <= 31) return true;
   if (a === 192 && b === 168) return true;
-  if (a === 0 || a === 100 || a >= 224) return true;
+  // Carrier-grade NAT is 100.64.0.0/10, not all of 100.0.0.0/8 — the rest of
+  // that block is ordinary public space that was being refused.
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a >= 224) return true; // multicast and reserved
   return false;
 }
 
@@ -116,24 +147,69 @@ function isHtml(contentType: string, body: string): boolean {
   return /<\/(html|body|div|p)>/i.test(body.slice(0, 4000));
 }
 
+/**
+ * Fetches a URL, re-checking the host on every redirect hop.
+ *
+ * `redirect: "follow"` cannot be used here: it would validate the hostname the
+ * model supplied and then let the *remote server* pick where the request
+ * actually lands. Any public URL could 302 to `http://169.254.169.254/` or
+ * `http://127.0.0.1/`, and the check above would have passed on a host that was
+ * never fetched. Following the chain by hand is what makes `assertPublicHost`
+ * apply to the address that finally gets connected to.
+ *
+ * One deadline covers the whole chain, so a server cannot stall for
+ * `TIMEOUT_MS` per hop.
+ */
+async function fetchGuarded(startUrl: URL): Promise<Response> {
+  const deadline = AbortSignal.timeout(TIMEOUT_MS);
+  let url = startUrl;
+
+  for (let hop = 0; ; hop++) {
+    await assertPublicHost(url);
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        redirect: "manual",
+        signal: deadline,
+        headers: { accept: "text/plain,text/csv,application/json,text/html,*/*" },
+      });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new ToolError(`Request failed: ${reason}`);
+    }
+
+    const location = response.headers.get("location");
+    if (response.status < 300 || response.status >= 400 || !location) return response;
+
+    if (hop >= MAX_REDIRECTS) {
+      throw new ToolError(`Too many redirects (more than ${MAX_REDIRECTS}).`);
+    }
+
+    // The body of a redirect is never content; drop it rather than leaving the
+    // socket held open until GC.
+    await response.body?.cancel().catch(() => {});
+
+    let next: URL;
+    try {
+      next = new URL(location, url);
+    } catch {
+      throw new ToolError(`Redirect to an unreadable location: ${location}`);
+    }
+    if (next.protocol !== "http:" && next.protocol !== "https:") {
+      throw new ToolError("Redirect to a non-http(s) URL was refused.");
+    }
+    url = next;
+  }
+}
+
 export async function fetchUrl(args: FetchUrlArgs): Promise<FetchResult> {
   const url = new URL(args.url);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new ToolError("Only http(s) URLs are supported.");
   }
-  await assertPublicHost(url);
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      redirect: "follow",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { accept: "text/plain,text/csv,application/json,text/html,*/*" },
-    });
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    throw new ToolError(`Request failed: ${reason}`);
-  }
+  const response = await fetchGuarded(url);
 
   const contentLength = Number(response.headers.get("content-length") ?? 0);
   if (contentLength > MAX_BYTES) {
@@ -172,7 +248,9 @@ export async function fetchUrl(args: FetchUrlArgs): Promise<FetchResult> {
 
   return {
     kind: "fetch",
-    url: url.toString(),
+    // Where the content actually came from, which after a redirect is not the
+    // URL that was asked for.
+    url: response.url || url.toString(),
     status: response.status,
     contentType,
     text: text.slice(0, MAX_TEXT_RESPONSE),

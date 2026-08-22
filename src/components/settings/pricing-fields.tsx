@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { setPrice, usePrices } from "../use-prices";
-import { estimateCost, formatCost } from "@/lib/usage";
+import { formatCost, tallyCost } from "@/lib/usage";
 import type { ModelUsageRollup } from "@/lib/db/queries/usage";
 
 export function CumulativeSpend() {
@@ -26,19 +26,14 @@ export function CumulativeSpend() {
 
   if (!usage) return null;
 
-  // Same honest caveat as `ConversationCost`: a total that silently covers
-  // only the priced models would look complete while under-reporting, so say
-  // when part of it is missing instead of just dropping those models.
-  let totalCost = 0;
-  const unpriced = new Set<string>();
-  for (const row of usage) {
-    const cost = estimateCost(row, prices[row.model]);
-    if (cost === undefined) {
-      unpriced.add(row.model);
-      continue;
-    }
-    totalCost += cost;
-  }
+  // Same honest caveat as `ConversationCost`, and now the same tally behind it:
+  // a total that silently covers only the priced models would look complete
+  // while under-reporting, so say when part of it is missing instead of just
+  // dropping those models.
+  const { cost: totalCost, unpriced } = tallyCost(
+    usage.map((row) => ({ model: row.model, usage: row })),
+    prices,
+  );
 
   if (totalCost === 0 && unpriced.size === 0) return null;
 

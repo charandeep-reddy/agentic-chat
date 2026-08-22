@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "../index";
 import { memory, memoryPack, memoryPackInstall } from "../schema";
 import type { MemoryPack } from "../schema";
@@ -100,34 +100,61 @@ export async function installPack(
   pack: MemoryPack,
 ): Promise<{ added: number; skipped: number }> {
   const entries = pack.entries as PackEntry[];
+  const wanted = entries.map((e) => e.content.trim()).filter(Boolean);
+
+  // One query rather than one per entry. It also has to match `createMemory`'s
+  // own dedup rule exactly — account-wide rows only — or the two disagree: a
+  // same-worded memory saved inside some unrelated project would be counted as
+  // "already had" here while `createMemory` went on to insert it anyway, so the
+  // user was told an entry was skipped that they in fact received.
+  const existing =
+    wanted.length === 0
+      ? []
+      : await db
+          .select({ content: memory.content })
+          .from(memory)
+          .where(
+            and(
+              eq(memory.userId, userId),
+              isNull(memory.projectId),
+              inArray(memory.content, wanted),
+            ),
+          );
+  const have = new Set(existing.map((r) => r.content));
+
   let added = 0;
   let skipped = 0;
-
   for (const entry of entries) {
-    const before = await db
-      .select({ id: memory.id })
-      .from(memory)
-      .where(and(eq(memory.userId, userId), eq(memory.content, entry.content.trim())))
-      .limit(1);
-    if (before.length > 0) {
+    const content = entry.content.trim();
+    // A blank entry is neither added nor "already had" — `createMemory` drops
+    // it and returns null, so counting it as added overstated the result.
+    if (!content) continue;
+    if (have.has(content)) {
       skipped++;
       continue;
     }
     await createMemory(userId, {
-      content: entry.content,
+      content,
       category: entry.category,
       source: "imported",
       importedFromPackId: pack.id,
     });
+    // Two identical entries inside one pack: the second is a duplicate of the
+    // row the first just created, not a second addition.
+    have.add(content);
     added++;
   }
 
-  await db
+  // `installCount` counts installs, so it may only move when this insert
+  // actually creates the install row. Incrementing on `added > 0` instead let
+  // one user run the total up by deleting a memory and re-installing.
+  const [installed] = await db
     .insert(memoryPackInstall)
     .values({ userId, packId: pack.id })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ packId: memoryPackInstall.packId });
 
-  if (added > 0) {
+  if (installed) {
     await db
       .update(memoryPack)
       .set({ installCount: sql`${memoryPack.installCount} + 1` })
@@ -142,9 +169,23 @@ export async function uninstallPack(userId: string, packId: string): Promise<num
     .delete(memory)
     .where(and(eq(memory.userId, userId), eq(memory.importedFromPackId, packId)))
     .returning({ id: memory.id });
-  await db
+
+  const removed = await db
     .delete(memoryPackInstall)
-    .where(and(eq(memoryPackInstall.userId, userId), eq(memoryPackInstall.packId, packId)));
+    .where(and(eq(memoryPackInstall.userId, userId), eq(memoryPackInstall.packId, packId)))
+    .returning({ packId: memoryPackInstall.packId });
+
+  // Paired with the increment in `installPack` so the counter tracks who
+  // currently has the pack. Without this half, install → uninstall → install
+  // adds one every cycle. `greatest` keeps a double-uninstall from going
+  // negative rather than trusting the counter and the rows to never drift.
+  if (removed.length > 0) {
+    await db
+      .update(memoryPack)
+      .set({ installCount: sql`greatest(${memoryPack.installCount} - 1, 0)` })
+      .where(eq(memoryPack.id, packId));
+  }
+
   return rows.length;
 }
 

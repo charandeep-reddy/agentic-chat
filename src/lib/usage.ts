@@ -101,6 +101,47 @@ export function estimateCost(usage: MessageUsage, price: ModelPrice | undefined)
   return (input * price.input + output * price.output) / 1_000_000;
 }
 
+export interface CostTally {
+  cost: number;
+  /** Models that carry a price, so `cost` accounts for them. */
+  priced: Set<string>;
+  /** Models the user has set no price for, so `cost` is missing their spend. */
+  unpriced: Set<string>;
+}
+
+/**
+ * Adds up cost across turns, keeping the models with no price set separate so
+ * a caller can say the total is partial rather than quietly under-reporting.
+ *
+ * A model is `unpriced` when there is no price for it — deliberately not when
+ * `estimateCost` returns undefined. Those two are different, and conflating
+ * them was a bug in both callers: `estimateCost` also declines when a turn
+ * reported no input or output tokens (a provider that sends only `total`),
+ * which labelled a model the user *had* priced as "No price set" and invited
+ * them to go and set a price that was already there.
+ */
+export function tallyCost(
+  turns: Array<{ model: string | undefined; usage: MessageUsage }>,
+  prices: Record<string, ModelPrice | undefined>,
+): CostTally {
+  let cost = 0;
+  const priced = new Set<string>();
+  const unpriced = new Set<string>();
+
+  for (const turn of turns) {
+    if (!turn.model) continue;
+    const price = prices[turn.model];
+    if (!price) {
+      unpriced.add(turn.model);
+      continue;
+    }
+    cost += estimateCost(turn.usage, price) ?? 0;
+    priced.add(turn.model);
+  }
+
+  return { cost, priced, unpriced };
+}
+
 /** Sub-cent costs are the common case, so the usual two decimals would read $0.00. */
 export function formatCost(amount: number): string {
   if (amount === 0) return "$0";
